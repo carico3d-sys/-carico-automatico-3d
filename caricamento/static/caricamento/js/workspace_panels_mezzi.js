@@ -54,7 +54,7 @@ function _wireMezziListClickHandlers() {
 }
 
 function renderMezziPanel() {
-    DOM.pvListTitle.textContent = '🚛 Mezzi di Trasporto';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-truck"></i> Mezzi di Trasporto';
     DOM.pvFormTitle.textContent = 'Nuovo Mezzo';
     DOM.pvListCount.textContent = WS.contenitori.filter(function (c) { return !!c.archiviato === _mezziMostraArchiviati; }).length;
 
@@ -152,7 +152,7 @@ function renderMezziPanel() {
 function renderMezziForm(mezzoId) {
     var m = mezzoId ? WS.contenitori.find(function (c) { return c.id == mezzoId; }) : null;
     var isEdit = !!m;
-    DOM.pvFormTitle.textContent = isEdit ? '✏️ Modifica: ' + m.nome : '➕ Nuovo Mezzo';
+    DOM.pvFormTitle.innerHTML = isEdit ? '<i class="bi bi-pencil"></i> Modifica: ' + escapeHtml(m.nome) : '<i class="bi bi-plus-circle"></i> Nuovo Mezzo';
 
     // Deseleziona lista se in modalità creazione
     if (!isEdit) {

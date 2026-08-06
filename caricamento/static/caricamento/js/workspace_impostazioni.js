@@ -27,9 +27,9 @@ var IMPOSTAZIONI = getImpostazioniDefault();
 
 // Elenco sezioni per la navigazione laterale
 var SEZIONI_IMPOSTAZIONI = [
-    { id: 'strategia', icon: '🎯', label: 'Strategia di Ottimizzazione' },
-    { id: 'output', icon: '📊', label: 'Output' },
-    { id: 'manuale', icon: '✋', label: 'Parametri Modalità Manuale' },
+    { id: 'strategia', icon: '<i class="bi bi-bullseye"></i>', label: 'Strategia di Ottimizzazione' },
+    { id: 'output', icon: '<i class="bi bi-bar-chart"></i>', label: 'Output' },
+    { id: 'manuale', icon: '<i class="bi bi-hand-index-thumb"></i>', label: 'Parametri Modalità Manuale' },
 ];
 
 // Carica impostazioni dal backend o localStorage
@@ -115,7 +115,7 @@ function ripristinaImpostazioniDefault() {
 // =============================================================================
 
 function renderImpostazioniPanel() {
-    DOM.pvListTitle.textContent = '⚙️ Impostazioni';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-gear"></i> Impostazioni';
     DOM.pvListCount.textContent = SEZIONI_IMPOSTAZIONI.length;
 
     // Lista sezioni a sinistra
@@ -160,18 +160,18 @@ function getDescrizioneSezione(id) {
 
 function renderImpostazioniForm(sezione) {
     if (!sezione) {
-        DOM.pvFormTitle.textContent = '⚙️ Seleziona una sezione';
+        DOM.pvFormTitle.innerHTML = '<i class="bi bi-gear"></i> Seleziona una sezione';
         DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Seleziona una sezione dalla lista a sinistra per configurare le impostazioni.</p>';
         return;
     }
 
     var sezioneData = SEZIONI_IMPOSTAZIONI.find(function (s) { return s.id === sezione; });
-    DOM.pvFormTitle.textContent = sezioneData ? sezioneData.icon + ' ' + sezioneData.label : '⚙️ Impostazioni';
+    DOM.pvFormTitle.innerHTML = sezioneData ? sezioneData.icon + ' ' + sezioneData.label : '<i class="bi bi-gear"></i> Impostazioni';
 
     // Barra azioni in cima al form
     var actionsBar =
         '<div class="settings-actions-bar">' +
-            '<button class="btn btn-success" id="btn-save-impostazioni">💾 Salva impostazioni</button>' +
+            '<button class="btn btn-success" id="btn-save-impostazioni"><i class="bi bi-save"></i> Salva impostazioni</button>' +
             '<button class="btn btn-sm" id="btn-reset-impostazioni" style="color:#888;">↩️ Ripristina default</button>' +
         '</div>';
 
@@ -215,7 +215,7 @@ function renderCardStrategia() {
                 '<label class="field-label">Algoritmo</label>' +
                 '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">' +
                     '<div style="flex:1;">' +
-                        '<p style="margin:4px 0 0;font-weight:600;color:#2c3e50;">🔧 Algoritmo 3D Semplificato</p>' +
+                        '<p style="margin:4px 0 0;font-weight:600;color:#2c3e50;"><i class="bi bi-tools"></i> Algoritmo 3D Semplificato</p>' +
                         '<span class="field-hint" style="margin-top:2px;">Skyline + stacking + backtracking con distribuzione pesi automatica sulle sezioni.</span>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:2px;">' +
@@ -232,7 +232,7 @@ function renderCardStrategia() {
             '<div class="field-group checkbox-group">' +
                 '<label class="checkbox-label">' +
                     '<input type="checkbox" id="imp-distribuzione-pesi" ' + (s.distribuzione_pesi_attiva !== false ? 'checked' : '') + '> ' +
-                    '⚖️ Distribuzione pesi sulle sezioni' +
+                    '<i class="bi bi-speedometer2"></i> Distribuzione pesi sulle sezioni' +
                 '</label>' +
                 '<span class="field-hint">Se attivo, l\'algoritmo rispetta i limiti di peso definiti per ogni sezione/asse del contenitore. Disattiva per ignorare i vincoli di peso sulle sezioni.</span>' +
             '</div>' +
@@ -264,7 +264,7 @@ function renderCardOutput() {
 
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
-            '<h4 class="settings-card-title">📊 Output dell\'Ottimizzazione</h4>' +
+            '<h4 class="settings-card-title"><i class="bi bi-bar-chart"></i> Output dell\'Ottimizzazione</h4>' +
             '<p class="settings-card-desc">Configura cosa viene mostrato all\'utente dopo l\'ottimizzazione.</p>' +
         '</div>' +
         '<div class="settings-card-body">' +
@@ -295,7 +295,7 @@ function renderCardManuale() {
 
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
-            '<h4 class="settings-card-title">✋ Parametri Modalità Manuale</h4>' +
+            '<h4 class="settings-card-title"><i class="bi bi-hand-index-thumb"></i> Parametri Modalità Manuale</h4>' +
             '<p class="settings-card-desc">Configura il comportamento del piazzamento manuale con il bottone "Aggiungi alla scena".</p>' +
         '</div>' +
         '<div class="settings-card-body">' +

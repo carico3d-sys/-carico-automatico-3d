@@ -138,7 +138,7 @@ function inizializza() {
             case '[':
                 e.preventDefault();
                 if (typeof _applicaSpaziatura === 'function') {
-                    _applicaSpaziatura(Math.max(70, STATE.spaziatura - 5));
+                    _applicaSpaziatura(Math.max(30, STATE.spaziatura - 5));
                 }
                 break;
             case ']':

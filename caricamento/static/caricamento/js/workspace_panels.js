@@ -69,7 +69,7 @@ function mostraViewport() {
     _ripristinaFormOggetti();
     DOM.panelView.style.display = 'none';
     DOM.viewport3d.style.display = '';
-    DOM.viewportToolbar.style.display = '';
+    // Toolbar orizzontale sostituita dalla palette flottante — non mostrarla
     setActiveView('carico');
 }
 
@@ -656,7 +656,7 @@ function _wirePianiListClickHandlers() {
 }
 
 function renderPianiPanel() {
-    DOM.pvListTitle.textContent = '📁 Piani Recenti';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-folder2-open"></i> Piani Recenti';
     DOM.pvFormTitle.textContent = 'Dettaglio Piano';
     DOM.pvListCount.textContent = WS.piani.length;
 
@@ -732,7 +732,7 @@ function renderPianiPanel() {
 function renderPianiDettaglio(pianoId) {
     var p = WS.piani.find(function (x) { return x.id == pianoId; });
     if (!p) return;
-    DOM.pvFormTitle.textContent = '📄 ' + p.nome;
+    DOM.pvFormTitle.innerHTML = '<i class="bi bi-file-earmark"></i> ' + escapeHtml(p.nome);
 
     var statoClass = 'stato-bozza';
     if (p.stato === 'completato') statoClass = 'stato-completato';
@@ -953,7 +953,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
     document.getElementById('pd-piano-nome').addEventListener('input', function () {
         var nomeLive = this.value.trim() || _nomeOriginale;
         // Aggiorna titolo pannello destro
-        DOM.pvFormTitle.textContent = '📄 ' + nomeLive;
+        DOM.pvFormTitle.innerHTML = '<i class="bi bi-file-earmark"></i> ' + escapeHtml(nomeLive);
         // Aggiorna nome nella lista sinistra (item corrispondente)
         var listItem = document.querySelector('#pv-list-body .pv-list-item[data-piano-id="' + pianoId + '"]');
         if (listItem) {

@@ -12,7 +12,16 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/workspace.css' %}?v=9">
+    <link rel="stylesheet" href="{% static 'caricamento/css/workspace.css' %}?v=18">
+
+    <!-- Palette flottante Vista — file isolato -->
+    <link rel="stylesheet" href="{% static 'caricamento/css/floating_palette.css' %}?v=15">
+
+    <!-- Barra slider spaziatura oggetti nella sidebar -->
+    <link rel="stylesheet" href="{% static 'caricamento/css/workspace_spaziatura.css' %}?v=1">
+
+    <!-- Bootstrap Icons (SVG, touch-friendly) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         #soluzioni-alternative-panel {
             background: #fff;
@@ -67,7 +76,7 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=2" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=3" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
     <script src="{% static 'caricamento/js/gestione_file.js' %}?v=1" defer></script>
@@ -87,7 +96,7 @@
     <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=9" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
-    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=4" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=5" defer></script>
     <!-- 7a. Panel Mezzi (lista, form, selezione multipla, batch) -->
     <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=16" defer></script>
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
@@ -97,7 +106,8 @@
     <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=1" defer></script>
 
     <!-- 9. Ottimizzazione: camera controls, distribuzione pesi, elaboraOttimizzazione -->
-    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=2" defer></script>
+    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=10" defer></script>
+    <script src="{% static 'caricamento/js/workspace_spaziatura.js' %}?v=1" defer></script>
 
     <!-- 9b. Report stampabile -->
     <script src="{% static 'caricamento/js/workspace_report.js' %}?v=3" defer></script>
@@ -160,42 +170,41 @@
     <!-- ================================================================ -->
     <header id="header">
         <div id="header-brand">
-            <a href="/" id="header-logo">📦 Carico 3D</a>
+            <a href="/" id="header-logo"><i class="bi bi-box-seam"></i> Carico 3D</a>
             <span id="header-carico-label" class="header-carico-label"></span>
         </div>
         <nav id="header-categories">
             <button class="header-cat-btn active" data-cat="documenti" title="Gestione Documenti">
-                <span class="header-cat-icon">📁</span>
+                <i class="bi bi-folder2-open header-cat-icon"></i>
                 <span class="header-cat-label">Documenti</span>
             </button>
             <button class="header-cat-btn" data-cat="anagrafica" title="Anagrafica">
-                <span class="header-cat-icon">📋</span>
+                <i class="bi bi-journal-text header-cat-icon"></i>
                 <span class="header-cat-label">Anagrafica</span>
             </button>
             <button class="header-cat-btn header-cat-shortcut" data-cat="goto-automatica" title="Vai a Calcolo Automatico">
-                <span class="header-cat-icon">⚡</span>
+                <i class="bi bi-lightning-charge header-cat-icon"></i>
                 <span class="header-cat-label">Auto</span>
             </button>
             <button class="header-cat-btn header-cat-shortcut" data-cat="goto-manuale" title="Vai a Modifica Manuale">
-                <span class="header-cat-icon">✋</span>
+                <i class="bi bi-hand-index-thumb header-cat-icon"></i>
                 <span class="header-cat-label">Manuale</span>
             </button>
             <button class="header-cat-btn header-cat-toggle" data-cat="toggle-vista" title="Mostra/Nascondi Toolbar Vista">
-                <span class="header-cat-icon">👁️</span>
+                <i class="bi bi-eye header-cat-icon"></i>
                 <span class="header-cat-label">Vista</span>
-                <span class="header-cat-dot on" id="header-vista-dot"></span>
             </button>
             <button class="header-cat-btn" data-cat="report" title="Report">
-                <span class="header-cat-icon">📊</span>
+                <i class="bi bi-bar-chart header-cat-icon"></i>
                 <span class="header-cat-label">Report</span>
             </button>
             <button class="header-cat-btn" data-cat="sistema" title="Sistema">
-                <span class="header-cat-icon">⚙️</span>
+                <i class="bi bi-gear header-cat-icon"></i>
                 <span class="header-cat-label">Sistema</span>
             </button>
         </nav>
         <div id="header-tools">
-            <button id="header-export-btn" class="header-btn" title="Esporta solo posizioni txt" disabled>📋 Posizioni</button>
+            <button id="header-export-btn" class="header-btn" title="Esporta solo posizioni txt" disabled><i class="bi bi-filetype-txt"></i> Posizioni</button>
             <span id="header-user">{{ request.user.username }}</span>
             {% if request.user.is_staff %}
             <a href="/admin/" id="header-admin-link" title="Pannello Amministrazione">Admin</a>
@@ -218,16 +227,16 @@
             <!-- Tab bar -->
             <div id="sidebar-tabs">
                 <button class="sidebar-tab active" data-tab="navigazione">
-                    <span class="sidebar-tab-icon">🧭</span>
-                    <span class="sidebar-tab-label">Navigazione</span>
+                    <i class="bi bi-compass sidebar-tab-icon"></i>
+                    <span class="sidebar-tab-label">Navigaz.</span>
                 </button>
                 <button class="sidebar-tab" data-tab="manuale">
-                    <span class="sidebar-tab-icon">✋</span>
+                    <i class="bi bi-hand-index-thumb sidebar-tab-icon"></i>
                     <span class="sidebar-tab-label">Manuale</span>
                 </button>
                 <button class="sidebar-tab" data-tab="automatica">
-                    <span class="sidebar-tab-icon">⚡</span>
-                    <span class="sidebar-tab-label">Automatica</span>
+                    <i class="bi bi-lightning-charge sidebar-tab-icon"></i>
+                    <span class="sidebar-tab-label">Auto</span>
                 </button>
             </div>
 
@@ -249,15 +258,15 @@
                     <a class="sidebar-section-title">Modalità Manuale</a>
                     <div class="sidebar-manuale-content">
                         <div class="manuale-help-row">
-                            <span class="manuale-help-icon">🖱️</span>
+                            <i class="bi bi-mouse manuale-help-icon"></i>
                             <span>Trascina un oggetto per spostarlo sul piano XY</span>
                         </div>
                         <div class="manuale-help-row">
-                            <span class="manuale-help-icon">⌨️</span>
+                            <i class="bi bi-keyboard manuale-help-icon"></i>
                             <span><kbd>Ctrl</kbd> + trascina per alzare/abbassare (Z)</span>
                         </div>
                         <div class="manuale-help-row">
-                            <span class="manuale-help-icon">🔄</span>
+                            <i class="bi bi-arrow-repeat manuale-help-icon"></i>
                             <span><kbd>Shift</kbd> + clicca un oggetto per ruotarlo di 90°</span>
                         </div>
                         <div class="field-group" style="margin-top:10px;">
@@ -271,39 +280,39 @@
                         </div>
                         <!-- Sezione D-Pad tastiera -->
                         <div class="manuale-dpad-section">
-                            <div class="manuale-dpad-title">🎮 Tastiera</div>
+                            <div class="manuale-dpad-title"><i class="bi bi-controller"></i> Tastiera</div>
                             <div class="manuale-dpad-row">
                                 <!-- Croce direzionale -->
                                 <div class="manuale-dpad-cross">
                                     <div class="dpad-row-top">
-                                        <button id="manuale-dpad-up" class="dpad-btn dpad-arrow" title="Avanti (↑)">▲</button>
+                                        <button id="manuale-dpad-up" class="dpad-btn dpad-arrow" title="Avanti (↑)"><i class="bi bi-chevron-up"></i></button>
                                     </div>
                                     <div class="dpad-row-mid">
-                                        <button id="manuale-dpad-left" class="dpad-btn dpad-arrow" title="Sinistra (←)">◀</button>
-                                        <button id="manuale-dpad-confirm" class="dpad-btn dpad-confirm" title="Conferma posizione">✓</button>
-                                        <button id="manuale-dpad-right" class="dpad-btn dpad-arrow" title="Destra (→)">▶</button>
+                                        <button id="manuale-dpad-left" class="dpad-btn dpad-arrow" title="Sinistra (←)"><i class="bi bi-chevron-left"></i></button>
+                                        <button id="manuale-dpad-confirm" class="dpad-btn dpad-confirm" title="Conferma posizione"><i class="bi bi-check-lg"></i></button>
+                                        <button id="manuale-dpad-right" class="dpad-btn dpad-arrow" title="Destra (→)"><i class="bi bi-chevron-right"></i></button>
                                     </div>
                                     <div class="dpad-row-bot">
-                                        <button id="manuale-dpad-down" class="dpad-btn dpad-arrow" title="Indietro (↓)">▼</button>
+                                        <button id="manuale-dpad-down" class="dpad-btn dpad-arrow" title="Indietro (↓)"><i class="bi bi-chevron-down"></i></button>
                                     </div>
                                 </div>
                             </div>
                             <div class="manuale-dpad-hint">Ctrl+←→ = ruota  |  Ctrl+↑↓ = alza/abbassa</div>
                         </div>
                         <div class="field-group" style="margin-top:10px;">
-                            <button id="manuale-btn-ghost-toggle" class="btn btn-sm" style="width:100%;">👻 Ghost: OFF</button>
+                            <button id="manuale-btn-ghost-toggle" class="btn btn-sm" style="width:100%;"><i class="bi bi-eye-slash"></i> Ghost: OFF</button>
                         </div>
                         <div class="field-group" style="margin-top:6px;">
-                            <button id="manuale-btn-aggiungi" class="btn btn-primary btn-sm" style="width:100%;">➕ Aggiungi alla scena</button>
-                            <button id="manuale-btn-annulla-ghost" class="btn btn-danger btn-sm" style="width:100%; margin-top:6px; display:none;">❌ Annulla piazzamento</button>
+                            <button id="manuale-btn-aggiungi" class="btn btn-primary btn-sm" style="width:100%;"><i class="bi bi-plus-circle"></i> Aggiungi alla scena</button>
+                            <button id="manuale-btn-annulla-ghost" class="btn btn-danger btn-sm" style="width:100%; margin-top:6px; display:none;"><i class="bi bi-x-circle"></i> Annulla piazzamento</button>
                         </div>
                         <div id="manuale-oggetto-info" class="manuale-oggetto-info" style="display:none;">
                             <span class="manuale-oggetto-codice" id="manuale-oggetto-codice"></span>
                             <span class="manuale-oggetto-pos" id="manuale-oggetto-pos"></span>
                         </div>
-                        <button id="manuale-btn-rimuovi" class="btn btn-danger btn-sm" disabled style="margin-top:8px;width:100%;">🗑️ Rimuovi oggetto</button>
+                        <button id="manuale-btn-rimuovi" class="btn btn-danger btn-sm" disabled style="margin-top:8px;width:100%;"><i class="bi bi-trash"></i> Rimuovi oggetto</button>
                         <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e0e0e0;">
-                            <button id="manuale-btn-pesi" class="btn btn-sm" style="width:100%;">⚖️ Distribuzione Pesi</button>
+                            <button id="manuale-btn-pesi" class="btn btn-sm" style="width:100%;"><i class="bi bi-speedometer2"></i> Distribuzione Pesi</button>
                         </div>
                     </div>
                 </div>
@@ -319,22 +328,35 @@
                             di destra e avvia l'ottimizzazione 3D automatica.
                         </p>
                         <button class="btn btn-primary btn-block btn-lg" id="btn-ottimizza" disabled>
-                            ⚡ ELABORA OTTIMIZZAZIONE
+                            <i class="bi bi-lightning-charge"></i> ELABORA OTTIMIZZAZIONE
                         </button>
                         <div id="task-status">
                             <span class="task-dot idle"></span>
                             <span id="task-status-text">Nessuna elaborazione in corso</span>
                         </div>
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e0e0e0;">
-                            <button id="auto-btn-pesi" class="btn btn-sm" style="width:100%;">⚖️ Distribuzione Pesi</button>
+                            <button id="auto-btn-pesi" class="btn btn-sm" style="width:100%;"><i class="bi bi-speedometer2"></i> Distribuzione Pesi</button>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Barra slider spaziatura oggetti (toggle da palette 📏) -->
+            <div id="sidebar-spaziatura-bar">
+                <div class="spaziatura-header">
+                    <span class="spaziatura-label"><i class="bi bi-rulers"></i> Spaziatura</span>
+                    <span class="spaziatura-pct" id="spaziatura-pct">100%</span>
+                </div>
+                <input type="range" class="spaziatura-slider" id="spaziatura-slider" min="30" max="100" value="100" step="1">
+                <div class="spaziatura-range-labels">
+                    <span>30%</span>
+                    <span>100%</span>
+                </div>
+            </div>
+
             <div id="sidebar-riepilogo">
                 <div id="sidebar-riepilogo-mezzo">
-                    <span id="sidebar-mezzo-icon">🚛</span>
+                    <i id="sidebar-mezzo-icon" class="bi bi-truck"></i>
                     <span id="sidebar-mezzo-nome">Nessun mezzo</span>
                 </div>
                 <div class="sidebar-riepilogo-stats" id="sidebar-riepilogo-stats">
@@ -375,23 +397,39 @@
 
             <!-- Toolbar sopra il 3D -->
             <div id="viewport-toolbar">
-                <button class="vp-btn" id="vp-btn-top" title="Vista dall'alto">⬆</button>
-                <button class="vp-btn" id="vp-btn-front" title="Vista frontale">⬛</button>
-                <button class="vp-btn" id="vp-btn-side" title="Vista laterale">➡</button>
-                <button class="vp-btn" id="vp-btn-grid" title="Vista 2×2 (4 quadranti)">⊞</button>
+                <button class="vp-btn" id="vp-btn-top" title="Vista dall'alto">
+                    <i class="bi bi-arrow-up-square"></i>
+                </button>
+                <button class="vp-btn" id="vp-btn-front" title="Vista frontale">
+                    <i class="bi bi-square"></i>
+                </button>
+                <button class="vp-btn" id="vp-btn-side" title="Vista laterale">
+                    <i class="bi bi-arrow-right-square"></i>
+                </button>
+                <button class="vp-btn" id="vp-btn-grid" title="Vista 2×2 (4 quadranti)">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                </button>
                 <span class="vp-separator"></span>
-                <button class="vp-btn" id="vp-btn-zoom-out" title="Zoom -">➖</button>
-                <span class="vp-zoom-icon" title="Zoom">🔍</span>
-                <button class="vp-btn" id="vp-btn-zoom-in" title="Zoom +">➕</button>
+                <button class="vp-btn" id="vp-btn-zoom-out" title="Zoom -">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+                <button class="vp-btn" id="vp-btn-zoom-in" title="Zoom +">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
                 <span class="vp-separator"></span>
-                <button class="vp-btn" id="vp-btn-fit" title="Zoom Fit">🔍</button>
-                <button class="vp-btn" id="vp-btn-reset" title="Reset Camera">🏠</button>
-                <button class="vp-btn" id="vp-btn-fullscreen" title="Fullscreen">⛶</button>
+                <button class="vp-btn" id="vp-btn-reset" title="Reset Camera">
+                    <i class="bi bi-house"></i>
+                </button>
+                <button class="vp-btn" id="vp-btn-fullscreen" title="Fullscreen">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
                 <span class="vp-separator"></span>
-                <button class="vp-btn" id="vp-btn-help" title="Aiuto comandi">?</button>
+                <button class="vp-btn" id="vp-btn-help" title="Aiuto comandi">
+                    <i class="bi bi-question-circle"></i>
+                </button>
                 <span class="vp-separator"></span>
                 <span class="vp-spaziatura-indicator" id="vp-spaziatura-indicator" title="Spaziatura oggetti (Shift+rotella / [ ])">
-                    📏 <span id="vp-spaziatura-val">100%</span>
+                    <i class="bi bi-rulers"></i> <span id="vp-spaziatura-val">100%</span>
                 </span>
             </div>
 
@@ -399,19 +437,62 @@
             <div id="vp-help-popover" class="vp-help-popover" style="display:none;">
                 <div class="vp-help-close" id="vp-help-close">✕</div>
                 <div class="vp-help-section">
-                    <div class="vp-help-section-title">🖱️ Mouse</div>
+                    <div class="vp-help-section-title"><i class="bi bi-mouse"></i> Mouse</div>
                     <div class="vp-help-row"><kbd>Click sx</kbd> + trascina → Ruota</div>
                     <div class="vp-help-row"><kbd>Click dx</kbd> + trascina → Sposta</div>
                     <div class="vp-help-row"><kbd>Rotellina</kbd> → Zoom</div>
                 </div>
                 <div class="vp-help-section">
-                    <div class="vp-help-section-title">⌨️ Tastiera</div>
+                    <div class="vp-help-section-title"><i class="bi bi-keyboard"></i> Tastiera</div>
                     <div class="vp-help-row"><kbd>+</kbd> / <kbd>-</kbd> → Zoom avanti / indietro</div>
                     <div class="vp-help-row"><kbd>F</kbd> → Zoom fit</div>
                     <div class="vp-help-row"><kbd>R</kbd> → Reset vista</div>
                 </div>
                 <div class="vp-help-section">
-                    <div class="vp-help-section-title">📏 Spaziatura</div>
+                    <div class="vp-help-section-title"><i class="bi bi-rulers"></i> Spaziatura</div>
+                    <div class="vp-help-row"><kbd>Shift</kbd> + <kbd>Rotellina</kbd> → Regola fine (±1%)</div>
+                    <div class="vp-help-row"><kbd>[</kbd> / <kbd>]</kbd> → Meno / Più spaziatura (5%)</div>
+                    <div class="vp-help-row"><kbd>\</kbd> → Reset a 100%</div>
+                </div>
+            </div>
+
+            <!-- Palette flottante Vista (draggabile) -->
+            <div id="vp-floating-palette">
+                <div class="vp-palette-header" id="vp-palette-header">
+                    <span class="vp-palette-title"><i class="bi bi-eye"></i></span>
+                    <button class="vp-palette-close" id="vp-palette-close" title="Chiudi"><i class="bi bi-x"></i></button>
+                </div>
+                <div class="vp-palette-body">
+                    <button class="vp-palette-btn" id="vpf-btn-top" title="Vista dall'alto"><i class="bi bi-arrow-up-square"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-front" title="Vista frontale"><i class="bi bi-square"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-side" title="Vista laterale"><i class="bi bi-arrow-right-square"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-grid" title="Vista 2×2 (4 quadranti)"><i class="bi bi-grid-3x3-gap"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-zoom-out" title="Zoom -"><i class="bi bi-zoom-out"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-zoom-in" title="Zoom +"><i class="bi bi-zoom-in"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-spaziatura" title="Spaziatura: 100% — Click per resettare"><i class="bi bi-rulers"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-reset" title="Reset Camera"><i class="bi bi-house"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-fullscreen" title="Fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+                    <button class="vp-palette-btn" id="vpf-btn-help" title="Aiuto comandi"><i class="bi bi-question-circle"></i></button>
+                </div>
+            </div>
+
+            <!-- Popover Aiuto Comandi (fuori dalla palette per evitare overflow:auto) -->
+            <div id="vpf-help-popover" class="vpf-help-popover" style="display:none;">
+                <div class="vpf-help-close" id="vpf-help-close">✕</div>
+                <div class="vp-help-section">
+                    <div class="vp-help-section-title"><i class="bi bi-mouse"></i> Mouse</div>
+                    <div class="vp-help-row"><kbd>Click sx</kbd> + trascina → Ruota</div>
+                    <div class="vp-help-row"><kbd>Click dx</kbd> + trascina → Sposta</div>
+                    <div class="vp-help-row"><kbd>Rotellina</kbd> → Zoom</div>
+                </div>
+                <div class="vp-help-section">
+                    <div class="vp-help-section-title"><i class="bi bi-keyboard"></i> Tastiera</div>
+                    <div class="vp-help-row"><kbd>+</kbd> / <kbd>-</kbd> → Zoom avanti / indietro</div>
+                    <div class="vp-help-row"><kbd>F</kbd> → Zoom fit</div>
+                    <div class="vp-help-row"><kbd>R</kbd> → Reset vista</div>
+                </div>
+                <div class="vp-help-section">
+                    <div class="vp-help-section-title"><i class="bi bi-rulers"></i> Spaziatura</div>
                     <div class="vp-help-row"><kbd>Shift</kbd> + <kbd>Rotellina</kbd> → Regola fine (±1%)</div>
                     <div class="vp-help-row"><kbd>[</kbd> / <kbd>]</kbd> → Meno / Più spaziatura (5%)</div>
                     <div class="vp-help-row"><kbd>\</kbd> → Reset a 100%</div>
@@ -420,7 +501,7 @@
 
             <!-- Slider sequenza carico -->
             <div id="vp-slider-bar" style="display:none;">
-                <span class="vp-slider-icon" title="Sequenza carico/scarico">📦</span>
+                <span class="vp-slider-icon" title="Sequenza carico/scarico"><i class="bi bi-box-seam"></i></span>
                 <input type="range" id="vp-slider-carico" class="vp-slider" min="0" max="0" value="0" step="1" title="Trascina per mostrare/nascondere gli oggetti in sequenza">
                 <span class="vp-slider-count" id="vp-slider-count">0 / 0</span>
             </div>
@@ -428,16 +509,16 @@
             <!-- Container 3D -->
             <div id="viewport-3d">
                 <div class="viewport-placeholder" id="viewport-placeholder">
-                    <span class="vp-icon">📦</span>
+                    <i class="bi bi-box-seam vp-icon"></i>
                     <h3>Visualizzazione 3D</h3>
                     <p>Aggiungi oggetti nel pannello di destra, seleziona un mezzo e clicca <strong>"Elabora Ottimizzazione"</strong> per vedere il carico in 3D.</p>
-                    <p class="vp-hint-controls">💡 <strong>Trascina</strong> per ruotare &nbsp;|&nbsp; <strong>Rotellina</strong> per zoom &nbsp;|&nbsp; <strong>Tasto destro</strong> per spostare</p>
+                    <p class="vp-hint-controls"><i class="bi bi-lightbulb"></i> <strong>Trascina</strong> per ruotare &nbsp;|&nbsp; <strong>Rotellina</strong> per zoom &nbsp;|&nbsp; <strong>Tasto destro</strong> per spostare</p>
                 </div>
             </div>
 
             <!-- Distribuzione pesi per sezione -->
             <div id="sezioni-pesi-panel" style="display: none;">
-                <h4 class="sezioni-pesi-title">📊 Distribuzione Pesi per Sezione</h4>
+                <h4 class="sezioni-pesi-title"><i class="bi bi-bar-chart"></i> Distribuzione Pesi per Sezione</h4>
                 <div class="sezioni-pesi-grid">
                     <div class="sezioni-pesi-chart-col">
                         <canvas id="sezioni-peso-chart"></canvas>
@@ -451,8 +532,8 @@
             <!-- Soluzioni alternative generate dal Simulated Annealing -->
             <div id="soluzioni-alternative-panel" style="display: none;">
                 <div class="sezioni-pesi-title" style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>🔀 Soluzioni Alternative SA</span>
-                    <button id="btn-chiudi-alternative" class="vp-btn" title="Chiudi" style="font-size:12px;padding:2px 6px;">✕</button>
+                    <span><i class="bi bi-shuffle"></i> Soluzioni Alternative SA</span>
+                    <button id="btn-chiudi-alternative" class="vp-btn" title="Chiudi" style="font-size:12px;padding:2px 6px;"><i class="bi bi-x"></i></button>
                 </div>
                 <div id="soluzioni-alternative-list"></div>
             </div>
@@ -460,7 +541,7 @@
             <!-- Panel View (split: lista + form) — alternativo al viewport -->
             <div id="panel-view" style="display:none;">
                 <div id="panel-view-toolbar">
-                    <a class="pv-back-link" id="pv-btn-back" style="font-size:13px;">← Torna al Carico 3D</a>
+                    <a class="pv-back-link" id="pv-btn-back" style="font-size:13px;"><i class="bi bi-arrow-left"></i> Torna al Carico 3D</a>
                 </div>
                 <div id="panel-view-split">
                     <div id="panel-view-list">
@@ -533,9 +614,9 @@
 
             <!-- Header -->
             <div class="panel-header">
-                <h3>📦 Oggetti nel Carico</h3>
+                <h3><i class="bi bi-box-seam"></i> Oggetti nel Carico</h3>
                 <span class="panel-header-sel" id="panel-header-sel" title="Oggetti selezionati">sel:0</span>
-                <button id="panel-header-trash" class="panel-header-trash" title="Elimina oggetti selezionati">🗑️</button>
+                <button id="panel-header-trash" class="panel-header-trash" title="Elimina oggetti selezionati"><i class="bi bi-trash"></i></button>
             </div>
 
             <!-- Corpo scrollabile -->
@@ -569,7 +650,7 @@
                 <!-- Lista oggetti nel carico -->
                 <div class="panel-items-list" id="panel-items-list"></div>
                 <div class="panel-empty" id="panel-empty">
-                    <span class="panel-empty-icon">📭</span>
+                    <i class="bi bi-inbox panel-empty-icon"></i>
                     <span>Nessun oggetto nel carico</span>
                 </div>
 

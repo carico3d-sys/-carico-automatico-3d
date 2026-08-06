@@ -1,0 +1,180 @@
+/* ============================================================
+   PALETTE FLOTTANTE VISTA — resize nativo, flex-wrap naturale
+   Niente clamp(), niente vw, niente conflitti JS/CSS
+   ============================================================ */
+
+#vp-floating-palette {
+    position: fixed;
+    z-index: 500;
+    right: 16px;
+    top: 50px;
+    background: #fff;
+    border: 1px solid #d0d5dc;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
+    /* resize nativo: l'utente trascina l'angolo per ridimensionare */
+    resize: both;
+    overflow: auto;
+    /* dimensioni: naturali, con limiti esatti */
+    width: auto;
+    min-width: 70px;      /* 1 icona (40) + padding (20) + bordo (2) + respiro */
+    max-width: 480px;     /* 10 icone in 1 riga (478 - 20 padding)/44 = 10.4 */
+    min-height: 120px;    /* 1 riga + header + padding */
+    max-height: 550px;    /* 10 icone in 1 colonna + margine */
+    user-select: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+    pointer-events: none;
+}
+#vp-floating-palette.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+/* header */
+.vp-palette-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    cursor: grab;
+    background: #f8f9fa;
+    border-radius: 10px 10px 0 0;
+}
+.vp-palette-header:active { cursor: grabbing; }
+.vp-palette-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.vp-palette-close {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: none; border-radius: 4px;
+    color: #999; cursor: pointer; font-size: 16px;
+    transition: all 0.15s ease;
+}
+.vp-palette-close:hover { background: #fce4e4; color: #e74c3c; }
+
+/* body — flex-wrap naturale, altezza cresce da sola */
+.vp-palette-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px;
+}
+
+/* bottoni */
+.vp-palette-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: #f5f6f8;
+    border: 1px solid #e0e3e8;
+    border-radius: 6px;
+    color: #555;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+.vp-palette-btn:hover { background: #e8ecf2; border-color: #c0c6d0; color: #222; }
+.vp-palette-btn:active { background: #d0d6e0; transform: scale(0.94); }
+.vp-palette-btn.active { background: rgba(68,126,155,0.15); border-color: rgba(68,126,155,0.4); color: #447e9b; }
+
+/* colori icone */
+#vpf-btn-top .bi             { color: #4da6d9; }
+#vpf-btn-front .bi           { color: #4caf50; }
+#vpf-btn-side .bi            { color: #ff7b5a; }
+#vpf-btn-grid .bi            { color: #b07cd8; }
+#vpf-btn-zoom-out .bi        { color: #4da6d9; }
+#vpf-btn-zoom-in .bi         { color: #4da6d9; }
+#vpf-btn-spaziatura .bi      { color: #f0a040; }
+#vpf-btn-reset .bi           { color: #f0a040; }
+#vpf-btn-fullscreen .bi      { color: #b0b8c0; }
+#vpf-btn-help .bi            { color: #f0a040; }
+
+/* ============================================================
+   POPOVER AIUTO COMANDI (fuori dalla palette, position fixed)
+   ============================================================ */
+
+#vpf-help-popover {
+    position: fixed;
+    z-index: 600;
+    background: #fff;
+    border: 1px solid #d0d5dc;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    padding: 10px 12px 10px 12px;
+    min-width: 240px;
+    max-width: 320px;
+    font-size: 12px;
+    color: #444;
+    line-height: 1.5;
+}
+
+#vpf-help-popover .vp-help-section {
+    margin-bottom: 8px;
+}
+#vpf-help-popover .vp-help-section:last-child {
+    margin-bottom: 0;
+}
+
+#vpf-help-popover .vp-help-section-title {
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#vpf-help-popover .vp-help-row {
+    padding: 2px 0 2px 4px;
+    font-size: 11px;
+    color: #555;
+}
+
+#vpf-help-popover kbd {
+    background: #f0f2f5;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 10px;
+    font-family: inherit;
+}
+
+.vpf-help-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: #999;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+.vpf-help-close:hover {
+    background: #fce4e4;
+    color: #e74c3c;
+}

@@ -40,10 +40,10 @@ function _setGhostMode(enabled) {
     var btn = document.getElementById('manuale-btn-ghost-toggle');
     if (!btn) return;
     if (enabled) {
-        btn.textContent = '👻 Ghost: ON';
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i> Ghost: ON';
         btn.className = 'btn btn-sm btn-success';
     } else {
-        btn.textContent = '👻 Ghost: OFF';
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i> Ghost: OFF';
         btn.className = 'btn btn-sm';
         // Se il ghost era attivo, annullalo
         if (_ghostState.active) _annullaGhost(true);

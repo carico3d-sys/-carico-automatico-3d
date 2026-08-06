@@ -771,7 +771,7 @@ function _initSliderCarico() {
  * @param {number} percentuale - 100 = dimensione reale, 70-100 = rimpiccioliti
  */
 function _applicaSpaziatura(percentuale) {
-    percentuale = Math.max(70, Math.min(100, percentuale));
+    percentuale = Math.max(30, Math.min(100, percentuale));
     STATE.spaziatura = percentuale;
     var s = percentuale / 100;
 
@@ -789,6 +789,11 @@ function _applicaSpaziatura(percentuale) {
     if (indicator) {
         indicator.textContent = percentuale + '%';
         indicator.style.color = percentuale === 100 ? '#888' : '#f39c12';
+    }
+
+    // Sincronizza slider nella sidebar (se attivo)
+    if (typeof SPZ !== 'undefined' && SPZ.sync) {
+        SPZ.sync();
     }
 
     // Forza re-render

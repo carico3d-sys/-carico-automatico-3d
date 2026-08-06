@@ -107,7 +107,7 @@ function initScene(containerId) {
         e.preventDefault();
         e.stopImmediatePropagation();
         var delta = e.deltaY > 0 ? -1 : 1;  // rotella giù = rimpicciolisci
-        var nuova = Math.max(70, Math.min(100, STATE.spaziatura + delta));
+        var nuova = Math.max(30, Math.min(100, STATE.spaziatura + delta));
         if (typeof _applicaSpaziatura === 'function') {
             _applicaSpaziatura(nuova);
         }

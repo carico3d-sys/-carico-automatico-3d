@@ -11,16 +11,18 @@
 // CAMERA CONTROLS (toolbar)
 // =============================================================================
 
-function setupCameraControls() {
-
-    // Helper: esce dai 4 quadranti se attivi (usato da tutti i pulsanti vista)
-    function _esciDaMultiViewportSeAttivo() {
-        if (typeof MVP !== 'undefined' && MVP.attivo) {
-            disattivaMultiViewport();
-            var gBtn = document.getElementById('vp-btn-grid');
-            if (gBtn) gBtn.classList.remove('active');
-        }
+// Helper globale: esce dai 4 quadranti se attivi
+function _esciDaMultiViewportSeAttivo() {
+    if (typeof MVP !== 'undefined' && MVP.attivo) {
+        disattivaMultiViewport();
+        var gBtn = document.getElementById('vp-btn-grid');
+        if (gBtn) gBtn.classList.remove('active');
+        var gBtn2 = document.getElementById('vpf-btn-grid');
+        if (gBtn2) gBtn2.classList.remove('active');
     }
+}
+
+function setupCameraControls() {
 
     document.getElementById('vp-btn-top').addEventListener('click', function () {
         _esciDaMultiViewportSeAttivo();
@@ -47,9 +49,13 @@ function setupCameraControls() {
             }
         });
     }
-    document.getElementById('vp-btn-fit').addEventListener('click', function () {
-        impostaVistaCamera('reset');
-    });
+    var fitBtn = document.getElementById('vp-btn-fit');
+    if (fitBtn) {
+        fitBtn.addEventListener('click', function () {
+            _esciDaMultiViewportSeAttivo();
+            impostaVistaCamera('reset');
+        });
+    }
     document.getElementById('vp-btn-reset').addEventListener('click', function () {
         _esciDaMultiViewportSeAttivo();
         impostaVistaCamera('reset');
@@ -89,6 +95,9 @@ function setupCameraControls() {
         }
     }
 
+    // Inizializza palette flottante Vista (draggabile)
+    _initFloatingPalette();
+
     var chartBtn = document.getElementById('vp-btn-chart');
     if (chartBtn) {
     chartBtn.addEventListener('click', function () {
@@ -122,8 +131,254 @@ function setupCameraControls() {
 }
 
 // =============================================================================
-// OTTIMIZZAZIONE
+// PALETTE FLOTTANTE VISTA (DRAGGABLE)
 // =============================================================================
+
+var _vpFloatPos = { left: null, top: null, width: null, height: null };
+
+function _initFloatingPalette() {
+    var palette = document.getElementById('vp-floating-palette');
+    var header = document.getElementById('vp-palette-header');
+    var closeBtn = document.getElementById('vp-palette-close');
+    if (!palette || !header) return;
+
+    // Ripristina posizione salvata
+    try {
+        var saved = localStorage.getItem('vp-palette-pos');
+        if (saved) {
+            var p = JSON.parse(saved);
+            _vpFloatPos.left = p.left;
+            _vpFloatPos.top = p.top;
+            _vpFloatPos.width = p.width;
+            _vpFloatPos.height = p.height;
+        }
+    } catch (e) { /* ignore */ }
+
+    if (_vpFloatPos.left !== null) {
+        palette.style.left = _vpFloatPos.left + 'px';
+        palette.style.top = _vpFloatPos.top + 'px';
+    }
+    // width/height sono gestiti dal CSS (resize:both nativo), non da JS
+    palette.style.width = '';
+    palette.style.height = '';
+
+    // Chiudi
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+            _chiudiFloatingPalette();
+            // Aggiorna pallino Vista nell'header
+            WS.vistaToolbarVisible = false;
+        });
+    }
+
+    // Drag
+    var dragging = false, startX, startY, origLeft, origTop;
+
+    header.addEventListener('mousedown', function (e) {
+        if (e.target === closeBtn) return;
+        dragging = true;
+        var rect = palette.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        // Se right era usato, converti a left
+        if (palette.style.right) {
+            palette.style.left = rect.left + 'px';
+            palette.style.right = '';
+        }
+        origLeft = rect.left;
+        origTop = rect.top;
+        palette.style.transition = 'none';
+        e.preventDefault();
+    });
+
+    // Resize è gestito dal CSS resize:both nativo — nessun JS necessario
+
+    // Touch drag start (su header)
+    header.addEventListener('touchstart', function (e) {
+        if (e.target === closeBtn) return;
+        if (e.touches.length !== 1) return;
+        dragging = true;
+        var rect = palette.getBoundingClientRect();
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        if (palette.style.right) {
+            palette.style.left = rect.left + 'px';
+            palette.style.right = '';
+        }
+        origLeft = rect.left;
+        origTop = rect.top;
+        palette.style.transition = 'none';
+    }, { passive: false });
+
+    // Unifica mousemove/touchmove per drag
+    document.addEventListener('mousemove', function (e) {
+        if (!dragging) return;
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
+        var newLeft = Math.max(0, Math.min(window.innerWidth - palette.offsetWidth, origLeft + dx));
+        var newTop = Math.max(0, Math.min(window.innerHeight - 60, origTop + dy));
+        palette.style.left = newLeft + 'px';
+        palette.style.top = newTop + 'px';
+        palette.style.right = '';
+    });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!dragging) return;
+        var dx = e.touches[0].clientX - startX;
+        var dy = e.touches[0].clientY - startY;
+        var newLeft = Math.max(0, Math.min(window.innerWidth - palette.offsetWidth, origLeft + dx));
+        var newTop = Math.max(0, Math.min(window.innerHeight - 60, origTop + dy));
+        palette.style.left = newLeft + 'px';
+        palette.style.top = newTop + 'px';
+        palette.style.right = '';
+    }, { passive: false });
+
+    document.addEventListener('mouseup', function () {
+        if (!dragging) return;
+        dragging = false;
+        palette.style.transition = '';
+        _salvaStatoPalette(palette);
+    });
+
+    document.addEventListener('touchend', function () {
+        if (!dragging) return;
+        dragging = false;
+        palette.style.transition = '';
+        _salvaStatoPalette(palette);
+    });
+
+    function _salvaStatoPalette(pal) {
+        _vpFloatPos.left = parseInt(pal.style.left, 10);
+        if (isNaN(_vpFloatPos.left)) _vpFloatPos.left = pal.getBoundingClientRect().left || 0;
+        _vpFloatPos.top = parseInt(pal.style.top, 10);
+        if (isNaN(_vpFloatPos.top)) _vpFloatPos.top = pal.getBoundingClientRect().top || 0;
+        try {
+            localStorage.setItem('vp-palette-pos', JSON.stringify(_vpFloatPos));
+        } catch (e) { /* ignore */ }
+    }
+
+    // Collega i pulsanti della palette
+    var bindings = [
+        { id: 'vpf-btn-top', action: function () { _esciDaMultiViewportSeAttivo(); impostaVistaCamera('top'); } },
+        { id: 'vpf-btn-front', action: function () { _esciDaMultiViewportSeAttivo(); impostaVistaCamera('front'); } },
+        { id: 'vpf-btn-side', action: function () { _esciDaMultiViewportSeAttivo(); impostaVistaCamera('side'); } },
+        { id: 'vpf-btn-grid', action: function () {
+            if (typeof MVP !== 'undefined' && MVP.attivo) {
+                disattivaMultiViewport();
+                var gBtn2 = document.getElementById('vpf-btn-grid');
+                if (gBtn2) gBtn2.classList.remove('active');
+            } else if (typeof initMultiViewport === 'function') {
+                initMultiViewport();
+                var gBtn2 = document.getElementById('vpf-btn-grid');
+                if (gBtn2) gBtn2.classList.add('active');
+            }
+        }},
+        { id: 'vpf-btn-zoom-out', action: function () { cameraZoom(1); } },
+        { id: 'vpf-btn-zoom-in', action: function () { cameraZoom(-1); } },
+        { id: 'vpf-btn-reset', action: function () { _esciDaMultiViewportSeAttivo(); impostaVistaCamera('reset'); } },
+        { id: 'vpf-btn-fullscreen', action: function () {
+            var c = DOM.viewport3d;
+            if (!document.fullscreenElement) {
+                c.requestFullscreen().catch(function () {});
+            } else {
+                document.exitFullscreen();
+            }
+        }},
+        { id: 'vpf-btn-help', action: function () {
+            var popover = document.getElementById('vpf-help-popover');
+            if (!popover) return;
+            var isVisible = popover.style.display === 'block';
+            if (isVisible) {
+                popover.style.display = 'none';
+            } else {
+                // Mostra prima (per leggere dimensioni reali), poi posiziona
+                popover.style.display = 'block';
+                var palette = document.getElementById('vp-floating-palette');
+                if (palette) {
+                    var rect = palette.getBoundingClientRect();
+                    var popH = popover.offsetHeight;
+                    var popW = popover.offsetWidth;
+                    // Sopra la palette, allineato a destra
+                    var top = rect.top - popH - 6;
+                    if (top < 4) top = rect.bottom + 6; // fallback: sotto
+                    var left = rect.right - popW;
+                    if (left < 4) left = 4;
+                    popover.style.top = top + 'px';
+                    popover.style.left = left + 'px';
+                }
+            }
+            var hBtn = document.getElementById('vpf-btn-help');
+            if (hBtn) hBtn.classList.toggle('active', !isVisible);
+        }},
+    ];
+
+    bindings.forEach(function (b) {
+        var el = document.getElementById(b.id);
+        if (el) el.addEventListener('click', b.action);
+    });
+
+    // Chiudi popover help interno alla palette
+    var helpCloseBtn = document.getElementById('vpf-help-close');
+    if (helpCloseBtn) {
+        helpCloseBtn.addEventListener('click', function () {
+            var popover = document.getElementById('vpf-help-popover');
+            if (popover) popover.style.display = 'none';
+            var hBtn = document.getElementById('vpf-btn-help');
+            if (hBtn) hBtn.classList.remove('active');
+        });
+    }
+
+    // Pulsante spaziatura nella palette → toggle barra slider nella sidebar
+    var spaziaturaBtn = document.getElementById('vpf-btn-spaziatura');
+    if (spaziaturaBtn) {
+        spaziaturaBtn.addEventListener('click', function () {
+            if (typeof SPZ !== 'undefined' && SPZ.toggle) {
+                SPZ.toggle();
+            }
+        });
+    }
+
+    // Inizializza barra slider spaziatura nella sidebar
+    if (typeof SPZ !== 'undefined' && SPZ.init) {
+        SPZ.init();
+    }
+
+    // Aggiorna label spaziatura quando cambia
+    function _aggiornaLabelSpaziatura() {
+        var btn = document.getElementById('vpf-btn-spaziatura');
+        var val = document.getElementById('vp-spaziatura-val');
+        if (btn && val) {
+            btn.setAttribute('title', 'Spaziatura: ' + val.textContent + ' — Click per resettare');
+        }
+    }
+    // Osserva cambiamenti alla label
+    var spaziaturaVal = document.getElementById('vp-spaziatura-val');
+    if (spaziaturaVal) {
+        var observer = new MutationObserver(_aggiornaLabelSpaziatura);
+        observer.observe(spaziaturaVal, { characterData: true, subtree: true });
+        _aggiornaLabelSpaziatura();
+    }
+}
+
+function _chiudiFloatingPalette() {
+    var palette = document.getElementById('vp-floating-palette');
+    if (palette) palette.classList.remove('visible');
+}
+
+function _apriFloatingPalette() {
+    var palette = document.getElementById('vp-floating-palette');
+    if (!palette) return;
+    // Pulisci eventuali width/height/left/right inline → CSS prende il controllo
+    palette.style.width = '';
+    palette.style.height = '';
+    if (_vpFloatPos.left === null) {
+        // Default: lascia che il CSS gestisca right/top
+        palette.style.left = '';
+        palette.style.right = '';
+        palette.style.top = '';
+    }
+    palette.classList.add('visible');
+}
 
 // =============================================================================
 // ZOOM CAMERA (pulsanti +/- e tasti tastiera)

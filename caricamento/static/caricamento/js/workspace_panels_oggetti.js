@@ -295,7 +295,7 @@ function _wireOggettiListClickHandlers() {
 }
 
 function renderOggettiPanel() {
-    DOM.pvListTitle.textContent = '📦 Anagrafica Oggetti + Vincoli';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-box-seam"></i> Anagrafica Oggetti + Vincoli';
     DOM.pvListCount.textContent = WS.oggettiDisponibili.filter(function (o) { return !!o.archiviato === _oggettiMostraArchiviati; }).length;
 
     // Mostra paginazione oggetti (nascosta nelle altre viste)
@@ -549,7 +549,7 @@ function renderOggettiForm(oggettoId) {
         return v.attivo && (v.oggetto_a === oggettoId || v.oggetto_b === oggettoId);
     });
 
-    DOM.pvFormTitle.textContent = isEdit ? '✏️ Modifica: ' + o.codice : '➕ Nuovo Oggetto';
+    DOM.pvFormTitle.innerHTML = isEdit ? '<i class="bi bi-pencil"></i> Modifica: ' + escapeHtml(o.codice) : '<i class="bi bi-plus-circle"></i> Nuovo Oggetto';
 
     // Deseleziona lista se in modalità creazione e mostra vincoli default
     if (!isEdit) {

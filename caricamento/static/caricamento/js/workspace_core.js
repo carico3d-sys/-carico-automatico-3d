@@ -48,7 +48,7 @@ const WS = {
     manualMode: false,
     _manualDragOccurred: false,  // flag: modifiche manuali non salvate
     headerCategory: 'documenti',  // categoria attiva nell'header
-    vistaToolbarVisible: true,    // toggle toolbar viewport
+    vistaToolbarVisible: false,   // toggle palette flottante (toolbar orizzontale sostituita)
 };
 
 // =============================================================================
@@ -62,7 +62,6 @@ function cacheDom() {
     DOM.sidebarTabPanels = document.querySelectorAll('.sidebar-tab-panel');
     DOM.sidebarNavDynamic = document.getElementById('sidebar-nav-dynamic');
     DOM.headerCatBtns = document.querySelectorAll('.header-cat-btn');
-    DOM.headerVistaDot = document.getElementById('header-vista-dot');
     DOM.vpHelpPopover = document.getElementById('vp-help-popover');
     DOM.vpBtnZoomIn = document.getElementById('vp-btn-zoom-in');
     DOM.vpBtnZoomOut = document.getElementById('vp-btn-zoom-out');
@@ -187,7 +186,7 @@ function setStatus(state, label) {
 // =============================================================================
 function showToast(message, type) {
     type = type || 'info';
-    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+    const icons = { success: '<i class="bi bi-check-circle"></i>', error: '<i class="bi bi-x-circle"></i>', info: '<i class="bi bi-info-circle"></i>', warning: '<i class="bi bi-exclamation-triangle"></i>' };
     const t = document.createElement('div');
     t.className = 'toast toast-' + type;
     t.innerHTML = '<span class="toast-icon">' + (icons[type] || 'ℹ️') + '</span><span>' + message + '</span>';
@@ -375,16 +374,16 @@ function _renderSidebarNavigazione(cat) {
     var strumentiRapidiHtml = '' +
         '<div class="sidebar-nav-separator"></div>' +
         '<div class="sidebar-nav-section-title">' +
-            '<span class="sidebar-section-icon">⚡</span> Strumenti Rapidi' +
+            '<i class="bi bi-lightning-charge sidebar-section-icon"></i> Strumenti Rapidi' +
         '</div>' +
         '<button class="sidebar-nav-item" data-action="nuovo-carico">' +
-            '<span class="sidebar-icon">📄</span> Nuovo Carico' +
+            '<i class="bi bi-file-earmark sidebar-icon"></i> Nuovo Carico' +
         '</button>' +
         '<button class="sidebar-nav-item" data-action="carico">' +
-            '<span class="sidebar-icon">📊</span> Vista Carico' +
+            '<i class="bi bi-bar-chart sidebar-icon"></i> Vista Carico' +
         '</button>' +
         '<button class="sidebar-nav-item" data-action="grafico-pesi">' +
-            '<span class="sidebar-icon">⚖️</span> Distribuzione Pesi' +
+            '<i class="bi bi-speedometer2 sidebar-icon"></i> Distribuzione Pesi' +
         '</button>';
 
     var html = '';
@@ -393,25 +392,25 @@ function _renderSidebarNavigazione(cat) {
         case 'documenti':
             html = '' +
                 '<div class="sidebar-nav-section-title">' +
-                    '<span class="sidebar-section-icon">📁</span> Gestione Documenti' +
+                    '<i class="bi bi-folder2-open sidebar-section-icon"></i> Gestione Documenti' +
                 '</div>' +
                 '<button class="sidebar-nav-item" data-view="nuovo-carico">' +
-                    '<span class="sidebar-icon">📄</span> Nuovo Carico' +
+                    '<i class="bi bi-file-earmark-plus sidebar-icon"></i> Nuovo Carico' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="piani">' +
-                    '<span class="sidebar-icon">📂</span> Apri Piano' +
+                    '<i class="bi bi-folder2 sidebar-icon"></i> Apri Piano' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="salva-db">' +
-                    '<span class="sidebar-icon">💾</span> Salva' +
+                    '<i class="bi bi-save sidebar-icon"></i> Salva' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="export-file">' +
-                    '<span class="sidebar-icon">📤</span> Esporta' +
+                    '<i class="bi bi-upload sidebar-icon"></i> Esporta' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="import-file">' +
-                    '<span class="sidebar-icon">📥</span> Importa' +
+                    '<i class="bi bi-download sidebar-icon"></i> Importa' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-action="svuota-carico">' +
-                    '<span class="sidebar-icon">🗑️</span> Svuota Carico' +
+                    '<i class="bi bi-trash sidebar-icon"></i> Svuota Carico' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;
@@ -419,16 +418,16 @@ function _renderSidebarNavigazione(cat) {
         case 'anagrafica':
             html = '' +
                 '<div class="sidebar-nav-section-title">' +
-                    '<span class="sidebar-section-icon">📋</span> Anagrafica' +
+                    '<i class="bi bi-journal-text sidebar-section-icon"></i> Anagrafica' +
                 '</div>' +
                 '<button class="sidebar-nav-item" data-view="oggetti">' +
-                    '<span class="sidebar-icon">📦</span> Articoli' +
+                    '<i class="bi bi-box-seam sidebar-icon"></i> Articoli' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="vincoli-tra">' +
-                    '<span class="sidebar-icon">🔗</span> Vincoli' +
+                    '<i class="bi bi-link-45deg sidebar-icon"></i> Vincoli' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="mezzi">' +
-                    '<span class="sidebar-icon">🚛</span> Trasporti' +
+                    '<i class="bi bi-truck sidebar-icon"></i> Trasporti' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;
@@ -436,18 +435,18 @@ function _renderSidebarNavigazione(cat) {
         case 'sistema':
             html = '' +
                 '<div class="sidebar-nav-section-title">' +
-                    '<span class="sidebar-section-icon">⚙️</span> Sistema' +
+                    '<i class="bi bi-gear sidebar-section-icon"></i> Sistema' +
                 '</div>' +
                 '<button class="sidebar-nav-item" data-view="impostazioni">' +
-                    '<span class="sidebar-icon">🎛️</span> Impostazioni' +
+                    '<i class="bi bi-sliders sidebar-icon"></i> Impostazioni' +
                 '</button>';
             if (W.user && W.user.isStaff) {
                 html += '<a href="/admin/" class="sidebar-nav-item" style="text-decoration:none;">' +
-                    '<span class="sidebar-icon">🛡️</span> Pannello Admin' +
+                    '<i class="bi bi-shield-shaded sidebar-icon"></i> Pannello Admin' +
                 '</a>';
             }
             html += '<a href="/logout/" class="sidebar-nav-item" style="color:#c0392b;text-decoration:none;">' +
-                '<span class="sidebar-icon">🚪</span> Esci' +
+                '<i class="bi bi-box-arrow-right sidebar-icon"></i> Esci' +
             '</a>' +
             strumentiRapidiHtml;
             break;
@@ -455,13 +454,13 @@ function _renderSidebarNavigazione(cat) {
         case 'report':
             html = '' +
                 '<div class="sidebar-nav-section-title">' +
-                    '<span class="sidebar-section-icon">📊</span> Report' +
+                    '<i class="bi bi-bar-chart sidebar-section-icon"></i> Report' +
                 '</div>' +
                 '<button class="sidebar-nav-item" data-action="report-3d">' +
-                    '<span class="sidebar-icon">📄</span> Report 3D' +
+                    '<i class="bi bi-file-earmark sidebar-icon"></i> Report 3D' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-action="report-quadranti">' +
-                    '<span class="sidebar-icon">🧊</span> Quadranti 2×2' +
+                    '<i class="bi bi-grid-3x3-gap sidebar-icon"></i> Quadranti 2×2' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;
@@ -551,17 +550,21 @@ function _eseguiAzioneRapida(action) {
 }
 
 /**
- * Toggle visibilità toolbar del viewport (👁️ Vista).
+ * Toggle visibilità palette flottante Vista.
  */
 function _toggleVistaToolbar() {
     WS.vistaToolbarVisible = !WS.vistaToolbarVisible;
-    if (DOM.viewportToolbar) {
-        DOM.viewportToolbar.style.display = WS.vistaToolbarVisible ? '' : 'none';
-    }
-    // Aggiorna il pallino
-    if (DOM.headerVistaDot) {
-        DOM.headerVistaDot.classList.toggle('on', WS.vistaToolbarVisible);
-        DOM.headerVistaDot.classList.toggle('off', !WS.vistaToolbarVisible);
+    var palette = document.getElementById('vp-floating-palette');
+    if (!palette) return;
+
+    if (WS.vistaToolbarVisible) {
+        if (typeof _apriFloatingPalette === 'function') _apriFloatingPalette();
+        else palette.classList.add('visible');
+        // Nascondi la toolbar orizzontale: sostituita dalla palette
+        if (DOM.viewportToolbar) DOM.viewportToolbar.style.display = 'none';
+    } else {
+        if (typeof _chiudiFloatingPalette === 'function') _chiudiFloatingPalette();
+        else palette.classList.remove('visible');
     }
 }
 

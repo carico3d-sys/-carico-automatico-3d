@@ -10,9 +10,9 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-    --sidebar-w: 230px;
+    --sidebar-w: 260px;
     --panel-w: 360px;
-    --header-h: 48px;
+    --header-h: 58px;
     --color-header: #1a1a2e;
     --color-sidebar-bg: #f5f5f5;
     --color-sidebar-active: #1a1a2e;
@@ -221,19 +221,21 @@ body {
 .sidebar-tab {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 1px;
-    padding: 7px 2px 5px;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 6px;
     background: #f8f8f8;
     border: none;
     border-bottom: 2px solid transparent;
     cursor: pointer;
     transition: all 0.15s ease;
     font-family: inherit;
-    font-size: 9px;
+    font-size: 10px;
     color: #999;
     outline: none;
+    min-height: 44px;
 }
 .sidebar-tab:hover {
     background: #eee;
@@ -247,14 +249,16 @@ body {
 }
 
 .sidebar-tab-icon {
-    font-size: 15px;
+    font-size: 18px;
+    flex-shrink: 0;
 }
 
 .sidebar-tab-label {
     text-transform: uppercase;
     letter-spacing: 0.4px;
     font-weight: 500;
-    font-size: 8px;
+    font-size: 10px;
+    white-space: nowrap;
 }
 
 /* --- Pannelli dei tab --- */
@@ -837,9 +841,10 @@ body {
     position: relative;
 }
 
-/* Toolbar sopra il 3D */
+/* Toolbar orizzontale in alto (default) */
 #viewport-toolbar {
-    display: flex;
+    display: none;       /* sostituito dalla palette flottante */
+    flex-direction: row;
     align-items: center;
     gap: 4px;
     padding: 6px 10px;
@@ -931,13 +936,7 @@ body {
     transition: color 0.2s;
 }
 
-/* Icona zoom (non cliccabile, solo decorativa) */
-.vp-zoom-icon {
-    font-size: 13px;
-    padding: 0 2px;
-    color: rgba(255,255,255,0.45);
-    user-select: none;
-}
+
 
 /* =============================================================================
    POPOVER AIUTO COMANDI (viewport toolbar)
@@ -4146,9 +4145,11 @@ body {
 
 .header-cat-btn {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 5px;
-    padding: 0 14px;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 12px 3px;
     height: var(--header-h);
     background: transparent;
     border: none;
@@ -4162,6 +4163,7 @@ body {
     outline: none;
     white-space: nowrap;
     position: relative;
+    min-width: 56px;
 }
 .header-cat-btn:hover {
     background: rgba(255,255,255,0.06);
@@ -4176,53 +4178,16 @@ body {
 }
 
 .header-cat-icon {
-    font-size: 15px;
+    font-size: 20px;
     flex-shrink: 0;
+    line-height: 1;
 }
 
 .header-cat-label {
-    font-size: 11px;
+    font-size: 9px;
     letter-spacing: 0.3px;
     text-transform: uppercase;
     font-weight: 600;
-}
-
-/* Shortcut buttons (⚡ Auto, ✋ Manuale) — arrow indicator */
-.header-cat-shortcut::after {
-    content: '»';
-    font-size: 10px;
-    margin-left: 2px;
-    opacity: 0.5;
-    transition: opacity 0.18s;
-}
-.header-cat-shortcut:hover::after {
-    opacity: 1;
-}
-.header-cat-shortcut.active {
-    border-bottom-color: #f39c12;
-}
-
-/* Toggle Vista button */
-.header-cat-toggle {
-    position: relative;
-}
-
-.header-cat-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-left: 1px;
-    transition: all 0.25s ease;
-}
-.header-cat-dot.on {
-    background: #27ae60;
-    box-shadow: 0 0 6px rgba(39,174,96,0.5);
-}
-
-.header-cat-dot.off {
-    background: #888;
-    box-shadow: none;
 }
 
 /* =============================================================================
@@ -4246,8 +4211,8 @@ body {
 }
 
 .sidebar-nav-section-title .sidebar-section-icon {
-    font-size: 13px;
-    opacity: 0.7;
+    font-size: 18px;
+    opacity: 0.85;
 }
 
 .sidebar-nav-item {
@@ -4276,15 +4241,341 @@ body {
     border-left-color: var(--color-accent);
 }
 
-.sidebar-nav-item .sidebar-icon {
-    font-size: 15px;
-    width: 20px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
 .sidebar-nav-separator {
     height: 1px;
     background: #e0e0e0;
     margin: 12px 16px;
 }
+
+/* =============================================================================
+   BOOTSTRAP ICONS — ICONE GRANDI TOUCH-FRIENDLY
+   ============================================================================= */
+
+/* Ingrossamento globale icone — tratto + spesso */
+.bi {
+    -webkit-text-stroke: 0.3px;
+    paint-order: stroke fill;
+}
+
+/* Icone header — allineate con il testo */
+#header-logo .bi {
+    font-size: 20px;
+    vertical-align: -2px;
+}
+
+.header-cat-btn .bi {
+    font-size: 20px;
+}
+
+.header-btn .bi {
+    font-size: 15px;
+}
+
+/* Icone sidebar — più grandi (allineate all'header 20px) */
+.sidebar-section-icon .bi,
+.sidebar-icon .bi {
+    font-size: 18px;
+}
+
+.sidebar-item .bi,
+.sidebar-nav-item .bi {
+    font-size: 20px;
+    width: 26px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* Icone help manuale */
+.manuale-help-icon.bi {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+
+/* Icone D-Pad */
+.manuale-dpad-title .bi {
+    font-size: 14px;
+    margin-right: 2px;
+}
+
+.dpad-btn .bi {
+    font-size: 14px;
+}
+
+.dpad-confirm .bi {
+    font-size: 18px;
+}
+
+/* Icone nei bottoni .btn */
+.btn .bi {
+    font-size: 16px;
+}
+
+.btn-lg .bi {
+    font-size: 18px;
+}
+
+.btn-sm .bi {
+    font-size: 13px;
+}
+
+/* Icone panel */
+.panel-header h3 .bi {
+    font-size: 17px;
+}
+
+.panel-empty-icon.bi {
+    font-size: 36px;
+    opacity: 0.4;
+}
+
+.panel-header-trash .bi {
+    font-size: 16px;
+}
+
+/* Icone viewport placeholder */
+.viewport-placeholder .bi.vp-icon {
+    font-size: 56px;
+    opacity: 0.4;
+}
+
+#sidebar-mezzo-icon.bi {
+    font-size: 18px;
+}
+
+/* Icone popover help */
+.vp-help-section-title .bi {
+    font-size: 14px;
+    vertical-align: -1px;
+}
+
+/* Pulsanti toolbar — icone centrate senza etichette */
+.vp-btn .bi {
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* =============================================================================
+   PALETTE FLOTTANTE VISTA — ora in floating_palette.css (file isolato)
+   ============================================================================= */
+
+/* =============================================================================
+   D-PAD — TARGET TOUCH PIÙ GRANDI
+   ============================================================================= */
+
+.dpad-arrow {
+    width: 38px;
+    height: 38px;
+}
+
+.dpad-confirm {
+    width: 42px;
+    height: 42px;
+}
+
+/* =============================================================================
+   SIDEBAR NAV DINAMICO — ICONE PIÙ GRANDI
+   ============================================================================= */
+
+#sidebar-nav-dynamic .sidebar-icon {
+    font-size: 18px;
+    width: 24px;
+}
+
+#sidebar-nav-dynamic .sidebar-section-icon {
+    font-size: 18px;
+    width: 24px;
+}
+
+/* =============================================================================
+   MEDIA QUERY: TABLET e TOUCH (max-width: 1024px)
+   ============================================================================= */
+
+@media (max-width: 1024px), (pointer: coarse) {
+        width: 44px;
+        height: 44px;
+    }
+
+    .dpad-confirm {
+        width: 48px;
+        height: 48px;
+    }
+
+    .dpad-btn .bi {
+        font-size: 18px;
+    }
+
+    .dpad-confirm .bi {
+        font-size: 22px;
+    }
+
+    .sidebar-tab {
+        min-height: 48px;
+    }
+
+    .sidebar-tab-icon {
+        font-size: 20px;
+    }
+
+    .sidebar-tab-label {
+        font-size: 11px;
+    }
+
+    /* Sidebar nav — icone più grandi su tablet */
+    .sidebar-nav-item .bi,
+    .sidebar-nav-item .sidebar-icon {
+        font-size: 22px;
+        width: 28px;
+    }
+
+    .sidebar-nav-section-title .sidebar-section-icon {
+        font-size: 20px;
+    }
+
+    #sidebar-nav-dynamic .sidebar-icon,
+    #sidebar-nav-dynamic .sidebar-section-icon {
+        font-size: 22px;
+        width: 26px;
+    }
+
+    .header-cat-btn .bi {
+        font-size: 22px;
+    }
+
+    .btn-item-action {
+        width: 32px;
+        height: 32px;
+    }
+
+}
+
+/* =============================================================================
+   MEDIA QUERY: SMARTPHONE (max-width: 768px)
+   ============================================================================= */
+
+@media (max-width: 768px) {
+    .dpad-arrow {
+        width: 48px;
+        height: 48px;
+    }
+
+    .dpad-confirm {
+        width: 52px;
+        height: 52px;
+    }
+
+    /* Sidebar nav — icone ancora più grandi su smartphone */
+    .sidebar-nav-item .bi,
+    .sidebar-nav-item .sidebar-icon {
+        font-size: 24px;
+        width: 30px;
+    }
+
+    .sidebar-nav-section-title .sidebar-section-icon {
+        font-size: 22px;
+    }
+
+    #sidebar-nav-dynamic .sidebar-icon,
+    #sidebar-nav-dynamic .sidebar-section-icon {
+        font-size: 24px;
+        width: 28px;
+    }
+
+
+}
+
+/* =============================================================================
+   COLORI ICONE — OGNI SEZIONE HA IL SUO COLORE DISTINTIVO
+   ============================================================================= */
+
+/* --- HEADER: colori per categoria --- */
+.header-cat-btn[data-cat="documenti"] .bi { color: #f0a040; }
+.header-cat-btn[data-cat="anagrafica"] .bi { color: #4da6d9; }
+.header-cat-btn[data-cat="goto-automatica"] .bi { color: #ffcc00; }
+.header-cat-btn[data-cat="goto-manuale"] .bi { color: #ff7b5a; }
+.header-cat-btn[data-cat="toggle-vista"] .bi { color: #4caf50; }
+.header-cat-btn[data-cat="report"] .bi { color: #b07cd8; }
+.header-cat-btn[data-cat="sistema"] .bi { color: #b0b8c0; }
+
+/* Bottone attivo: colore più intenso */
+.header-cat-btn.active[data-cat="documenti"] .bi { color: #ffb950; }
+.header-cat-btn.active[data-cat="anagrafica"] .bi { color: #5db8e8; }
+.header-cat-btn.active[data-cat="goto-automatica"] .bi { color: #ffe040; }
+.header-cat-btn.active[data-cat="goto-manuale"] .bi { color: #ff8c70; }
+.header-cat-btn.active[data-cat="toggle-vista"] .bi { color: #5ec962; }
+.header-cat-btn.active[data-cat="report"] .bi { color: #c490e8; }
+.header-cat-btn.active[data-cat="sistema"] .bi { color: #c4ccd2; }
+
+/* --- SIDEBAR TAB: colori --- */
+.sidebar-tab[data-tab="navigazione"] .sidebar-tab-icon { color: #447e9b; }
+.sidebar-tab[data-tab="manuale"] .sidebar-tab-icon { color: #ff7b5a; }
+.sidebar-tab[data-tab="automatica"] .sidebar-tab-icon { color: #e67e00; }
+
+.sidebar-tab.active[data-tab="navigazione"] .sidebar-tab-icon { color: #3a6e8a; }
+.sidebar-tab.active[data-tab="manuale"] .sidebar-tab-icon { color: #e0694a; }
+.sidebar-tab.active[data-tab="automatica"] .sidebar-tab-icon { color: #cc7000; }
+
+/* --- TOOLBAR VIEWPORT: colori funzionali --- */
+#vp-btn-top .bi { color: #4da6d9; }
+#vp-btn-front .bi { color: #4caf50; }
+#vp-btn-side .bi { color: #ff7b5a; }
+#vp-btn-grid .bi { color: #b07cd8; }
+#vp-btn-reset .bi { color: #f0a040; }
+#vp-btn-fullscreen .bi { color: #b0b8c0; }
+#vp-btn-zoom-out .bi { color: #4da6d9; }
+#vp-btn-zoom-in .bi { color: #4da6d9; }
+#vp-btn-help .bi { color: #f0a040; }
+
+/* Colori palette ora in floating_palette.css */
+
+/* --- ALTRE ICONE CHIAVE --- */
+#header-logo .bi { color: #447e9b; }
+#sidebar-mezzo-icon.bi { color: #447e9b; }
+.panel-header h3 .bi { color: #447e9b; }
+
+/* Icone azione (cestino, matita, etc.) nei bottoni */
+.btn-danger .bi { color: inherit; }
+.btn-primary .bi { color: #fff; }
+.btn-success .bi { color: #fff; }
+
+/* Toast icons */
+.toast-icon .bi.bi-check-circle { color: #27ae60; }
+.toast-icon .bi.bi-x-circle { color: #e74c3c; }
+.toast-icon .bi.bi-info-circle { color: #447e9b; }
+.toast-icon .bi.bi-exclamation-triangle { color: #f39c12; }
+
+/* =============================================================================
+   COLORI SIDEBAR NAVIGAZIONE — OGNI VOCE HA IL SUO COLORE
+   ============================================================================= */
+
+/* --- DOCUMENTI: arancioni/ambra --- */
+.sidebar-nav-section-title i.bi-folder2-open { color: #f0a040; }
+.sidebar-nav-item[data-view="nuovo-carico"] .bi { color: #4caf50; }
+.sidebar-nav-item[data-action="nuovo-carico"] .bi { color: #4caf50; }
+.sidebar-nav-item[data-view="piani"] .bi { color: #d4a050; }
+.sidebar-nav-item[data-view="salva-db"] .bi { color: #4da6d9; }
+.sidebar-nav-item[data-view="export-file"] .bi { color: #1abc9c; }
+.sidebar-nav-item[data-view="import-file"] .bi { color: #1abc9c; }
+.sidebar-nav-item[data-action="svuota-carico"] .bi { color: #e74c3c; }
+
+/* --- ANAGRAFICA: blu --- */
+.sidebar-nav-section-title i.bi-journal-text { color: #4da6d9; }
+.sidebar-nav-item[data-view="oggetti"] .bi { color: #d4a050; }
+.sidebar-nav-item[data-view="vincoli-tra"] .bi { color: #9b59b6; }
+.sidebar-nav-item[data-view="mezzi"] .bi { color: #447e9b; }
+
+/* --- SISTEMA: grigio/blu scuro --- */
+.sidebar-nav-section-title i.bi-gear { color: #8899aa; }
+.sidebar-nav-item[data-view="impostazioni"] .bi { color: #8899aa; }
+.sidebar-nav-item i.bi-shield-shaded { color: #2c3e50; }
+.sidebar-nav-item i.bi-box-arrow-right { color: #c0392b; }
+
+/* --- REPORT: viola --- */
+.sidebar-nav-section-title i.bi-bar-chart { color: #9b59b6; }
+.sidebar-nav-item[data-action="report-3d"] .bi { color: #8855aa; }
+.sidebar-nav-item[data-action="report-quadranti"] .bi { color: #8855aa; }
+
+/* --- STRUMENTI RAPIDI: giallo --- */
+.sidebar-nav-section-title i.bi-lightning-charge { color: #f39c12; }
+.sidebar-nav-item[data-action="carico"] .bi { color: #9b59b6; }
+.sidebar-nav-item[data-action="grafico-pesi"] .bi { color: #e67e00; }
