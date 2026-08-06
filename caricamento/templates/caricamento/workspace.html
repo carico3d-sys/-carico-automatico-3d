@@ -1,0 +1,634 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carico 3D – Workspace</title>
+
+    <!-- Three.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'caricamento/css/workspace.css' %}?v=9">
+    <style>
+        #soluzioni-alternative-panel {
+            background: #fff;
+            border-top: 1px solid #e5e5e5;
+            padding: 10px 14px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .soluzione-alt-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            margin: 6px 0;
+            background: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            border-radius: 6px;
+        }
+        .soluzione-alt-info {
+            display: flex;
+            flex-direction: column;
+            font-size: 12px;
+        }
+        .soluzione-alt-info strong {
+            font-size: 13px;
+            color: #333;
+        }
+        .soluzione-alt-info span {
+            color: #666;
+        }
+    </style>
+
+    <!-- Three.js visualizzatore: core + rendering + orchestratore -->
+    <script src="{% static 'caricamento/js/visualizzatore_3d_core.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/visualizzatore_3d_rendering.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=3" defer></script>
+
+    <!-- Multi Viewport 2×2 (4 viste: Fronte | Lato | Pianta | 3D) -->
+    <script src="{% static 'caricamento/js/multi_viewport_3d.js' %}?v=1" defer></script>
+
+    <!-- Modalità Manuale: snap → oggetti → orchestratore → drag → ghost → tastiera -->
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_snap.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_oggetti.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=9" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_drag.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_ghost.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_tastiera.js' %}?v=1" defer></script>
+
+    <!-- Chart.js per grafici distribuzione pesi -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+
+    <!-- ===== Workspace Modules (load order matters!) ===== -->
+
+    <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=2" defer></script>
+
+    <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
+    <script src="{% static 'caricamento/js/gestione_file.js' %}?v=1" defer></script>
+
+    <!-- 3. Sezioni di Carico (assi) nel form Mezzi -->
+    <script src="{% static 'caricamento/js/workspace_sezioni.js' %}?v=4" defer></script>
+
+    <!-- 4. Vincoli tra Oggetti: rotazioni → canvas → orchestratore -->
+    <script src="{% static 'caricamento/js/workspace_vt_rotazioni.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/workspace_vt_canvas.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/workspace_vt.js' %}?v=3" defer></script>
+
+    <!-- 5. Anteprima 3D Oggetto (nella vista Anagrafica Oggetti) -->
+    <script src="{% static 'caricamento/js/preview_oggetto_3d.js' %}?v=9" defer></script>
+
+    <!-- 6. Pannello Destro: selezione mezzo, carico, editor inline, viewport, export -->
+    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=9" defer></script>
+
+    <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
+    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=4" defer></script>
+    <!-- 7a. Panel Mezzi (lista, form, selezione multipla, batch) -->
+    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=16" defer></script>
+    <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
+    <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=6" defer></script>
+
+    <!-- 8. Soluzioni alternative generate dal Simulated Annealing -->
+    <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=1" defer></script>
+
+    <!-- 9. Ottimizzazione: camera controls, distribuzione pesi, elaboraOttimizzazione -->
+    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=2" defer></script>
+
+    <!-- 9b. Report stampabile -->
+    <script src="{% static 'caricamento/js/workspace_report.js' %}?v=3" defer></script>
+
+    <!-- 9c. Report Quadranti 2×2 -->
+    <script src="{% static 'caricamento/js/workspace_report_quadranti.js' %}?v=1" defer></script>
+
+
+    <!-- 9. Modali: nuovo mezzo, nuovo oggetto, vincoli, piani -->
+    <script src="{% static 'caricamento/js/workspace_modals.js' %}?v=2" defer></script>
+
+    <!-- 10. Impostazioni: strategia, performance, output -->
+    <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=2" defer></script>
+
+    <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
+    <script src="{% static 'caricamento/js/workspace.js' %}?v=22" defer></script>
+
+    <script>
+        window.WORKSPACE_CONFIG = {
+            pianiDisponibili: [
+                {% for p in piani %}
+                { id: {{ p.id }}, nome: "{{ p.nome|escapejs }}", container: "{{ p.contenitore.nome|escapejs }}", stato: "{{ p.stato }}", stato_display: "{{ p.get_stato_display|escapejs }}" },
+                {% endfor %}
+            ],
+            contenitori: [
+                {% for c in contenitori %}
+                { id: {{ c.id }}, nome: "{{ c.nome|escapejs }}", tipo: "{{ c.tipo_mezzo }}", tipo_display: "{{ c.get_tipo_mezzo_display|escapejs }}", lunghezza_mm: {{ c.lunghezza_mm }}, larghezza_mm: {{ c.larghezza_mm }}, altezza_mm: {{ c.altezza_mm }}, carico_massimo_kg: {{ c.carico_massimo_kg }}, archiviato: {% if c.archiviato %}true{% else %}false{% endif %}, sezioni: [{% for s in c.sezioni.all %}{ id: {{ s.id }}, nome: "{{ s.nome|escapejs }}", inizio_x_mm: {{ s.inizio_x_mm }}, fine_x_mm: {{ s.fine_x_mm }}, carico_massimo_kg: {{ s.carico_massimo_kg }}, baricentro_x_mm: {{ s.baricentro_x_mm }}, lunghezza_mm: {{ s.lunghezza_mm }} }{% if not forloop.last %},{% endif %}{% endfor %}] }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            oggettiDisponibili: [
+                {% for o in oggetti %}
+                { id: {{ o.id }}, codice: "{{ o.codice|escapejs }}", descrizione: "{{ o.descrizione|escapejs }}", lunghezza_mm: {{ o.lunghezza_mm }}, larghezza_mm: {{ o.larghezza_mm }}, altezza_mm: {{ o.altezza_mm }}, peso_kg: {{ o.peso_kg }}, quantita: {{ o.quantita_disponibile }}, colore: "{{ o.colore|escapejs }}", archiviato: {% if o.archiviato %}true{% else %}false{% endif %} }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            oggettiCatalog: [
+                {% for c in oggetti_catalog %}
+                { id: {{ c.id }}, codice: "{{ c.codice|escapejs }}", descrizione: "{{ c.descrizione|escapejs }}", lunghezza_mm: {{ c.lunghezza_mm }}, larghezza_mm: {{ c.larghezza_mm }}, altezza_mm: {{ c.altezza_mm }}, peso_kg: {{ c.peso_kg }}, quantita: {{ c.quantita_disponibile }}, colore: "{{ c.colore|escapejs }}", archiviato: {% if c.archiviato %}true{% else %}false{% endif %} }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            vincoli: [
+                {% for v in vincoli %}
+                { oggetto_id: {{ v.oggetto_id }}, rotazione_consentita: {% if v.rotazione_consentita %}true{% else %}false{% endif %}, rotazione_su_x: {% if v.rotazione_su_x %}true{% else %}false{% endif %}, rotazione_su_y: {% if v.rotazione_su_y %}true{% else %}false{% endif %}, rotazione_su_z: {% if v.rotazione_su_z %}true{% else %}false{% endif %}, sovrapponibile: {% if v.sovrapponibile %}true{% else %}false{% endif %}, peso_massimo_tetto_kg: {{ v.peso_massimo_tetto_kg }}, fragile: {% if v.fragile %}true{% else %}false{% endif %}, merce_pericolosa: {% if v.merce_pericolosa %}true{% else %}false{% endif %}, solo_su_piano: {% if v.solo_su_piano %}true{% else %}false{% endif %}, aggancio_forche: {% if v.aggancio_forche %}true{% else %}false{% endif %} },
+                {% endfor %}
+            ],
+            vincoliTraOggetti: [
+                {% for vt in vincoli_tra_oggetti %}
+                { id: {{ vt.v.id }}, oggetto_a: {{ vt.v.oggetto_a_id }}, oggetto_a_codice: "{{ vt.v.oggetto_a.codice|escapejs }}", oggetto_b: {{ vt.v.oggetto_b_id }}, oggetto_b_codice: "{{ vt.v.oggetto_b.codice|escapejs }}", tipo_relazione: "{{ vt.v.tipo_relazione }}", tipo_relazione_display: "{{ vt.v.get_tipo_relazione_display|escapejs }}", attivo: {% if vt.v.attivo %}true{% else %}false{% endif %}, note: "{{ vt.v.note|escapejs|default:"" }}", dettagli_posizionamento: {{ vt.dettagli_json|safe }} },
+                {% endfor %}
+            ],
+            activePianoId: {{ piano_id|default:"null" }},
+            user: { username: "{{ request.user.username }}", isStaff: {% if request.user.is_staff %}true{% else %}false{% endif %} }
+        };
+    </script>
+</head>
+<body>
+<div id="app">
+
+    <!-- ================================================================ -->
+    <!-- HEADER -->
+    <!-- ================================================================ -->
+    <header id="header">
+        <div id="header-brand">
+            <a href="/" id="header-logo">📦 Carico 3D</a>
+            <span id="header-carico-label" class="header-carico-label"></span>
+        </div>
+        <nav id="header-categories">
+            <button class="header-cat-btn active" data-cat="documenti" title="Gestione Documenti">
+                <span class="header-cat-icon">📁</span>
+                <span class="header-cat-label">Documenti</span>
+            </button>
+            <button class="header-cat-btn" data-cat="anagrafica" title="Anagrafica">
+                <span class="header-cat-icon">📋</span>
+                <span class="header-cat-label">Anagrafica</span>
+            </button>
+            <button class="header-cat-btn header-cat-shortcut" data-cat="goto-automatica" title="Vai a Calcolo Automatico">
+                <span class="header-cat-icon">⚡</span>
+                <span class="header-cat-label">Auto</span>
+            </button>
+            <button class="header-cat-btn header-cat-shortcut" data-cat="goto-manuale" title="Vai a Modifica Manuale">
+                <span class="header-cat-icon">✋</span>
+                <span class="header-cat-label">Manuale</span>
+            </button>
+            <button class="header-cat-btn header-cat-toggle" data-cat="toggle-vista" title="Mostra/Nascondi Toolbar Vista">
+                <span class="header-cat-icon">👁️</span>
+                <span class="header-cat-label">Vista</span>
+                <span class="header-cat-dot on" id="header-vista-dot"></span>
+            </button>
+            <button class="header-cat-btn" data-cat="report" title="Report">
+                <span class="header-cat-icon">📊</span>
+                <span class="header-cat-label">Report</span>
+            </button>
+            <button class="header-cat-btn" data-cat="sistema" title="Sistema">
+                <span class="header-cat-icon">⚙️</span>
+                <span class="header-cat-label">Sistema</span>
+            </button>
+        </nav>
+        <div id="header-tools">
+            <button id="header-export-btn" class="header-btn" title="Esporta solo posizioni txt" disabled>📋 Posizioni</button>
+            <span id="header-user">{{ request.user.username }}</span>
+            {% if request.user.is_staff %}
+            <a href="/admin/" id="header-admin-link" title="Pannello Amministrazione">Admin</a>
+            {% endif %}
+            <a href="/logout/" id="header-logout" title="Esci">Esci</a>
+            <a href="/logout-completo/" id="header-logout-full" title="Logout completo (cambia account Google)">Logout</a>
+        </div>
+    </header>
+
+    <!-- ================================================================ -->
+    <!-- PAGE LAYOUT: 3 colonne -->
+    <!-- ================================================================ -->
+    <div id="page">
+
+        <!-- ============================================================ -->
+        <!-- COLONNA 1: SIDEBAR SINISTRA (MENU A 3 TAB) -->
+        <!-- ============================================================ -->
+        <nav id="sidebar">
+
+            <!-- Tab bar -->
+            <div id="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="navigazione">
+                    <span class="sidebar-tab-icon">🧭</span>
+                    <span class="sidebar-tab-label">Navigazione</span>
+                </button>
+                <button class="sidebar-tab" data-tab="manuale">
+                    <span class="sidebar-tab-icon">✋</span>
+                    <span class="sidebar-tab-label">Manuale</span>
+                </button>
+                <button class="sidebar-tab" data-tab="automatica">
+                    <span class="sidebar-tab-icon">⚡</span>
+                    <span class="sidebar-tab-label">Automatica</span>
+                </button>
+            </div>
+
+
+            <!-- Contenuto tab -->
+            <div id="sidebar-nav">
+
+                <!-- ======================================================== -->
+                <!-- TAB: NAVIGAZIONE (contenuto dinamico in base alla categoria header) -->
+                <!-- ======================================================== -->
+                <div class="sidebar-tab-panel active" data-tab-panel="navigazione" id="sidebar-nav-dynamic">
+                    <!-- Riempito dinamicamente da JS: _renderSidebarNavigazione() -->
+                </div>
+
+                <!-- ======================================================== -->
+                <!-- TAB: MANUALE -->
+                <!-- ======================================================== -->
+                <div class="sidebar-tab-panel" data-tab-panel="manuale">
+                    <a class="sidebar-section-title">Modalità Manuale</a>
+                    <div class="sidebar-manuale-content">
+                        <div class="manuale-help-row">
+                            <span class="manuale-help-icon">🖱️</span>
+                            <span>Trascina un oggetto per spostarlo sul piano XY</span>
+                        </div>
+                        <div class="manuale-help-row">
+                            <span class="manuale-help-icon">⌨️</span>
+                            <span><kbd>Ctrl</kbd> + trascina per alzare/abbassare (Z)</span>
+                        </div>
+                        <div class="manuale-help-row">
+                            <span class="manuale-help-icon">🔄</span>
+                            <span><kbd>Shift</kbd> + clicca un oggetto per ruotarlo di 90°</span>
+                        </div>
+                        <div class="field-group" style="margin-top:10px;">
+                            <label class="field-label">Snap griglia</label>
+                            <select class="form-select" id="manuale-snap-step">
+                                <option value="1">1 cm</option>
+                                <option value="5">5 cm</option>
+                                <option value="10" selected>10 cm</option>
+                                <option value="50">50 cm</option>
+                            </select>
+                        </div>
+                        <!-- Sezione D-Pad tastiera -->
+                        <div class="manuale-dpad-section">
+                            <div class="manuale-dpad-title">🎮 Tastiera</div>
+                            <div class="manuale-dpad-row">
+                                <!-- Croce direzionale -->
+                                <div class="manuale-dpad-cross">
+                                    <div class="dpad-row-top">
+                                        <button id="manuale-dpad-up" class="dpad-btn dpad-arrow" title="Avanti (↑)">▲</button>
+                                    </div>
+                                    <div class="dpad-row-mid">
+                                        <button id="manuale-dpad-left" class="dpad-btn dpad-arrow" title="Sinistra (←)">◀</button>
+                                        <button id="manuale-dpad-confirm" class="dpad-btn dpad-confirm" title="Conferma posizione">✓</button>
+                                        <button id="manuale-dpad-right" class="dpad-btn dpad-arrow" title="Destra (→)">▶</button>
+                                    </div>
+                                    <div class="dpad-row-bot">
+                                        <button id="manuale-dpad-down" class="dpad-btn dpad-arrow" title="Indietro (↓)">▼</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="manuale-dpad-hint">Ctrl+←→ = ruota  |  Ctrl+↑↓ = alza/abbassa</div>
+                        </div>
+                        <div class="field-group" style="margin-top:10px;">
+                            <button id="manuale-btn-ghost-toggle" class="btn btn-sm" style="width:100%;">👻 Ghost: OFF</button>
+                        </div>
+                        <div class="field-group" style="margin-top:6px;">
+                            <button id="manuale-btn-aggiungi" class="btn btn-primary btn-sm" style="width:100%;">➕ Aggiungi alla scena</button>
+                            <button id="manuale-btn-annulla-ghost" class="btn btn-danger btn-sm" style="width:100%; margin-top:6px; display:none;">❌ Annulla piazzamento</button>
+                        </div>
+                        <div id="manuale-oggetto-info" class="manuale-oggetto-info" style="display:none;">
+                            <span class="manuale-oggetto-codice" id="manuale-oggetto-codice"></span>
+                            <span class="manuale-oggetto-pos" id="manuale-oggetto-pos"></span>
+                        </div>
+                        <button id="manuale-btn-rimuovi" class="btn btn-danger btn-sm" disabled style="margin-top:8px;width:100%;">🗑️ Rimuovi oggetto</button>
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e0e0e0;">
+                            <button id="manuale-btn-pesi" class="btn btn-sm" style="width:100%;">⚖️ Distribuzione Pesi</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======================================================== -->
+                <!-- TAB: AUTOMATICA -->
+                <!-- ======================================================== -->
+                <div class="sidebar-tab-panel" data-tab-panel="automatica">
+                    <a class="sidebar-section-title">Ottimizzazione Automatica</a>
+                    <div class="sidebar-auto-content">
+                        <p class="sidebar-auto-desc">
+                            Seleziona un mezzo, aggiungi oggetti nel pannello
+                            di destra e avvia l'ottimizzazione 3D automatica.
+                        </p>
+                        <button class="btn btn-primary btn-block btn-lg" id="btn-ottimizza" disabled>
+                            ⚡ ELABORA OTTIMIZZAZIONE
+                        </button>
+                        <div id="task-status">
+                            <span class="task-dot idle"></span>
+                            <span id="task-status-text">Nessuna elaborazione in corso</span>
+                        </div>
+                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e0e0e0;">
+                            <button id="auto-btn-pesi" class="btn btn-sm" style="width:100%;">⚖️ Distribuzione Pesi</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sidebar-riepilogo">
+                <div id="sidebar-riepilogo-mezzo">
+                    <span id="sidebar-mezzo-icon">🚛</span>
+                    <span id="sidebar-mezzo-nome">Nessun mezzo</span>
+                </div>
+                <div class="sidebar-riepilogo-stats" id="sidebar-riepilogo-stats">
+                    <div class="sidebar-stat-row">
+                        <div class="sidebar-stat">
+                            <strong id="sidebar-stat-pezzi">0</strong>
+                            <span>Pezzi</span>
+                        </div>
+                        <div class="sidebar-stat-div"></div>
+                        <div class="sidebar-stat">
+                            <strong id="sidebar-stat-peso">0 kg</strong>
+                            <span>Peso</span>
+                        </div>
+                    </div>
+                    <div class="sidebar-stat-row">
+                        <div class="sidebar-stat">
+                            <strong id="sidebar-stat-righe">0</strong>
+                            <span>Oggetti</span>
+                        </div>
+                        <div class="sidebar-stat-div"></div>
+                        <div class="sidebar-stat">
+                            <strong id="sidebar-stat-lineari">— m</strong>
+                            <span>Lineari</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="sidebar-riepilogo-stato">
+                    <div class="sidebar-status-dot" id="sidebar-status-dot"></div>
+                    <span id="sidebar-status-label">Pronto</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ============================================================ -->
+        <!-- COLONNA 2: AREA CENTRALE — VIEWPORT 3D IMMERSIVO -->
+        <!-- ============================================================ -->
+        <main id="main">
+
+            <!-- Toolbar sopra il 3D -->
+            <div id="viewport-toolbar">
+                <button class="vp-btn" id="vp-btn-top" title="Vista dall'alto">⬆</button>
+                <button class="vp-btn" id="vp-btn-front" title="Vista frontale">⬛</button>
+                <button class="vp-btn" id="vp-btn-side" title="Vista laterale">➡</button>
+                <button class="vp-btn" id="vp-btn-grid" title="Vista 2×2 (4 quadranti)">⊞</button>
+                <span class="vp-separator"></span>
+                <button class="vp-btn" id="vp-btn-zoom-out" title="Zoom -">➖</button>
+                <span class="vp-zoom-icon" title="Zoom">🔍</span>
+                <button class="vp-btn" id="vp-btn-zoom-in" title="Zoom +">➕</button>
+                <span class="vp-separator"></span>
+                <button class="vp-btn" id="vp-btn-fit" title="Zoom Fit">🔍</button>
+                <button class="vp-btn" id="vp-btn-reset" title="Reset Camera">🏠</button>
+                <button class="vp-btn" id="vp-btn-fullscreen" title="Fullscreen">⛶</button>
+                <span class="vp-separator"></span>
+                <button class="vp-btn" id="vp-btn-help" title="Aiuto comandi">?</button>
+                <span class="vp-separator"></span>
+                <span class="vp-spaziatura-indicator" id="vp-spaziatura-indicator" title="Spaziatura oggetti (Shift+rotella / [ ])">
+                    📏 <span id="vp-spaziatura-val">100%</span>
+                </span>
+            </div>
+
+            <!-- Popover Aiuto Comandi -->
+            <div id="vp-help-popover" class="vp-help-popover" style="display:none;">
+                <div class="vp-help-close" id="vp-help-close">✕</div>
+                <div class="vp-help-section">
+                    <div class="vp-help-section-title">🖱️ Mouse</div>
+                    <div class="vp-help-row"><kbd>Click sx</kbd> + trascina → Ruota</div>
+                    <div class="vp-help-row"><kbd>Click dx</kbd> + trascina → Sposta</div>
+                    <div class="vp-help-row"><kbd>Rotellina</kbd> → Zoom</div>
+                </div>
+                <div class="vp-help-section">
+                    <div class="vp-help-section-title">⌨️ Tastiera</div>
+                    <div class="vp-help-row"><kbd>+</kbd> / <kbd>-</kbd> → Zoom avanti / indietro</div>
+                    <div class="vp-help-row"><kbd>F</kbd> → Zoom fit</div>
+                    <div class="vp-help-row"><kbd>R</kbd> → Reset vista</div>
+                </div>
+                <div class="vp-help-section">
+                    <div class="vp-help-section-title">📏 Spaziatura</div>
+                    <div class="vp-help-row"><kbd>Shift</kbd> + <kbd>Rotellina</kbd> → Regola fine (±1%)</div>
+                    <div class="vp-help-row"><kbd>[</kbd> / <kbd>]</kbd> → Meno / Più spaziatura (5%)</div>
+                    <div class="vp-help-row"><kbd>\</kbd> → Reset a 100%</div>
+                </div>
+            </div>
+
+            <!-- Slider sequenza carico -->
+            <div id="vp-slider-bar" style="display:none;">
+                <span class="vp-slider-icon" title="Sequenza carico/scarico">📦</span>
+                <input type="range" id="vp-slider-carico" class="vp-slider" min="0" max="0" value="0" step="1" title="Trascina per mostrare/nascondere gli oggetti in sequenza">
+                <span class="vp-slider-count" id="vp-slider-count">0 / 0</span>
+            </div>
+
+            <!-- Container 3D -->
+            <div id="viewport-3d">
+                <div class="viewport-placeholder" id="viewport-placeholder">
+                    <span class="vp-icon">📦</span>
+                    <h3>Visualizzazione 3D</h3>
+                    <p>Aggiungi oggetti nel pannello di destra, seleziona un mezzo e clicca <strong>"Elabora Ottimizzazione"</strong> per vedere il carico in 3D.</p>
+                    <p class="vp-hint-controls">💡 <strong>Trascina</strong> per ruotare &nbsp;|&nbsp; <strong>Rotellina</strong> per zoom &nbsp;|&nbsp; <strong>Tasto destro</strong> per spostare</p>
+                </div>
+            </div>
+
+            <!-- Distribuzione pesi per sezione -->
+            <div id="sezioni-pesi-panel" style="display: none;">
+                <h4 class="sezioni-pesi-title">📊 Distribuzione Pesi per Sezione</h4>
+                <div class="sezioni-pesi-grid">
+                    <div class="sezioni-pesi-chart-col">
+                        <canvas id="sezioni-peso-chart"></canvas>
+                    </div>
+                    <div class="sezioni-pesi-list-col">
+                        <div id="sezioni-pesi-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Soluzioni alternative generate dal Simulated Annealing -->
+            <div id="soluzioni-alternative-panel" style="display: none;">
+                <div class="sezioni-pesi-title" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>🔀 Soluzioni Alternative SA</span>
+                    <button id="btn-chiudi-alternative" class="vp-btn" title="Chiudi" style="font-size:12px;padding:2px 6px;">✕</button>
+                </div>
+                <div id="soluzioni-alternative-list"></div>
+            </div>
+
+            <!-- Panel View (split: lista + form) — alternativo al viewport -->
+            <div id="panel-view" style="display:none;">
+                <div id="panel-view-toolbar">
+                    <a class="pv-back-link" id="pv-btn-back" style="font-size:13px;">← Torna al Carico 3D</a>
+                </div>
+                <div id="panel-view-split">
+                    <div id="panel-view-list">
+                        <div class="pv-list-header">
+                            <h3 id="pv-list-title">Lista</h3>
+                            <span class="badge" id="pv-list-count">0</span>
+                        </div>
+                        <div class="pv-list-body" id="pv-list-body"></div>
+                        <!-- Paginazione piani (visibile solo quando view=piani) -->
+                        <div id="piani-pagination" class="piani-pagination" style="display:none;">
+                            {% if piani.has_other_pages %}
+                            <div class="pagination-controls">
+                                {% if piani.has_previous %}
+                                <a class="pagination-btn" href="?page={{ piani.previous_page_number }}" title="Pagina precedente">← Precedente</a>
+                                {% else %}
+                                <span class="pagination-btn disabled">← Precedente</span>
+                                {% endif %}
+
+                                <span class="pagination-info">
+                                    Pagina <strong>{{ piani.number }}</strong> di <strong>{{ piani.paginator.num_pages }}</strong>
+                                    <span class="pagination-total">({{ piani.paginator.count }} piani totali)</span>
+                                </span>
+
+                                {% if piani.has_next %}
+                                <a class="pagination-btn" href="?page={{ piani.next_page_number }}" title="Pagina successiva">Successiva →</a>
+                                {% else %}
+                                <span class="pagination-btn disabled">Successiva →</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <!-- Paginazione oggetti (visibile solo quando view=oggetti) -->
+                        <div id="oggetti-pagination" class="piani-pagination" style="display:none;">
+                            {% if oggetti.has_other_pages %}
+                            <div class="pagination-controls">
+                                {% if oggetti.has_previous %}
+                                <a class="pagination-btn" href="?oggetti_page={{ oggetti.previous_page_number }}" title="Pagina precedente">← Precedente</a>
+                                {% else %}
+                                <span class="pagination-btn disabled">← Precedente</span>
+                                {% endif %}
+
+                                <span class="pagination-info">
+                                    Pagina <strong>{{ oggetti.number }}</strong> di <strong>{{ oggetti.paginator.num_pages }}</strong>
+                                    <span class="pagination-total">({{ oggetti.paginator.count }} oggetti totali)</span>
+                                </span>
+
+                                {% if oggetti.has_next %}
+                                <a class="pagination-btn" href="?oggetti_page={{ oggetti.next_page_number }}" title="Pagina successiva">Successiva →</a>
+                                {% else %}
+                                <span class="pagination-btn disabled">Successiva →</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div id="panel-view-form">
+                        <div class="pv-form-header">
+                            <h4 id="pv-form-title">Dettaglio / Nuovo</h4>
+                        </div>
+                        <div class="pv-form-body" id="pv-form-body"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ============================================================ -->
+        <!-- COLONNA 3: PANNELLO DESTRO — OGGETTI + EDITOR -->
+        <!-- ============================================================ -->
+        <aside id="panel-destro">
+
+            <!-- Header -->
+            <div class="panel-header">
+                <h3>📦 Oggetti nel Carico</h3>
+                <span class="panel-header-sel" id="panel-header-sel" title="Oggetti selezionati">sel:0</span>
+                <button id="panel-header-trash" class="panel-header-trash" title="Elimina oggetti selezionati">🗑️</button>
+            </div>
+
+            <!-- Corpo scrollabile -->
+            <div class="panel-body">
+
+                <!-- Aggiungi oggetto (autocomplete) -->
+                <div class="panel-add-row">
+                    <div class="panel-autocomplete-wrap">
+                        <input type="text" class="panel-add-input" id="panel-input-oggetto" placeholder="Cerca oggetto per codice..." autocomplete="off">
+                        <div class="panel-autocomplete-dropdown" id="panel-autocomplete-dropdown"></div>
+                        <select class="panel-add-select" id="panel-select-oggetto" style="display:none;">
+                            <option value="">— Aggiungi oggetto —</option>
+                            {% for c in oggetti_catalog %}
+                            <option value="{{ c.id }}">{{ c.codice }} — {{ c.descrizione|truncatechars:30 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button class="btn-icon" id="btn-panel-add" title="Aggiungi">+</button>
+                </div>
+
+                <!-- Intestazione colonne -->
+                <div class="panel-items-header" id="panel-items-header" style="display:none;">
+                    <span class="panel-header-col panel-header-col-color"></span>
+                    <span class="panel-header-col panel-header-col-info">Oggetto</span>
+                    <span class="panel-header-col panel-header-col-qty-piazz">Qtà piazz.</span>
+                    <span class="panel-header-col panel-header-col-qty-rich">Qtà rich.</span>
+                    <span class="panel-header-col panel-header-col-prio">Prior</span>
+                    <span class="panel-header-col panel-header-col-actions">Azioni</span>
+                </div>
+
+                <!-- Lista oggetti nel carico -->
+                <div class="panel-items-list" id="panel-items-list"></div>
+                <div class="panel-empty" id="panel-empty">
+                    <span class="panel-empty-icon">📭</span>
+                    <span>Nessun oggetto nel carico</span>
+                </div>
+
+                
+            </div>
+
+            <!-- Footer con azioni -->
+            <div class="panel-footer">
+                <select id="header-vehicle-select" class="form-select">
+                    <option value="">— Seleziona mezzo —</option>
+                    {% for c in contenitori %}{% if not c.archiviato %}
+                    <option value="{{ c.id }}">{{ c.nome }}</option>
+                    {% endif %}{% endfor %}
+                </select>
+            </div>
+        </aside>
+
+    </div>
+
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL OVERLAY -->
+<!-- ================================================================ -->
+<div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-title">Titolo</h3>
+            <button class="modal-close" id="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-footer">
+            <button class="btn" id="modal-cancel">Annulla</button>
+            <button class="btn btn-primary" id="modal-confirm">Conferma</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- NOTIFICATION TOAST -->
+<!-- ================================================================ -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ================================================================ -->
+<!-- MODAL: Carica Piano (lista piani) — hidden, clonato via JS -->
+<!-- ================================================================ -->
+<div style="display:none;">
+    <select id="template-piani-select">
+        <option value="">— Seleziona piano —</option>
+        {% for p in piani %}
+        <option value="{{ p.id }}">{{ p.nome }} — {{ p.contenitore.nome }} [{{ p.get_stato_display }}]</option>
+        {% endfor %}
+    </select>
+</div>
+
+<!-- ================================================================ -->
+<!-- SIDEBAR FLYOUT (menu a tendina laterale) -->
+<!-- ================================================================ -->
+<div id="sidebar-flyout" class="sidebar-flyout"></div>
+
+</body>
+</html>
