@@ -13,6 +13,12 @@ django-q2>=1.7.0
 # Database SQL parser (dipendenza di Django)
 sqlparse==0.5.3
 
+# PostgreSQL adapter
+psycopg2-binary>=2.9
+
+# Variabili d'ambiente da file .env
+python-dotenv>=1.0
+
 # Autenticazione social (Google OAuth2)
 django-allauth>=0.63.0
 
