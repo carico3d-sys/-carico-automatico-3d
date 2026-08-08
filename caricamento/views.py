@@ -10,14 +10,17 @@ Fornisce endpoint REST per:
 import hashlib
 import json
 import logging
+import os
 import random
 import uuid
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.signing import BadSignature, Signer
 from django.db.models.deletion import ProtectedError
+from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -1117,3 +1120,97 @@ class VincoloTraOggettiViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = VincoloTraOggetti.objects.select_related("oggetto_a", "oggetto_b").all()
     serializer_class = VincoloTraOggettiSerializer
+
+
+# ===========================================================================
+# API: Gestione Icone (Admin only)
+# ===========================================================================
+
+ICON_CONFIG_PATH = os.path.join(settings.BASE_DIR, "icon_config.json")
+ICON_UPLOAD_DIR = os.path.join(settings.BASE_DIR, "caricamento", "static", "caricamento", "img")
+
+
+def _load_icon_config():
+    """Carica la configurazione icone dal file JSON."""
+    if os.path.exists(ICON_CONFIG_PATH):
+        try:
+            with open(ICON_CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {"config": {}}
+
+
+def _save_icon_config(data):
+    """Salva la configurazione icone nel file JSON."""
+    os.makedirs(os.path.dirname(ICON_CONFIG_PATH), exist_ok=True)
+    with open(ICON_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+@login_required
+def api_icone_config(request):
+    """
+    GET  /api/icone-config/  → Restituisce la configurazione icone attuale
+    POST /api/icone-config/  → Salva la configurazione icone (solo admin)
+    """
+    if request.method == "GET":
+        config = _load_icon_config()
+        return JsonResponse(config)
+
+    if request.method == "POST":
+        if not request.user.is_staff:
+            return JsonResponse({"error": "Solo amministratori."}, status=403)
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({"error": "JSON non valido."}, status=400)
+
+        if "config" not in data:
+            return JsonResponse({"error": "Campo 'config' richiesto."}, status=400)
+
+        _save_icon_config(data)
+        return JsonResponse({"success": True, "message": "Configurazione salvata."})
+
+    return JsonResponse({"error": "Metodo non consentito."}, status=405)
+
+
+@login_required
+def api_icone_upload(request):
+    """
+    POST /api/icone-upload/  → Carica un file PNG nella cartella img (solo admin)
+
+    Body: multipart/form-data con campo 'file'.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Metodo non consentito."}, status=405)
+
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Solo amministratori."}, status=403)
+
+    uploaded_file = request.FILES.get("file")
+    if not uploaded_file:
+        return JsonResponse({"error": "Nessun file fornito."}, status=400)
+
+    # Verifica estensione
+    filename = uploaded_file.name.lower()
+    if not filename.endswith(".png"):
+        return JsonResponse({"error": "Solo file PNG accettati."}, status=400)
+
+    # Sanitizza il nome file
+    safe_name = os.path.basename(filename).replace(" ", "_").replace("..", "")
+
+    # Limite dimensione: 500 KB
+    if uploaded_file.size > 500 * 1024:
+        return JsonResponse({"error": "File troppo grande. Max 500 KB."}, status=400)
+
+    # Crea la directory se non esiste
+    os.makedirs(ICON_UPLOAD_DIR, exist_ok=True)
+
+    dest_path = os.path.join(ICON_UPLOAD_DIR, safe_name)
+    with open(dest_path, "wb+") as dest:
+        for chunk in uploaded_file.chunks():
+            dest.write(chunk)
+
+    logger.info("Icon PNG uploaded: %s by %s", safe_name, request.user.username)
+    return JsonResponse({"success": True, "filename": safe_name})

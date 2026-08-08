@@ -47,4 +47,8 @@ urlpatterns = [
     # Redirect dal vecchio visualizzatore al nuovo workspace
     path("visualizzatore/", views.visualizzatore_3d, name="visualizzatore_3d"),
     path("visualizzatore/<int:piano_id>/", views.visualizzatore_3d, name="visualizzatore_3d_piano"),
+
+    # Gestione Icone (Admin only)
+    path("api/icone-config/", views.api_icone_config, name="api_icone_config"),
+    path("api/icone-upload/", views.api_icone_upload, name="api_icone_upload"),
 ]

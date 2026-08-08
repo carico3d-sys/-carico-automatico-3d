@@ -1,0 +1,35 @@
+cd C:\progetti_python\carico_aut_man3
+ 
+# 1. Aggiungi tutte le modifiche
+git add .
+ 
+# 2. Salva con un messaggio
+git commit -m "Messaggio che descrive cosa hai cambiato"
+ 
+# 3. Carica su GitHub
+git push
+
+Esempio pratico — se hai modificato un file JS:
+// bash
+git add .
+git commit -m "Sistemato bug nel workspace 3D"
+git push
+
+
+# 1. Installare Docker (una volta sola)
+curl -fsSL https://get.docker.com | sh
+ 
+# 2. Avviare PostgreSQL (stesso identico comando)
+docker run --name postgres_carico \
+  -e POSTGRES_PASSWORD=Carico3D_2026! \
+  -e POSTGRES_DB=carico_3d \
+  -p 5432:5432 -d postgres:16
+ 
+# 3. Clonare il progetto da GitHub
+git clone https://github.com/carico3d-sys/-carico-automatico-3d.git
+cd -carico-automatico-3d
+ 
+# 4. Creare .env (uguale ma con password più sicura)
+# 5. pip install -r requirements.txt
+# 6. python manage.py migrate
+# 7. python manage.py createsuperuser

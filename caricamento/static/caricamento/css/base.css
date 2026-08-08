@@ -1,0 +1,941 @@
+/* base.css — layout, header, sidebar, viewport toolbar */
+/* =============================================================================
+   WORKSPACE CARICO 3D — LAYOUT 3 COLONNE
+   =============================================================================
+   1. Sidebar sinistra (menu) — 230px fissi
+   2. Area centrale (viewport 3D) — flex-grow
+   3. Pannello destro (oggetti + editor) — 360px fissi
+   ============================================================================= */
+
+/* --- Reset & Base --- */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --sidebar-w: 260px;
+    --panel-w: 360px;
+    --header-h: 58px;
+    --color-header: #1a1a2e;
+    --color-sidebar-bg: #f5f5f5;
+    --color-sidebar-active: #1a1a2e;
+    --color-accent: #447e9b;
+    --color-accent-hover: #5095b5;
+    --color-border: #e2e2e2;
+    --color-bg: #f0f2f5;
+    --color-white: #fff;
+    --color-text: #333;
+    --color-text-muted: #888;
+    --color-danger: #e74c3c;
+    --color-success: #27ae60;
+    --color-warning: #f39c12;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+    --radius: 6px;
+    --radius-sm: 4px;
+    --transition: 0.15s ease;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    color: var(--color-text);
+    background: var(--color-white);
+    overflow: hidden;
+    height: 100vh;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.hidden { display: none !important; }
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+
+#header {
+    height: var(--header-h);
+    min-height: var(--header-h);
+    background: var(--color-header);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    color: #fff;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+#header-brand { display: flex; align-items: center; gap: 6px; }
+
+#header-logo {
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    text-decoration: none;
+    letter-spacing: -0.3px;
+}
+
+.header-carico-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.75);
+    padding-left: 10px;
+    margin-left: 8px;
+    border-left: 1px solid rgba(255,255,255,0.25);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+}
+
+#header-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.6);
+}
+
+#header-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-btn {
+    padding: 5px 10px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius-sm);
+    color: rgba(255,255,255,0.8);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+    outline: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.header-btn:hover {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+}
+.header-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.header-btn-icon {
+    font-size: 16px;
+    padding: 5px 8px;
+}
+
+.header-brand-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.15);
+    margin: 0 6px;
+    flex-shrink: 0;
+}
+
+#header-user {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.06);
+    border-radius: var(--radius-sm);
+}
+
+#header-admin-link, #header-logout, #header-logout-full {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+}
+#header-logout-full { color: rgba(255,255,255,0.5); }
+#header-admin-link:hover, #header-logout:hover, #header-logout-full:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+#header-logout-full {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+    text-decoration: none;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+    position: relative;
+    margin-left: 2px;
+}
+#header-logout-full::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background: rgba(255,255,255,0.15);
+}
+
+/* =============================================================================
+   PAGE LAYOUT — 3 colonne
+   ============================================================================= */
+
+#page {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - var(--header-h));
+}
+
+/* =============================================================================
+   1. SIDEBAR SINISTRA
+   ============================================================================= */
+
+#sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--color-sidebar-bg);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- Tab bar in cima alla sidebar --- */
+#sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
+    background: #fff;
+}
+
+.sidebar-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 6px;
+    background: #f8f8f8;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    font-size: 10px;
+    color: #999;
+    outline: none;
+    min-height: 44px;
+}
+.sidebar-tab:hover {
+    background: #eee;
+    color: #666;
+}
+.sidebar-tab.active {
+    background: var(--color-sidebar-bg);
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+    font-weight: 700;
+}
+
+.sidebar-tab-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.sidebar-tab-label {
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 500;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+/* --- Pannelli dei tab --- */
+.sidebar-tab-panel {
+    display: none;
+}
+.sidebar-tab-panel.active {
+    display: block;
+}
+
+/* --- Placeholder per tab Manuale --- */
+.sidebar-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    color: #aaa;
+}
+.sidebar-placeholder-icon {
+    font-size: 40px;
+    opacity: 0.45;
+}
+.sidebar-placeholder-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+}
+.sidebar-placeholder-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #999;
+}
+.sidebar-placeholder-hint {
+    font-size: 10px;
+    color: #bbb;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-top: 4px;
+}
+
+/* --- Contenuto tab Automatica --- */
+.sidebar-auto-content {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.sidebar-auto-desc {
+    font-size: 11px;
+    color: #999;
+    line-height: 1.4;
+}
+
+/* --- Contenuto tab Manuale --- */
+.sidebar-manuale-content {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.manuale-help-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #777;
+    line-height: 1.4;
+    padding: 4px 0;
+}
+
+.manuale-help-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    width: 22px;
+    text-align: center;
+}
+
+.manuale-help-row kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #444;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 600;
+}
+
+.manuale-oggetto-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    background: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    border-radius: var(--radius-sm);
+    margin-top: 4px;
+    font-size: 11px;
+    color: #2e7d32;
+    animation: manuale-info-in 0.15s ease;
+}
+
+@keyframes manuale-info-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.manuale-oggetto-codice {
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.manuale-oggetto-pos {
+    color: #555;
+    font-size: 11px;
+}
+
+/* D-Pad tastiera (modalità manuale) */
+.manuale-dpad-section {
+    background: #f0f4f8;
+    border: 1px solid #dde3ea;
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    margin-top: 4px;
+}
+
+.manuale-dpad-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.manuale-dpad-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+/* Croce direzionale */
+.manuale-dpad-cross {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.dpad-row-top,
+.dpad-row-mid,
+.dpad-row-bot {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Bottoni D-Pad */
+.dpad-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #c8cdd4;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    font-family: inherit;
+    user-select: none;
+    outline: none;
+    background: #fff;
+    color: #444;
+}
+
+.dpad-btn:hover {
+    background: #e8f0f8;
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.dpad-btn:active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+    transform: scale(0.93);
+}
+
+/* Frecce direzionali */
+.dpad-arrow {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+/* Bottone conferma centrale */
+.dpad-confirm {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    font-weight: 700;
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+    color: #2e7d32;
+    border-radius: 50%;
+}
+
+.dpad-confirm:hover {
+    background: #c8e6c9;
+    border-color: #66bb6a;
+    color: #1b5e20;
+}
+
+.dpad-confirm:active {
+    background: #43a047;
+    border-color: #43a047;
+    color: #fff;
+}
+
+/* Hint sotto il D-pad */
+.manuale-dpad-hint {
+    font-size: 9px;
+    color: #999;
+    text-align: center;
+    margin-top: 6px;
+    letter-spacing: 0.3px;
+}
+
+/* Task status dentro la sidebar */
+#sidebar-nav #task-status {
+    padding: 4px 0;
+}
+
+#sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.sidebar-section-title {
+    display: block;
+    padding: 10px 16px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--color-text-muted);
+    cursor: default;
+}
+
+/* =============================================================================
+   SIDEBAR — SEZIONI CON FLYOUT A DESTRA (HOVER)
+   ============================================================================= */
+
+.sidebar-section {
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.sidebar-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition);
+    position: relative;
+}
+.sidebar-section-header:hover {
+    background: #e0e8f0;
+    color: var(--color-accent);
+}
+.sidebar-section-header.active-flyout {
+    background: #d4e0ec;
+    color: var(--color-accent);
+}
+
+.sidebar-section-icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity var(--transition);
+}
+.sidebar-section-header:hover .sidebar-section-icon {
+    opacity: 1;
+}
+
+.sidebar-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #555;
+    flex: 1;
+    transition: color var(--transition);
+}
+.sidebar-section-header:hover .sidebar-section-label {
+    color: var(--color-accent);
+}
+
+/* Corpo nascosto (il contenuto viene clonato nel flyout) */
+.sidebar-section-body {
+    display: none;
+}
+
+/* =============================================================================
+   SIDEBAR FLYOUT (pannello a tendina laterale)
+   ============================================================================= */
+
+.sidebar-flyout {
+    position: fixed;
+    z-index: 5000;
+    background: #fff;
+    border: 1px solid #d0d5dc;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    min-width: 190px;
+    padding: 6px 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-6px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+}
+
+.sidebar-flyout.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+/* Freccia/triangolo verso sinistra */
+.sidebar-flyout::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 14px;
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 7px solid #d0d5dc;
+}
+.sidebar-flyout::after {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 15px;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 6px solid #fff;
+}
+
+/* Item dentro il flyout — stesso stile del menu principale */
+.sidebar-flyout .sidebar-item {
+    border-left: none;
+    border-bottom: 1px solid #eee;
+}
+.sidebar-flyout .sidebar-item:last-child {
+    border-bottom: none;
+}
+.sidebar-flyout .sidebar-item.active {
+    border-left: none;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    color: #444;
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    transition: all var(--transition);
+    cursor: pointer;
+    user-select: none;
+}
+.sidebar-item:hover {
+    background: #eaeaea;
+    color: #222;
+}
+.sidebar-item.active {
+    background: #e0e0e0;
+    color: var(--color-sidebar-active);
+    border-left-color: var(--color-accent);
+    font-weight: 600;
+}
+
+.sidebar-item-external {
+    color: #666;
+    font-size: 12px;
+}
+
+.sidebar-icon {
+    font-size: 15px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.sidebar-separator {
+    height: 1px;
+    background: #ddd;
+    margin: 8px 16px;
+}
+
+/* =============================================================================
+   PULSANTI AZIONE (header + sidebar)
+   ============================================================================= */
+
+.sidebar-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 4px 6px 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    font-family: inherit;
+    outline: none;
+    color: rgba(255,255,255,0.7);
+    min-width: 44px;
+}
+.sidebar-action-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.15);
+    color: #fff;
+}
+.sidebar-action-btn:active {
+    background: rgba(255,255,255,0.18);
+    transform: scale(0.94);
+}
+
+.sidebar-action-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.sidebar-action-label {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* --- Sidebar item per Vista (evidenziato) --- */
+.sidebar-item-vista {
+    font-size: 12px;
+}
+
+.sidebar-item-vista:hover {
+    background: #e0ecf5;
+    color: var(--color-accent);
+}
+
+/* Sidebar status (ora dentro #sidebar-riepilogo-stato) */
+.sidebar-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #aaa;
+}
+
+/* =============================================================================
+   SIDEBAR RIEPILOGO (footer sinistro: mezzo + stats + stato)
+   ============================================================================= */
+
+#sidebar-riepilogo {
+    border-top: 1px solid #ddd;
+    flex-shrink: 0;
+    background: #fafafa;
+}
+
+#sidebar-riepilogo-mezzo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+#sidebar-mezzo-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+#sidebar-mezzo-nome {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-riepilogo-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 10px 6px;
+}
+
+.sidebar-stat-row {
+    display: flex;
+    gap: 0;
+}
+
+.sidebar-stat-div {
+    width: 1px;
+    background: #e0e0e0;
+    flex-shrink: 0;
+    margin: 4px 0;
+}
+
+.sidebar-riepilogo-stats .sidebar-stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 5px 2px;
+    background: #fff;
+    min-width: 0;
+}
+
+.sidebar-riepilogo-stats .sidebar-stat strong {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-sidebar-active);
+    white-space: nowrap;
+}
+
+.sidebar-riepilogo-stats .sidebar-stat span {
+    font-size: 8px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+#sidebar-riepilogo-stato {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 8px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    border-top: 1px solid #eee;
+}
+
+/* =============================================================================
+   2. AREA CENTRALE — VIEWPORT 3D
+   ============================================================================= */
+
+#main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-bg);
+    position: relative;
+}
+
+/* Toolbar orizzontale in alto (default) */
+#viewport-toolbar {
+    display: none;       /* sostituito dalla palette flottante */
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(26,26,46,0.85);
+    backdrop-filter: blur(8px);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+.viewport-toolbar-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    margin-left: 4px;
+    margin-right: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.vp-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: rgba(255,255,255,0.65);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+}
+.vp-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.15);
+    color: #fff;
+}
+.vp-btn:active { background: rgba(255,255,255,0.15); }
+.vp-btn.active {
+    background: rgba(68,126,155,0.3);
+    border-color: rgba(68,126,155,0.4);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(68,126,155,0.25);
+}
+
+.vp-btn[title]::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.vp-btn:hover[title]::after { opacity: 1; }
+
+.vp-separator {
+    width: 1px;
+    height: 18px;
+    background: rgba(255,255,255,0.12);
+    margin: 0 6px;
+}
+
+/* Indicatore spaziatura oggetti */
+.vp-spaziatura-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.55);
+    padding: 0 4px;
+    user-select: none;
+    white-space: nowrap;
+}
+.vp-spaziatura-indicator #vp-spaziatura-val {
+    font-variant-numeric: tabular-nums;
+    min-width: 32px;
+    text-align: right;
+    transition: color 0.2s;
+}
+
+
+

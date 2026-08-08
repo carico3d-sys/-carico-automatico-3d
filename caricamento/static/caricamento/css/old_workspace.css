@@ -4182,6 +4182,12 @@ body {
     flex-shrink: 0;
     line-height: 1;
 }
+/* Supporto per icone personalizzate via <img> */
+img.header-cat-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
 
 .header-cat-label {
     font-size: 9px;

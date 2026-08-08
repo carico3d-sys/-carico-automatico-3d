@@ -1,0 +1,68 @@
+{
+  "config": {
+    "header-documenti": {
+      "type": "png",
+      "file": "folder.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-anagrafica": {
+      "type": "png",
+      "file": "archivio.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-auto": {
+      "type": "png",
+      "file": "automatico.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-manuale": {
+      "type": "png",
+      "file": "manuale.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-vista": {
+      "type": "png",
+      "file": "vista.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-report": {
+      "type": "png",
+      "file": "report.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-sistema": {
+      "type": "png",
+      "file": "impsotazioni.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-strumenti": {
+      "type": "png",
+      "file": "strumentiRapidi.png",
+      "dims": [
+        40,
+        40
+      ]
+    }
+  }
+}

@@ -45,6 +45,18 @@ function inizializza() {
         });
     }
 
+    // --- Header: gestione icone (solo admin) ---
+    var iconeBtn = document.getElementById('header-icone-btn');
+    if (iconeBtn) {
+        iconeBtn.addEventListener('click', function () {
+            if (typeof apriModaleIcone === 'function') {
+                apriModaleIcone();
+            } else {
+                showToast('Modulo gestione icone non caricato.', 'error');
+            }
+        });
+    }
+
     // --- Panel destro: inizializza autocomplete "Aggiungi oggetto" ---
     if (typeof _initPanelAutocomplete === 'function') {
         _initPanelAutocomplete();
@@ -183,6 +195,15 @@ function inizializza() {
 
     // --- Render iniziale sidebar Navigazione (categoria default: documenti)
     _renderSidebarNavigazione('documenti');
+
+    // --- Applica configurazione icone (PNG al posto di Bootstrap dove configurato)
+    if (typeof initIconManager === 'function') {
+        initIconManager();
+    }
+    // Riapplica dopo che la sidebar è stata renderizzata dinamicamente
+    if (typeof _applyIconConfig === 'function') {
+        setTimeout(function () { _applyIconConfig(); }, 200);
+    }
 
     setStatus('idle', 'Pronto');
     console.log('🏗️ Workspace Carico 3D v4 inizializzato (layout 3 colonne, header categorie)');

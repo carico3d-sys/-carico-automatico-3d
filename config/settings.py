@@ -203,9 +203,8 @@ SOCIALACCOUNT_PROVIDERS = {
 SOCIALACCOUNT_ADAPTER = "caricamento.adapter.DynamicGoogleAdapter"
 
 # django-allauth: account settings
-ACCOUNT_EMAIL_REQUIRED = False
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = "username"
+ACCOUNT_LOGIN_METHODS = {"username"}  # login solo con username (non email)
+ACCOUNT_SIGNUP_FIELDS = ['email', 'username*', 'password1*', 'password2*']  # username* = obbligatorio, email = opzionale
 ACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
@@ -214,7 +213,7 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 # Middleware personalizzato per trial
 # ---------------------------------------------------------------------------
 TRIAL_REQUIRED_PATHS = ["/workspace/"]
-TRIAL_EXEMPT_PATHS = ["/", "/logout/", "/admin/", "/accounts/", "/api/"]
+TRIAL_EXEMPT_PATHS = ["/logout/", "/admin/", "/accounts/", "/api/"]
 
 
 # ---------------------------------------------------------------------------

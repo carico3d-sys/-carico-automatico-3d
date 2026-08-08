@@ -372,28 +372,24 @@ function _renderSidebarNavigazione(cat) {
 
     // Blocco Strumenti Rapidi (in fondo a ogni categoria)
     var strumentiRapidiHtml = '' +
-        '<div class="sidebar-nav-separator"></div>' +
-        '<div class="sidebar-nav-section-title">' +
-            '<i class="bi bi-lightning-charge sidebar-section-icon"></i> Strumenti Rapidi' +
-        '</div>' +
-        '<button class="sidebar-nav-item" data-action="nuovo-carico">' +
-            '<i class="bi bi-file-earmark sidebar-icon"></i> Nuovo Carico' +
-        '</button>' +
-        '<button class="sidebar-nav-item" data-action="carico">' +
-            '<i class="bi bi-bar-chart sidebar-icon"></i> Vista Carico' +
-        '</button>' +
-        '<button class="sidebar-nav-item" data-action="grafico-pesi">' +
-            '<i class="bi bi-speedometer2 sidebar-icon"></i> Distribuzione Pesi' +
-        '</button>';
+        '<div class="sidebar-nav-bottom">' +
+            '<div class="sidebar-nav-separator"></div>' +
+            '<button class="sidebar-nav-item" data-action="nuovo-carico">' +
+                '<i class="bi bi-file-earmark sidebar-icon"></i> Nuovo Carico' +
+            '</button>' +
+            '<button class="sidebar-nav-item" data-action="carico">' +
+                '<i class="bi bi-bar-chart sidebar-icon"></i> Vista Carico' +
+            '</button>' +
+            '<button class="sidebar-nav-item" data-action="grafico-pesi">' +
+                '<i class="bi bi-speedometer2 sidebar-icon"></i> Distribuzione Pesi' +
+            '</button>' +
+        '</div>';
 
     var html = '';
 
     switch (cat) {
         case 'documenti':
             html = '' +
-                '<div class="sidebar-nav-section-title">' +
-                    '<i class="bi bi-folder2-open sidebar-section-icon"></i> Gestione Documenti' +
-                '</div>' +
                 '<button class="sidebar-nav-item" data-view="nuovo-carico">' +
                     '<i class="bi bi-file-earmark-plus sidebar-icon"></i> Nuovo Carico' +
                 '</button>' +
@@ -417,9 +413,6 @@ function _renderSidebarNavigazione(cat) {
 
         case 'anagrafica':
             html = '' +
-                '<div class="sidebar-nav-section-title">' +
-                    '<i class="bi bi-journal-text sidebar-section-icon"></i> Anagrafica' +
-                '</div>' +
                 '<button class="sidebar-nav-item" data-view="oggetti">' +
                     '<i class="bi bi-box-seam sidebar-icon"></i> Articoli' +
                 '</button>' +
@@ -434,9 +427,6 @@ function _renderSidebarNavigazione(cat) {
 
         case 'sistema':
             html = '' +
-                '<div class="sidebar-nav-section-title">' +
-                    '<i class="bi bi-gear sidebar-section-icon"></i> Sistema' +
-                '</div>' +
                 '<button class="sidebar-nav-item" data-view="impostazioni">' +
                     '<i class="bi bi-sliders sidebar-icon"></i> Impostazioni' +
                 '</button>';
@@ -453,9 +443,6 @@ function _renderSidebarNavigazione(cat) {
 
         case 'report':
             html = '' +
-                '<div class="sidebar-nav-section-title">' +
-                    '<i class="bi bi-bar-chart sidebar-section-icon"></i> Report' +
-                '</div>' +
                 '<button class="sidebar-nav-item" data-action="report-3d">' +
                     '<i class="bi bi-file-earmark sidebar-icon"></i> Report 3D' +
                 '</button>' +
@@ -470,6 +457,11 @@ function _renderSidebarNavigazione(cat) {
 
     // Rilega gli eventi click sugli item dinamici
     _bindSidebarNavDynamicEvents();
+
+    // Riapplica icone PNG dopo render dinamico (se modulo icone caricato)
+    if (typeof _applyIconConfig === 'function') {
+        setTimeout(function () { _applyIconConfig(); }, 50);
+    }
 }
 
 /**

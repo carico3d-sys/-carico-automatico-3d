@@ -1,0 +1,227 @@
+/* icons.css — colori icone Bootstrap + media queries responsive */
+/* =============================================================================
+   MEDIA QUERY: TABLET e TOUCH (max-width: 1024px)
+   ============================================================================= */
+
+@media (max-width: 1024px), (pointer: coarse) {
+        width: 44px;
+        height: 44px;
+    }
+
+    .dpad-confirm {
+        width: 48px;
+        height: 48px;
+    }
+
+    .dpad-btn .bi {
+        font-size: 18px;
+    }
+
+    .dpad-confirm .bi {
+        font-size: 22px;
+    }
+
+    .sidebar-tab {
+        min-height: 48px;
+    }
+
+    .sidebar-tab-icon {
+        font-size: 20px;
+    }
+
+    .sidebar-tab-label {
+        font-size: 11px;
+    }
+
+    /* Sidebar nav — icone più grandi su tablet */
+    .sidebar-nav-item .bi,
+    .sidebar-nav-item .sidebar-icon {
+        font-size: 22px;
+        width: 28px;
+    }
+
+    .sidebar-nav-section-title .sidebar-section-icon {
+        font-size: 20px;
+    }
+
+    #sidebar-nav-dynamic .sidebar-icon,
+    #sidebar-nav-dynamic .sidebar-section-icon {
+        font-size: 22px;
+        width: 26px;
+    }
+
+    .header-cat-btn .bi {
+        font-size: 22px;
+    }
+
+    .btn-item-action {
+        width: 32px;
+        height: 32px;
+    }
+
+}
+
+/* =============================================================================
+   MEDIA QUERY: SMARTPHONE (max-width: 768px)
+   ============================================================================= */
+
+@media (max-width: 768px) {
+    .dpad-arrow {
+        width: 48px;
+        height: 48px;
+    }
+
+    .dpad-confirm {
+        width: 52px;
+        height: 52px;
+    }
+
+    /* Sidebar nav — icone ancora più grandi su smartphone */
+    .sidebar-nav-item .bi,
+    .sidebar-nav-item .sidebar-icon {
+        font-size: 24px;
+        width: 30px;
+    }
+
+    .sidebar-nav-section-title .sidebar-section-icon {
+        font-size: 22px;
+    }
+
+    #sidebar-nav-dynamic .sidebar-icon,
+    #sidebar-nav-dynamic .sidebar-section-icon {
+        font-size: 24px;
+        width: 28px;
+    }
+
+
+}
+
+/* =============================================================================
+   COLORI ICONE — OGNI SEZIONE HA IL SUO COLORE DISTINTIVO
+   ============================================================================= */
+
+/* --- HEADER: colori per categoria --- */
+.header-cat-btn[data-cat="documenti"] .bi { color: #f0a040; }
+.header-cat-btn[data-cat="anagrafica"] .bi { color: #4da6d9; }
+.header-cat-btn[data-cat="goto-automatica"] .bi { color: #ffcc00; }
+.header-cat-btn[data-cat="goto-manuale"] .bi { color: #ff7b5a; }
+.header-cat-btn[data-cat="toggle-vista"] .bi { color: #4caf50; }
+.header-cat-btn[data-cat="report"] .bi { color: #b07cd8; }
+.header-cat-btn[data-cat="sistema"] .bi { color: #b0b8c0; }
+
+/* Bottone attivo: colore più intenso */
+.header-cat-btn.active[data-cat="documenti"] .bi { color: #ffb950; }
+.header-cat-btn.active[data-cat="anagrafica"] .bi { color: #5db8e8; }
+.header-cat-btn.active[data-cat="goto-automatica"] .bi { color: #ffe040; }
+.header-cat-btn.active[data-cat="goto-manuale"] .bi { color: #ff8c70; }
+.header-cat-btn.active[data-cat="toggle-vista"] .bi { color: #5ec962; }
+.header-cat-btn.active[data-cat="report"] .bi { color: #c490e8; }
+.header-cat-btn.active[data-cat="sistema"] .bi { color: #c4ccd2; }
+
+/* --- SIDEBAR TAB: colori --- */
+.sidebar-tab[data-tab="navigazione"] .sidebar-tab-icon { color: #447e9b; }
+.sidebar-tab[data-tab="manuale"] .sidebar-tab-icon { color: #ff7b5a; }
+.sidebar-tab[data-tab="automatica"] .sidebar-tab-icon { color: #e67e00; }
+
+.sidebar-tab.active[data-tab="navigazione"] .sidebar-tab-icon { color: #3a6e8a; }
+.sidebar-tab.active[data-tab="manuale"] .sidebar-tab-icon { color: #e0694a; }
+.sidebar-tab.active[data-tab="automatica"] .sidebar-tab-icon { color: #cc7000; }
+
+/* --- TOOLBAR VIEWPORT: colori funzionali --- */
+#vp-btn-top .bi { color: #4da6d9; }
+#vp-btn-front .bi { color: #4caf50; }
+#vp-btn-side .bi { color: #ff7b5a; }
+#vp-btn-grid .bi { color: #b07cd8; }
+#vp-btn-reset .bi { color: #f0a040; }
+#vp-btn-fullscreen .bi { color: #b0b8c0; }
+#vp-btn-zoom-out .bi { color: #4da6d9; }
+#vp-btn-zoom-in .bi { color: #4da6d9; }
+#vp-btn-help .bi { color: #f0a040; }
+
+/* Colori palette ora in floating_palette.css */
+
+/* --- ALTRE ICONE CHIAVE --- */
+#header-logo .bi { color: #447e9b; }
+#sidebar-mezzo-icon.bi { color: #447e9b; }
+.panel-header h3 .bi { color: #447e9b; }
+
+/* Icone azione (cestino, matita, etc.) nei bottoni */
+.btn-danger .bi { color: inherit; }
+.btn-primary .bi { color: #fff; }
+.btn-success .bi { color: #fff; }
+
+/* Toast icons */
+.toast-icon .bi.bi-check-circle { color: #27ae60; }
+.toast-icon .bi.bi-x-circle { color: #e74c3c; }
+.toast-icon .bi.bi-info-circle { color: #447e9b; }
+.toast-icon .bi.bi-exclamation-triangle { color: #f39c12; }
+
+/* =============================================================================
+   COLORI SIDEBAR NAVIGAZIONE — OGNI VOCE HA IL SUO COLORE
+   ============================================================================= */
+
+/* --- DOCUMENTI: arancioni/ambra --- */
+.sidebar-nav-section-title i.bi-folder2-open { color: #f0a040; }
+.sidebar-nav-item[data-view="nuovo-carico"] .bi { color: #4caf50; }
+.sidebar-nav-item[data-action="nuovo-carico"] .bi { color: #4caf50; }
+.sidebar-nav-item[data-view="piani"] .bi { color: #d4a050; }
+.sidebar-nav-item[data-view="salva-db"] .bi { color: #4da6d9; }
+.sidebar-nav-item[data-view="export-file"] .bi { color: #1abc9c; }
+.sidebar-nav-item[data-view="import-file"] .bi { color: #1abc9c; }
+.sidebar-nav-item[data-action="svuota-carico"] .bi { color: #e74c3c; }
+
+/* --- ANAGRAFICA: blu --- */
+.sidebar-nav-section-title i.bi-journal-text { color: #4da6d9; }
+.sidebar-nav-item[data-view="oggetti"] .bi { color: #d4a050; }
+.sidebar-nav-item[data-view="vincoli-tra"] .bi { color: #9b59b6; }
+.sidebar-nav-item[data-view="mezzi"] .bi { color: #447e9b; }
+
+/* --- SISTEMA: grigio/blu scuro --- */
+.sidebar-nav-section-title i.bi-gear { color: #8899aa; }
+.sidebar-nav-item[data-view="impostazioni"] .bi { color: #8899aa; }
+.sidebar-nav-item i.bi-shield-shaded { color: #2c3e50; }
+.sidebar-nav-item i.bi-box-arrow-right { color: #c0392b; }
+
+/* --- REPORT: viola --- */
+.sidebar-nav-section-title i.bi-bar-chart { color: #9b59b6; }
+.sidebar-nav-item[data-action="report-3d"] .bi { color: #8855aa; }
+.sidebar-nav-item[data-action="report-quadranti"] .bi { color: #8855aa; }
+
+/* --- STRUMENTI RAPIDI: giallo --- */
+.sidebar-nav-section-title i.bi-lightning-charge { color: #f39c12; }
+.sidebar-nav-item[data-action="carico"] .bi { color: #9b59b6; }
+.sidebar-nav-item[data-action="grafico-pesi"] .bi { color: #e67e00; }
+
+/* =============================================================================
+   SUPPORTO ICONE PNG SOSTITUTIVE (Gestione Icone Admin)
+   ============================================================================= */
+
+/* Immagini che sostituiscono <i> Bootstrap — mantengono allineamento e dimensioni */
+img.bi {
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    vertical-align: middle;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+/* Header category buttons: img al posto di .bi */
+.header-cat-btn img.header-cat-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+/* Sidebar nav: img al posto di .bi */
+.sidebar-nav-item img.bi {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+/* Sidebar section title icons */
+.sidebar-nav-section-title img.bi {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}
