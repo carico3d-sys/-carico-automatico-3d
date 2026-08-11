@@ -11,19 +11,143 @@ function getImpostazioniDefault() {
         strategia_ottimizzazione: {
             algoritmo_base: 'Algoritmo 3D Semplificato',
             distribuzione_pesi_attiva: true,
-            ordinamento_casuale: false
+            ordinamento_casuale: false,
+            compattazione_aggressiva: false,
+            backtracking_avanzato: false
         },
         output_ottimizzazione: {
             azzera_grafico_pesi_nei_vuoti: false,
             mostra_etichette_oggetti: true,
             mostra_etichetta_contenitore: true,
             modalita_rotazione: 'baricentrica'
+        },
+        manuale: {
+            strategia_piazzamento: 'muro',
+            massima_sporgenza_pct: 100
         }
     };
 }
 
 // Stato impostazioni
 var IMPOSTAZIONI = getImpostazioniDefault();
+var _impostazioniDirty = false;
+var _strategiaSaveTimer = null;
+
+function _stageStrategiaCorrente() {
+    var strategia = IMPOSTAZIONI.strategia_ottimizzazione || {};
+    var mc = strategia.ordinamento_casuale === true;
+    var v3 = strategia.backtracking_avanzato === true;
+    if (v3 && mc) return 3;
+    if (v3) return 2;
+    if (mc) return 1;
+    return 0;
+}
+
+function _aggiornaIndicatoreStrategia() {
+    var slider = document.getElementById('strategia-slider');
+    if (!slider) return;
+    var stage = _stageStrategiaCorrente();
+    var labels = ['Algoritmo 3D', 'Algoritmo 3D + MC', 'Algoritmo 3D + V3', 'Algoritmo 3D + V3 + MC'];
+    slider.value = String(stage);
+    slider.setAttribute('aria-valuenow', String(stage + 1));
+    slider.setAttribute('aria-valuetext', labels[stage]);
+    slider.classList.remove('strategia-stage-0', 'strategia-stage-1', 'strategia-stage-2', 'strategia-stage-3');
+    slider.classList.add('strategia-stage-' + stage);
+}
+
+function _sincronizzaFormStrategia() {
+    var strategia = IMPOSTAZIONI.strategia_ottimizzazione || {};
+    var casuale = document.getElementById('imp-ordinamento-casuale');
+    var backtracking = document.getElementById('imp-backtracking-avanzato');
+    if (casuale) {
+        casuale.checked = strategia.ordinamento_casuale === true;
+        var casualeBg = casuale.parentElement.querySelector('.toggle-bg');
+        var casualeDot = casuale.parentElement.querySelector('.toggle-dot');
+        if (casualeBg) casualeBg.style.background = casuale.checked ? '#27AE60' : '#ccc';
+        if (casualeDot) casualeDot.style.left = casuale.checked ? '20px' : '2px';
+    }
+    if (backtracking) backtracking.checked = strategia.backtracking_avanzato === true;
+}
+
+function _impostaStadioStrategia(stage) {
+    var strategia = IMPOSTAZIONI.strategia_ottimizzazione;
+    var stadio = Math.max(0, Math.min(3, Number(stage) || 0));
+    strategia.ordinamento_casuale = stadio === 1 || stadio === 3;
+    strategia.backtracking_avanzato = stadio === 2 || stadio === 3;
+    _impostazioniDirty = true;
+    _aggiornaIndicatoreStrategia();
+    _sincronizzaFormStrategia();
+    // La scelta dello step è una modifica completa delle impostazioni:
+    // persiste sia nel browser sia nel profilo dell'utente. Durante il drag
+    // accorpiamo i click ravvicinati in un solo salvataggio.
+    if (_strategiaSaveTimer) clearTimeout(_strategiaSaveTimer);
+    _strategiaSaveTimer = setTimeout(function () {
+        _strategiaSaveTimer = null;
+        salvaImpostazioni();
+    }, 250);
+}
+
+function _inizializzaIndicatoreStrategia() {
+    var slider = document.getElementById('strategia-slider');
+    if (!slider || slider._listenerAttached) {
+        _aggiornaIndicatoreStrategia();
+        return;
+    }
+    slider._listenerAttached = true;
+    slider.addEventListener('input', function () {
+        _impostaStadioStrategia(this.value);
+    });
+    _aggiornaIndicatoreStrategia();
+}
+
+function _unisciImpostazioni(source) {
+    var defaults = getImpostazioniDefault();
+    var parsed = (source && typeof source === 'object') ? source : {};
+    Object.keys(defaults).forEach(function (sezione) {
+        if (!parsed[sezione] || typeof parsed[sezione] !== 'object') {
+            parsed[sezione] = JSON.parse(JSON.stringify(defaults[sezione]));
+        } else {
+            Object.keys(defaults[sezione]).forEach(function (campo) {
+                if (parsed[sezione][campo] === undefined || parsed[sezione][campo] === null) {
+                    parsed[sezione][campo] = defaults[sezione][campo];
+                }
+            });
+        }
+    });
+    return parsed;
+}
+
+function _applicaImpostazioniManuali() {
+    var manuale = IMPOSTAZIONI.manuale || {};
+    if (typeof _strategiaPiazzamento !== 'undefined') {
+        _strategiaPiazzamento = manuale.strategia_piazzamento || 'muro';
+    }
+    if (typeof _massimaSporgenzaPct !== 'undefined') {
+        _massimaSporgenzaPct = Number.isFinite(Number(manuale.massima_sporgenza_pct))
+            ? Number(manuale.massima_sporgenza_pct) : 100;
+    }
+}
+
+function _impostazioniPayloadPulito(source) {
+    var defaults = getImpostazioniDefault();
+    var payload = {};
+    Object.keys(defaults).forEach(function (sezione) {
+        if (source[sezione] && typeof source[sezione] === 'object') {
+            payload[sezione] = {};
+            Object.keys(defaults[sezione]).forEach(function (campo) {
+                if (source[sezione][campo] !== undefined) {
+                    payload[sezione][campo] = source[sezione][campo];
+                }
+            });
+        }
+    });
+    return payload;
+}
+
+function _salvaImpostazioniLocale() {
+    localStorage.setItem('carico3d_impostazioni', JSON.stringify(IMPOSTAZIONI));
+    localStorage.setItem('carico3d_impostazioni_version', IMPOSTAZIONI_VERSION);
+}
 
 // Elenco sezioni per la navigazione laterale
 var SEZIONI_IMPOSTAZIONI = [
@@ -32,63 +156,87 @@ var SEZIONI_IMPOSTAZIONI = [
     { id: 'manuale', icon: '<i class="bi bi-hand-index-thumb"></i>', label: 'Parametri Modalità Manuale' },
 ];
 
-// Carica impostazioni dal backend o localStorage
+// Carica prima localStorage per un avvio immediato, poi sincronizza dal server.
 function caricaImpostazioni() {
+    var candidateLocale = null;
     try {
         var salvate = localStorage.getItem('carico3d_impostazioni');
         var versioneSalvata = localStorage.getItem('carico3d_impostazioni_version');
 
-        // Se la versione è cambiata, ignora la cache e usa i nuovi default
-        if (versioneSalvata != IMPOSTAZIONI_VERSION) {
+        if (versioneSalvata == IMPOSTAZIONI_VERSION && salvate) {
+            candidateLocale = _unisciImpostazioni(JSON.parse(salvate));
+            IMPOSTAZIONI = candidateLocale;
+        } else {
             IMPOSTAZIONI = getImpostazioniDefault();
-            localStorage.setItem('carico3d_impostazioni', JSON.stringify(IMPOSTAZIONI));
-            localStorage.setItem('carico3d_impostazioni_version', IMPOSTAZIONI_VERSION);
-            return;
-        }
-
-        if (salvate) {
-            var parsed = JSON.parse(salvate);
-            // Merge con i default per assicurarsi tutti i campi esistano
-            var defaults = getImpostazioniDefault();
-            Object.keys(defaults).forEach(function (sezione) {
-                if (!parsed[sezione] || parsed[sezione] === null) {
-                    parsed[sezione] = JSON.parse(JSON.stringify(defaults[sezione]));
-                } else {
-                    Object.keys(defaults[sezione]).forEach(function (campo) {
-                        if (parsed[sezione][campo] === undefined || parsed[sezione][campo] === null) {
-                            parsed[sezione][campo] = defaults[sezione][campo];
-                        }
-                    });
-                }
-            });
-            IMPOSTAZIONI = parsed;
+            _salvaImpostazioniLocale();
         }
     } catch (e) {
-        console.warn('Errore caricamento impostazioni:', e);
+        console.warn('Errore caricamento impostazioni locali:', e);
         IMPOSTAZIONI = getImpostazioniDefault();
+        _salvaImpostazioniLocale();
     }
+    _applicaImpostazioniManuali();
+    _aggiornaIndicatoreStrategia();
+
+    // Il server è la fonte persistente. Se il profilo è ancora vuoto,
+    // migra automaticamente la configurazione locale già esistente.
+    fetch('/api/impostazioni_ottimizzatore/', { headers: { 'Accept': 'application/json' } })
+        .then(function (resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.json();
+        })
+        .then(function (data) {
+            var serverSettings = data && data.impostazioni;
+            if (serverSettings && Object.keys(serverSettings).length > 0 && !_impostazioniDirty) {
+                IMPOSTAZIONI = _unisciImpostazioni(serverSettings);
+                _salvaImpostazioniLocale();
+                _applicaImpostazioniManuali();
+                _aggiornaIndicatoreStrategia();
+                if (WS.impostazioniSezione && typeof renderImpostazioniForm === 'function' &&
+                    DOM.pvFormBody && DOM.pvFormBody.closest('#panel-view')) {
+                    renderImpostazioniForm(WS.impostazioniSezione);
+                }
+            } else if (candidateLocale) {
+                return fetch('/api/impostazioni_ottimizzatore/', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                    body: JSON.stringify(_impostazioniPayloadPulito(candidateLocale))
+                }).then(function (migrationResponse) {
+                    if (!migrationResponse.ok) throw new Error('Migrazione HTTP ' + migrationResponse.status);
+                });
+            }
+            return null;
+        })
+        .catch(function (e) {
+            // Il fallback localStorage resta valido anche senza backend.
+            console.info('Impostazioni server non disponibili: ' + e.message);
+        });
 }
 
 // Salva impostazioni (localStorage + API)
 async function salvaImpostazioni() {
+    _impostazioniDirty = true;
     setStatus('busy', 'Salvataggio impostazioni...');
     try {
         // Salva in locale
-        localStorage.setItem('carico3d_impostazioni', JSON.stringify(IMPOSTAZIONI));
-        localStorage.setItem('carico3d_impostazioni_version', IMPOSTAZIONI_VERSION);
+        _salvaImpostazioniLocale();
 
         // Salva su server (API endpoint per impostazioni dell'ottimizzatore)
         try {
             var resp = await fetch('/api/impostazioni_ottimizzatore/', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-                body: JSON.stringify(IMPOSTAZIONI)
+                body: JSON.stringify(_impostazioniPayloadPulito(IMPOSTAZIONI))
             });
             if (!resp.ok) {
                 console.warn('Salvataggio server fallito (HTTP ' + resp.status + '). Solo locale.');
+                showToast('⚠️ Impostazioni salvate solo in questo browser.', 'warning');
+            } else {
+                _impostazioniDirty = false;
             }
         } catch (e) {
             console.warn('Salvataggio server non disponibile. Salvato solo localmente.');
+            showToast('⚠️ Impostazioni salvate solo in questo browser.', 'warning');
         }
 
         showToast('✅ Impostazioni salvate con successo!', 'success');
@@ -103,11 +251,13 @@ async function salvaImpostazioni() {
 function ripristinaImpostazioniDefault() {
     if (!confirm('Ripristinare tutte le impostazioni ai valori predefiniti?')) return;
     IMPOSTAZIONI = getImpostazioniDefault();
-    localStorage.setItem('carico3d_impostazioni', JSON.stringify(IMPOSTAZIONI));
-    localStorage.setItem('carico3d_impostazioni_version', IMPOSTAZIONI_VERSION);
+    _impostazioniDirty = true;
+    _salvaImpostazioniLocale();
+    _applicaImpostazioniManuali();
     renderImpostazioniForm(WS.impostazioniSezione);
     showToast('🔄 Impostazioni ripristinate ai valori predefiniti.', 'info');
-    setStatus('idle', 'Default ripristinati');
+    // Persisti anche il ripristino sul profilo, senza perdere il fallback locale.
+    salvaImpostazioni();
 }
 
 // =============================================================================
@@ -151,7 +301,7 @@ function renderImpostazioniPanel() {
 
 function getDescrizioneSezione(id) {
     var descrizioni = {
-        strategia: 'Ordinamento, algoritmo, distribuzione pesi',
+        strategia: 'Ordinamento, algoritmo, compattazione, distribuzione pesi',
         output: 'Etichette, rotazione, grafico pesi',
         manuale: 'Strategia piazzamento, sporgenza massima',
     };
@@ -231,6 +381,22 @@ function renderCardStrategia() {
 
             '<div class="field-group checkbox-group">' +
                 '<label class="checkbox-label">' +
+                    '<input type="checkbox" id="imp-compattazione-aggressiva" ' + (s.compattazione_aggressiva ? 'checked' : '') + '> ' +
+                    '<i class="bi bi-boxes"></i> Compattazione aggressiva (incastro sotto sbalzi)' +
+                '</label>' +
+                '<span class="field-hint">Se attivo, l\'algoritmo può incastrare oggetti sotto lo sbalzo di oggetti impilati (massima saturazione). Se disattivato, ogni oggetto ha la sua colonna libera (consigliato per carichi multi-drop).</span>' +
+            '</div>' +
+
+            '<div class="field-group checkbox-group">' +
+                '<label class="checkbox-label">' +
+                    '<input type="checkbox" id="imp-backtracking-avanzato" ' + (s.backtracking_avanzato ? 'checked' : '') + '> ' +
+                    '<i class="bi bi-lightning-charge"></i> Backtracking avanzato v3 (a blocchi)' +
+                '</label>' +
+                '<span class="field-hint">Se attivo, l\'algoritmo esegue 5 iterazioni mirate di backtracking a blocchi con early termination (~0.8s). Migliora la disposizione rispetto al deterministico base. Disattivalo se preferisci la velocità massima.</span>' +
+            '</div>' +
+
+            '<div class="field-group checkbox-group">' +
+                '<label class="checkbox-label">' +
                     '<input type="checkbox" id="imp-distribuzione-pesi" ' + (s.distribuzione_pesi_attiva !== false ? 'checked' : '') + '> ' +
                     '<i class="bi bi-speedometer2"></i> Distribuzione pesi sulle sezioni' +
                 '</label>' +
@@ -290,8 +456,11 @@ function renderCardOutput() {
 // =============================================================================
 
 function renderCardManuale() {
-    var strategia = (typeof _strategiaPiazzamento !== 'undefined') ? _strategiaPiazzamento : 'muro';
-    var sporgenza = (typeof _massimaSporgenzaPct !== 'undefined') ? _massimaSporgenzaPct : 100;
+    var manuale = IMPOSTAZIONI.manuale || {};
+    var strategia = manuale.strategia_piazzamento || ((typeof _strategiaPiazzamento !== 'undefined') ? _strategiaPiazzamento : 'muro');
+    var sporgenza = manuale.massima_sporgenza_pct !== undefined
+        ? manuale.massima_sporgenza_pct
+        : ((typeof _massimaSporgenzaPct !== 'undefined') ? _massimaSporgenzaPct : 100);
 
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
@@ -332,7 +501,9 @@ function agganciaEventiImpostazioni(sezione) {
         var toggleCasuale = document.getElementById('imp-ordinamento-casuale');
         if (toggleCasuale) {
             toggleCasuale.addEventListener('change', function () {
+                _impostazioniDirty = true;
                 IMPOSTAZIONI.strategia_ottimizzazione.ordinamento_casuale = this.checked;
+                _aggiornaIndicatoreStrategia();
                 // Aggiorna colore toggle inline
                 var bg = this.parentElement.querySelector('.toggle-bg');
                 var dot = this.parentElement.querySelector('.toggle-dot');
@@ -341,9 +512,27 @@ function agganciaEventiImpostazioni(sezione) {
             });
         }
 
+        // Toggle compattazione aggressiva
+        var compAggr = document.getElementById('imp-compattazione-aggressiva');
+        if (compAggr) compAggr.addEventListener('change', function () {
+            _impostazioniDirty = true;
+            IMPOSTAZIONI.strategia_ottimizzazione.compattazione_aggressiva = this.checked;
+        });
+
+        // Toggle backtracking avanzato v3
+        var backAdv = document.getElementById('imp-backtracking-avanzato');
+        if (backAdv) backAdv.addEventListener('change', function () {
+            _impostazioniDirty = true;
+            IMPOSTAZIONI.strategia_ottimizzazione.backtracking_avanzato = this.checked;
+            _aggiornaIndicatoreStrategia();
+        });
+
         // Toggle distribuzione pesi
         var distPesi = document.getElementById('imp-distribuzione-pesi');
-        if (distPesi) distPesi.addEventListener('change', function () { IMPOSTAZIONI.strategia_ottimizzazione.distribuzione_pesi_attiva = this.checked; });
+        if (distPesi) distPesi.addEventListener('change', function () {
+            _impostazioniDirty = true;
+            IMPOSTAZIONI.strategia_ottimizzazione.distribuzione_pesi_attiva = this.checked;
+        });
     }
 
     if (sezione === 'manuale') {
@@ -352,6 +541,8 @@ function agganciaEventiImpostazioni(sezione) {
         if (selStrategia && !selStrategia._listenerAttached) {
             selStrategia._listenerAttached = true;
             selStrategia.addEventListener('change', function () {
+                _impostazioniDirty = true;
+                IMPOSTAZIONI.manuale.strategia_piazzamento = this.value;
                 if (typeof _strategiaPiazzamento !== 'undefined') {
                     _strategiaPiazzamento = this.value;
                 }
@@ -364,10 +555,12 @@ function agganciaEventiImpostazioni(sezione) {
         if (sliderSporgenza && !sliderSporgenza._listenerAttached) {
             sliderSporgenza._listenerAttached = true;
             sliderSporgenza.addEventListener('input', function () {
+                _impostazioniDirty = true;
+                IMPOSTAZIONI.manuale.massima_sporgenza_pct = parseInt(this.value) || 100;
                 if (typeof _massimaSporgenzaPct !== 'undefined') {
-                    _massimaSporgenzaPct = parseInt(this.value) || 100;
+                    _massimaSporgenzaPct = IMPOSTAZIONI.manuale.massima_sporgenza_pct;
                 }
-                if (lblSporgenza) lblSporgenza.textContent = _massimaSporgenzaPct + '%';
+                if (lblSporgenza) lblSporgenza.textContent = IMPOSTAZIONI.manuale.massima_sporgenza_pct + '%';
             });
         }
     }
@@ -376,6 +569,7 @@ function agganciaEventiImpostazioni(sezione) {
         // Checkbox output
         var etichetteOgg = document.getElementById('imp-etichette-ogg');
         if (etichetteOgg) etichetteOgg.addEventListener('change', function () {
+            _impostazioniDirty = true;
             IMPOSTAZIONI.output_ottimizzazione.mostra_etichette_oggetti = this.checked;
             if (typeof impostaVisibilitaEtichetteOggetti === 'function') {
                 impostaVisibilitaEtichetteOggetti(this.checked);
@@ -384,6 +578,7 @@ function agganciaEventiImpostazioni(sezione) {
 
         var etichettaCont = document.getElementById('imp-etichetta-cont');
         if (etichettaCont) etichettaCont.addEventListener('change', function () {
+            _impostazioniDirty = true;
             IMPOSTAZIONI.output_ottimizzazione.mostra_etichetta_contenitore = this.checked;
             if (typeof impostaVisibilitaEtichettaContenitore === 'function') {
                 impostaVisibilitaEtichettaContenitore(this.checked);
@@ -392,6 +587,7 @@ function agganciaEventiImpostazioni(sezione) {
 
         var azzeraVuoti = document.getElementById('imp-azzera-vuoti');
         if (azzeraVuoti) azzeraVuoti.addEventListener('change', function () {
+            _impostazioniDirty = true;
             IMPOSTAZIONI.output_ottimizzazione.azzera_grafico_pesi_nei_vuoti = this.checked;
             _aggiornaGraficoPesiSeVisibile();
         });
@@ -400,7 +596,10 @@ function agganciaEventiImpostazioni(sezione) {
         var rotRadios = document.querySelectorAll('input[name="rotazione-modalita"]');
         rotRadios.forEach(function (r) {
             r.addEventListener('change', function () {
-                if (this.checked) IMPOSTAZIONI.output_ottimizzazione.modalita_rotazione = this.value;
+                if (this.checked) {
+                    _impostazioniDirty = true;
+                    IMPOSTAZIONI.output_ottimizzazione.modalita_rotazione = this.value;
+                }
             });
         });
     }

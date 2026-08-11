@@ -43,10 +43,22 @@ function _selectObject(group) {
     var btnRimuovi = document.getElementById('manuale-btn-rimuovi');
     if (btnRimuovi) btnRimuovi.disabled = false;
 
-    // Evidenzia la riga corrispondente nel pannello destro "oggetti nel carico"
+    // Evidenzia e memorizza la riga corrispondente nel pannello destro.
+    // La memoria logica è necessaria perché _selectObject() viene usato anche
+    // durante l'aggiunta manuale e può quindi rimuovere la classe precedente.
     if (typeof DOM !== 'undefined' && DOM.panelItemsList && group.userData.codice) {
         var panelItem = DOM.panelItemsList.querySelector('.panel-item[data-codice="' + group.userData.codice + '"]');
-        if (panelItem) panelItem.classList.add('selected');
+        if (panelItem) {
+            if (typeof _impostaSelezionePanelManuale === 'function') {
+                _impostaSelezionePanelManuale(
+                    panelItem,
+                    panelItem.dataset.oggettoId,
+                    panelItem.dataset.codice
+                );
+            } else {
+                panelItem.classList.add('selected');
+            }
+        }
     }
 
     // Aggiorna anche la select sinistra (panelSelectOggetto) per coerenza bidirezionale
@@ -77,6 +89,13 @@ function _deselectObject(keepPanelSelected) {
         });
     }
     STATE.selectedObject = null;
+
+    // Una deselezione esplicita deve svuotare anche lo stato persistente della
+    // riga; quando _selectObject() seleziona il nuovo mesh lo reimposta subito.
+    if (!keepPanelSelected && typeof WS !== 'undefined') {
+        WS._manualPanelSelectedOggettoId = null;
+        WS._manualPanelSelectedCodice = null;
+    }
 
     var btnRimuovi = document.getElementById('manuale-btn-rimuovi');
     if (btnRimuovi) btnRimuovi.disabled = true;
@@ -149,7 +168,10 @@ function _removeSelectedObject() {
                     item.style.opacity = '0';
                     item.style.transition = 'opacity 0.15s';
                     var itemRef = item;
-                    setTimeout(function () {
+                    var removalTimer = setTimeout(function () {
+                        // Se nel frattempo la riga è stata riutilizzata, non rimuoverla.
+                        if (itemRef._panelRemovalTimer !== removalTimer) return;
+                        itemRef._panelRemovalTimer = null;
                         itemRef.remove();
                         if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
                         if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
@@ -157,6 +179,7 @@ function _removeSelectedObject() {
                             DOM.panelEmpty.style.display = 'flex';
                         }
                     }, 150);
+                    itemRef._panelRemovalTimer = removalTimer;
                 } else {
                     qtyInput.value = qty;
                     if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
@@ -625,12 +648,81 @@ function _trovaPosizione3D(L, P, H, oggetto) {
 }
 
 /**
- * Incrementa la quantità nel pannello destro per l'oggetto dato.
- * Se il panel item esiste già, incrementa di +1. Se non esiste
- * (es. rimosso dall'utente), lo ricrea con qty=1.
+ * Sincronizza la quantità nel pannello destro con gli oggetti realmente
+ * presenti nella scena manuale.
+ *
+ * L'oggetto è già stato aggiunto alla scena quando questa funzione viene
+ * chiamata: incrementare il valore precedente causava quindi il passaggio
+ * errato da 1 a 2 al primo inserimento. Il conteggio della scena mantiene
+ * invece la riga coerente: primo oggetto = 1, secondo oggetto = 2, ecc.
+ * Se il panel item non esiste (ad esempio dopo la rimozione dell'ultima riga),
+ * viene ricreato con quantità 1.
+ *
  * @param {number} oggettoId - ID dell'oggetto in anagrafica
  * @param {string} codice - codice oggetto (per lookup fallback)
  */
+function _assicuraObserverSelezionePanelManuale() {
+    if (typeof DOM === 'undefined' || !DOM.panelItemsList ||
+        typeof WS === 'undefined' || typeof MutationObserver === 'undefined') return;
+    if (WS._manualPanelSelectionObserver) return;
+
+    WS._manualPanelSelectionObserver = new MutationObserver(function () {
+        var selectedId = WS._manualPanelSelectedOggettoId;
+        if (!selectedId || !DOM.panelItemsList) return;
+
+        var target = Array.from(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
+            return row.dataset.oggettoId === String(selectedId);
+        });
+        if (!target) return;
+
+        var selectedRows = DOM.panelItemsList.querySelectorAll('.panel-item.selected');
+        if (target.classList.contains('selected') && selectedRows.length === 1) return;
+
+        selectedRows.forEach(function (row) {
+            if (row !== target) row.classList.remove('selected');
+        });
+        target.classList.add('selected');
+    });
+    WS._manualPanelSelectionObserver.observe(DOM.panelItemsList, {
+        childList: true,
+        subtree: true,
+    });
+}
+
+function _impostaSelezionePanelManuale(item, oggettoId, codice) {
+    // Questa selezione persistente serve esclusivamente al flusso manuale.
+    // L'automatica non deve ereditare né creare stato di selezione del panel.
+    if (typeof DOM === 'undefined' || !DOM.panelItemsList ||
+        typeof WS === 'undefined' || !WS.manualMode) return;
+
+    _assicuraObserverSelezionePanelManuale();
+
+    var target = item && item.isConnected ? item : null;
+    if (!target && oggettoId) {
+        target = Array.from(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
+            return row.dataset.oggettoId === String(oggettoId);
+        });
+    }
+    if (!target && codice) {
+        target = Array.from(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
+            return row.dataset.codice === codice;
+        });
+    }
+    if (!target) return;
+
+    WS._manualPanelSelectedOggettoId = target.dataset.oggettoId || String(oggettoId || '');
+    WS._manualPanelSelectedCodice = target.dataset.codice || String(codice || '');
+
+    DOM.panelItemsList.querySelectorAll('.panel-item.selected').forEach(function (row) {
+        if (row !== target) row.classList.remove('selected');
+    });
+    target.classList.add('selected');
+}
+
+function _ripristinaSelezionePanelManuale(item, oggettoId, codice) {
+    _impostaSelezionePanelManuale(item, oggettoId, codice);
+}
+
 function _incrementaPanelQty(oggettoId, codice) {
     if (typeof DOM === 'undefined' || !DOM.panelItemsList) return;
 
@@ -645,25 +737,76 @@ function _incrementaPanelQty(oggettoId, codice) {
     }
 
     if (item) {
-        // Panel item esiste: incrementa quantità
+        // Se la riga era in attesa di rimozione, l'utente l'ha riutilizzata:
+        // annulla l'animazione per evitare che venga rimossa dopo il reinserimento.
+        if (item._panelRemovalTimer) {
+            clearTimeout(item._panelRemovalTimer);
+            item._panelRemovalTimer = null;
+            item.style.opacity = '';
+            item.style.transition = '';
+        }
+
+        // Il mesh è già presente: usa il conteggio reale della scena,
+        // senza sommare nuovamente l'oggetto appena aggiunto.
+        var quantitaInScena = 0;
+        if (typeof STATE !== 'undefined' && Array.isArray(STATE.oggettiMesh)) {
+            STATE.oggettiMesh.forEach(function (mesh) {
+                if (mesh && mesh.parent === STATE.scene &&
+                    mesh.userData && mesh.userData.codice === codice) {
+                    quantitaInScena += 1;
+                }
+            });
+        }
+
         var qtyInput = item.querySelector('.panel-qty-input');
-        if (qtyInput) {
-            qtyInput.value = (parseInt(qtyInput.value) || 0) + 1;
+        if (qtyInput && quantitaInScena > 0) {
+            qtyInput.value = quantitaInScena;
         }
         // Mostra pannello vuoto nascosto
         if (DOM.panelEmpty) DOM.panelEmpty.style.display = 'none';
         if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
         if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
     } else if (typeof aggiungiAlCarico === 'function') {
-        // Panel item non esiste: crealo
+        // Panel item non esiste: crealo con il primo oggetto già piazzato
         aggiungiAlCarico(oggettoId, 1, true);
     }
 }
 
 /**
+ * Recupera la riga attiva del pannello per l'inserimento manuale.
+ *
+ * La riga può perdere temporaneamente la classe `.selected` quando
+ * `_selectObject()` aggiorna la selezione 3D o quando il pannello aggiorna la
+ * quantità. In quel caso usiamo prima l'ID persistente e poi l'oggetto 3D
+ * attualmente selezionato, che è la stessa memoria usata da Rimuovi.
+ */
+function _getManualeSelectedPanelItem() {
+    if (typeof DOM === 'undefined' || !DOM.panelItemsList) return null;
+
+    var item = DOM.panelItemsList.querySelector('.panel-item.selected');
+    if (!item && typeof WS !== 'undefined' && WS._manualPanelSelectedOggettoId) {
+        item = DOM.panelItemsList.querySelector(
+            '.panel-item[data-oggetto-id="' + WS._manualPanelSelectedOggettoId + '"]'
+        );
+    }
+    if (!item && typeof STATE !== 'undefined' && STATE.selectedObject &&
+        STATE.selectedObject.userData && STATE.selectedObject.userData.codice) {
+        var codiceSelezionato = STATE.selectedObject.userData.codice;
+        item = Array.from(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
+            return row.dataset.codice === codiceSelezionato;
+        });
+    }
+
+    if (item && typeof _impostaSelezionePanelManuale === 'function') {
+        _impostaSelezionePanelManuale(item, item.dataset.oggettoId, item.dataset.codice);
+    }
+    return item;
+}
+
+/**
  * Aggiunge alla scena 3D l'oggetto selezionato nel pannello destro.
- * Legge la riga .panel-item.selected, estrae i dati da WS.oggettiDisponibili,
- * crea il mesh e lo piazza sul primo slot libero.
+ * Recupera la riga anche se la classe `.selected` è stata temporaneamente
+ * rimossa durante l'aggiornamento della scena.
  */
 function _aggiungiOggettoDaPanel() {
     // Solo in modalità manuale
@@ -678,12 +821,20 @@ function _aggiungiOggettoDaPanel() {
         return;
     }
 
-    // Trova l'oggetto selezionato nel pannello destro
-    var selectedItem = document.querySelector('.panel-item.selected');
+    // Trova l'oggetto selezionato nel pannello destro, con fallback sulla
+    // selezione persistente e sull'oggetto 3D attivo.
+    var selectedItem = _getManualeSelectedPanelItem();
     if (!selectedItem) {
         showToast('⚠️ Seleziona un oggetto nel pannello destro "Oggetti nel Carico".', 'warning');
         return;
     }
+
+    // Conserva la riga selezionata: _selectObject() seleziona il nuovo mesh
+    // e, per sincronizzare scena/pannello, rimuove temporaneamente la classe
+    // selected dalle righe del pannello.
+    var selectedPanelItem = selectedItem;
+    var selectedPanelOggettoId = selectedItem.dataset.oggettoId;
+    var selectedPanelCodice = selectedItem.dataset.codice;
 
     var oggettoId = parseInt(selectedItem.dataset.oggettoId);
     if (!oggettoId) {
@@ -753,6 +904,20 @@ function _aggiungiOggettoDaPanel() {
         _selectObject(nuovoItem);
         showToast('✅ ' + codice + ' piazzato (' + risultato.label + ')', 'success');
         _incrementaPanelQty(oggetto.id, codice);
+        // Ripristina la riga solo dopo l'aggiornamento della quantità, che
+        // conclude tutte le modifiche al pannello.
+        _ripristinaSelezionePanelManuale(
+            selectedPanelItem,
+            selectedPanelOggettoId,
+            selectedPanelCodice || codice
+        );
+        // _incrementaPanelQty aggiorna quantità e riepiloghi: ripristina la
+        // selezione dopo queste operazioni, come ultimo passo del flusso.
+        _ripristinaSelezionePanelManuale(
+            selectedPanelItem,
+            selectedPanelOggettoId,
+            selectedPanelCodice || codice
+        );
     }
 }
 

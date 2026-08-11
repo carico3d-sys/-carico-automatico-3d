@@ -18,7 +18,13 @@
 var _vtState = {
     oggettoAId: 0,
     oggettoBId: 0,
+    oggettiASelezionati: [],
+    oggettiBSelezionati: [],
+    ultimoASelezionato: 0,
+    ultimoBSelezionato: 0,
     configurazioni: [],  // [{ id, rotA, dimsA, rotB, dimsB, offsetX, offsetZ, posizione_label, valida }]
+    batchEsclusioni: {},
+    batchInCorso: false,
     editingVincoloId: null,
     editingVincolo: null,
 };
@@ -56,14 +62,14 @@ function _vtPopolaListeOggetti(filterA, filterB) {
     listA.innerHTML = htmlA || '<div class="vt-obj-empty">Nessun oggetto</div>';
     listB.innerHTML = htmlB || '<div class="vt-obj-empty">Nessun oggetto</div>';
 
-    if (_vtState.oggettoAId) {
-        var selA = listA.querySelector('[data-oggetto-id="' + _vtState.oggettoAId + '"]');
+    (_vtState.oggettiASelezionati || []).forEach(function (id) {
+        var selA = listA.querySelector('[data-oggetto-id="' + id + '"]');
         if (selA) selA.classList.add('selected');
-    }
-    if (_vtState.oggettoBId) {
-        var selB = listB.querySelector('[data-oggetto-id="' + _vtState.oggettoBId + '"]');
+    });
+    (_vtState.oggettiBSelezionati || []).forEach(function (id) {
+        var selB = listB.querySelector('[data-oggetto-id="' + id + '"]');
         if (selB) selB.classList.add('selected');
-    }
+    });
 }
 
 // =============================================================================
@@ -152,6 +158,10 @@ function _vtCaricaVincolo(vincoloId) {
     _vtState.editingVincolo = v;
     _vtState.oggettoAId = v.oggetto_a;
     _vtState.oggettoBId = v.oggetto_b;
+    _vtState.oggettiASelezionati = [v.oggetto_a];
+    _vtState.oggettiBSelezionati = [v.oggetto_b];
+    _vtState.ultimoASelezionato = v.oggetto_a;
+    _vtState.ultimoBSelezionato = v.oggetto_b;
     _vtCalcolaConfigurazioni();
 
     var dettagli = v.dettagli_posizionamento;
@@ -190,8 +200,67 @@ function _vtCaricaVincolo(vincoloId) {
 }
 
 /**
+ * Salva una coppia A/B in modo indipendente dal form attualmente visualizzato.
+ * Le richieste sono eseguite una alla volta per evitare race condition e
+ * conflitti sul vincolo univoco della coppia.
+ */
+async function _vtSalvaCoppiaBatch(oggettoA, oggettoB, configurazioni) {
+    var esistente = _vtTrovaVincoloEsistente(oggettoA, oggettoB);
+    var isEdit = !!esistente;
+    var vincoloId = esistente ? esistente.id : null;
+    var dettagli = {
+        configurazioni: configurazioni.map(function (c) {
+            return {
+                id: c.id, rotA: c.rotA, dimsA: c.dimsA,
+                rotB: c.rotB, dimsB: c.dimsB,
+                offsetX: c.offsetX, offsetZ: c.offsetZ,
+                posizione_label: c.posizione_label,
+                valida: false,
+            };
+        }),
+    };
+    var payload = {
+        oggetto_a: oggettoA,
+        oggetto_b: oggettoB,
+        tipo_relazione: 'sopra',
+        attivo: true,
+        dettagli_posizionamento: dettagli,
+    };
+
+    var resp = await fetch('/api/vincoli-tra-oggetti/' + (isEdit ? vincoloId + '/' : ''), {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+        body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+        var errData = await resp.json().catch(function () { return {}; });
+        throw new Error(errData.detail || Object.values(errData)[0] || 'HTTP ' + resp.status);
+    }
+
+    var data = await resp.json();
+    var normalized = {
+        id: Number(data.id),
+        oggetto_a: data.oggetto_a,
+        oggetto_b: data.oggetto_b,
+        oggetto_a_codice: data.oggetto_a_codice,
+        oggetto_b_codice: data.oggetto_b_codice,
+        tipo_relazione: data.tipo_relazione,
+        tipo_relazione_display: data.tipo_relazione_display,
+        dettagli_posizionamento: data.dettagli_posizionamento,
+        attivo: data.attivo,
+    };
+    if (isEdit) {
+        var idx = WS.vincoliTra.findIndex(function (x) { return x.id == vincoloId; });
+        if (idx >= 0) WS.vincoliTra[idx] = Object.assign({}, WS.vincoliTra[idx], normalized);
+    } else {
+        WS.vincoliTra.push(normalized);
+    }
+}
+
+/**
  * Escludi tutte le configurazioni del vincolo caricato.
- * Imposta valida = false per tutte e ri-renderizza la griglia.
+ * Con una coppia mantiene il comportamento del form; con più selezioni
+ * salva direttamente tutte le coppie A/B selezionate.
  */
 function _vtEscludiTutti() {
     if (_vtState.configurazioni.length === 0) {
@@ -199,9 +268,63 @@ function _vtEscludiTutti() {
         return;
     }
 
+    var idsA = (_vtState.oggettiASelezionati || []).slice();
+    var idsB = (_vtState.oggettiBSelezionati || []).slice();
+    if (!idsA.length && _vtState.oggettoAId) idsA = [_vtState.oggettoAId];
+    if (!idsB.length && _vtState.oggettoBId) idsB = [_vtState.oggettoBId];
+
+    // Mantiene il comportamento storico per una sola coppia: l'esclusione
+    // resta nel form e viene salvata con Crea/Aggiorna Vincolo.
+    if (idsA.length * idsB.length <= 1) {
+        _vtState.batchEsclusioni = {};
+        _vtState.configurazioni.forEach(function (c) { c.valida = false; });
+        _vtPopolaGrigliaConfigurazioni();
+        showToast('🚫 Tutte le configurazioni escluse. Seleziona manualmente quelle valide.', 'info');
+        return;
+    }
+
+    // Le configurazioni vengono calcolate separatamente per ogni coppia,
+    // perché rotazioni e offset dipendono dalle dimensioni dei due oggetti.
+    var coppie = [];
+    _vtState.batchInCorso = true;
+    idsA.forEach(function (aId) {
+        idsB.forEach(function (bId) {
+            var configs = (aId == _vtState.oggettoAId && bId == _vtState.oggettoBId)
+                ? _vtState.configurazioni.map(function (c) { return Object.assign({}, c); })
+                : _vtCalcolaConfigurazioni(aId, bId);
+            configs.forEach(function (c) { c.valida = false; });
+            coppie.push({ aId: aId, bId: bId, configurazioni: configs });
+        });
+    });
+
     _vtState.configurazioni.forEach(function (c) { c.valida = false; });
     _vtPopolaGrigliaConfigurazioni();
-    showToast('🚫 Tutte le configurazioni escluse. Seleziona manualmente quelle valide.', 'info');
+    var btnEscludi = document.getElementById('vt-btn-escludi');
+    var btnCreateBatch = document.getElementById('vt-btn-create');
+    var btnUpdateBatch = document.getElementById('vt-btn-update');
+    if (btnEscludi) btnEscludi.disabled = true;
+    if (btnCreateBatch) btnCreateBatch.disabled = true;
+    if (btnUpdateBatch) btnUpdateBatch.disabled = true;
+    setStatus('busy', 'Esclusione multipla...');
+
+    (async function () {
+        try {
+            for (var i = 0; i < coppie.length; i++) {
+                await _vtSalvaCoppiaBatch(coppie[i].aId, coppie[i].bId, coppie[i].configurazioni);
+            }
+            var badge = document.getElementById('vt-count-badge');
+            if (badge) badge.textContent = WS.vincoliTra.length;
+            _vtPopolaVincoliEsistenti();
+            setStatus('idle', 'Salvato');
+            showToast('✅ Tutte le configurazioni escluse per ' + coppie.length + ' coppie.', 'success');
+        } catch (err) {
+            setStatus('error', 'Errore');
+            showToast('❌ Esclusione multipla interrotta: ' + err.message, 'error');
+        } finally {
+            _vtState.batchInCorso = false;
+            _vtAggiornaValidazione();
+        }
+    }());
 }
 
 function _vtResettaForm() {
@@ -211,6 +334,12 @@ function _vtResettaForm() {
     _vtState.editingVincolo = null;
     _vtState.oggettoAId = 0;
     _vtState.oggettoBId = 0;
+    _vtState.oggettiASelezionati = [];
+    _vtState.oggettiBSelezionati = [];
+    _vtState.ultimoASelezionato = 0;
+    _vtState.ultimoBSelezionato = 0;
+    _vtState.batchEsclusioni = {};
+    _vtState.batchInCorso = false;
     _vtState.configurazioni = [];
     _vtRotazioniCache = {};
 
@@ -240,7 +369,7 @@ function _vtAggiornaValidazione() {
         && _vtState.configurazioni.length > 0;
     if (btnCreate) btnCreate.disabled = !valido;
     if (btnUpdate) btnUpdate.disabled = !valido;
-    if (btnEscludi) btnEscludi.disabled = !valido;
+    if (btnEscludi) btnEscludi.disabled = !valido || !!_vtState.batchInCorso;
 }
 
 // =============================================================================
@@ -258,16 +387,50 @@ function _vtWireEvents() {
         _vtPopolaListeOggetti((document.getElementById('vt-search-a') || {}).value || '', this.value);
     });
 
-    var listA = document.getElementById('vt-list-a');
-    if (listA) listA.addEventListener('click', function (e) {
+    function selezionaLista(side, e) {
         var item = e.target.closest('.vt-obj-item');
         if (!item) return;
         var oid = parseInt(item.dataset.oggettoId) || 0;
+        var list = side === 'A' ? document.getElementById('vt-list-a') : document.getElementById('vt-list-b');
+        var idsKey = side === 'A' ? 'oggettiASelezionati' : 'oggettiBSelezionati';
+        var anchorKey = side === 'A' ? 'ultimoASelezionato' : 'ultimoBSelezionato';
+        var ids = (_vtState[idsKey] || []).slice();
+        var otherIds = side === 'A'
+            ? (_vtState.oggettiBSelezionati || [])
+            : (_vtState.oggettiASelezionati || []);
+        var multiRequested = e.shiftKey || e.ctrlKey || e.metaKey;
+        // La UI supporta una selezione multipla per volta: un A con molti B
+        // oppure molti A con un B. Evita il prodotto cartesiano accidentale.
+        if (multiRequested && otherIds.length > 1 && ids.length <= 1) {
+            showToast('Seleziona più elementi su un solo lato: deseleziona prima la selezione multipla opposta.', 'warning');
+            return;
+        }
+        var visible = Array.prototype.slice.call(list.querySelectorAll('.vt-obj-item'))
+            .map(function (el) { return parseInt(el.dataset.oggettoId) || 0; });
+
+        if (e.shiftKey && _vtState[anchorKey] && visible.indexOf(_vtState[anchorKey]) >= 0) {
+            var start = visible.indexOf(_vtState[anchorKey]);
+            var end = visible.indexOf(oid);
+            var from = Math.min(start, end), to = Math.max(start, end);
+            ids = visible.slice(from, to + 1);
+        } else if (e.ctrlKey || e.metaKey) {
+            var pos = ids.indexOf(oid);
+            if (pos >= 0) ids.splice(pos, 1);
+            else ids.push(oid);
+        } else {
+            ids = [oid];
+        }
+
+        if (!ids.length) ids = [oid];
+        _vtState[idsKey] = ids;
+        _vtState[anchorKey] = oid;
+        if (side === 'A') _vtState.oggettoAId = oid;
+        else _vtState.oggettoBId = oid;
+
         _vtDistruggiCanvases();
-        // Resetta editingVincoloId prima — verrà ripristinato se esiste vincolo
         _vtState.editingVincoloId = null;
         _vtState.editingVincolo = null;
-        _vtState.oggettoAId = oid;
+        _vtState.batchEsclusioni = {};
         _vtRotazioniCache = {};
         _vtPopolaListeOggetti(
             (document.getElementById('vt-search-a') || {}).value || '',
@@ -276,27 +439,13 @@ function _vtWireEvents() {
         _vtCalcolaConfigurazioni();
         _vtControllaVincoloEsistente();
         _vtPopolaGrigliaConfigurazioni();
-    });
+    }
+
+    var listA = document.getElementById('vt-list-a');
+    if (listA) listA.addEventListener('click', function (e) { selezionaLista('A', e); });
 
     var listB = document.getElementById('vt-list-b');
-    if (listB) listB.addEventListener('click', function (e) {
-        var item = e.target.closest('.vt-obj-item');
-        if (!item) return;
-        var oid = parseInt(item.dataset.oggettoId) || 0;
-        _vtDistruggiCanvases();
-        // Resetta editingVincoloId prima — verrà ripristinato se esiste vincolo
-        _vtState.editingVincoloId = null;
-        _vtState.editingVincolo = null;
-        _vtState.oggettoBId = oid;
-        _vtRotazioniCache = {};
-        _vtPopolaListeOggetti(
-            (document.getElementById('vt-search-a') || {}).value || '',
-            (document.getElementById('vt-search-b') || {}).value || ''
-        );
-        _vtCalcolaConfigurazioni();
-        _vtControllaVincoloEsistente();
-        _vtPopolaGrigliaConfigurazioni();
-    });
+    if (listB) listB.addEventListener('click', function (e) { selezionaLista('B', e); });
 
     // Dropdown carica vincolo esistente
     var loadSel = document.getElementById('vt-load-select');

@@ -175,6 +175,14 @@
     color: var(--color-accent);
 }
 
+.vt-obj-col .field-label small {
+    display: block;
+    margin-top: 2px;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 400;
+}
+
 .vt-obj-item.selected-a {
     background: #e8f8f0;
     border-color: var(--color-success);
@@ -494,7 +502,7 @@
 .vt-config-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    grid-auto-rows: 1fr;
+    grid-auto-rows: minmax(220px, 1fr);
     gap: 12px;
     margin-top: 8px;
     flex: 1;
@@ -514,7 +522,7 @@
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
-    min-height: 0;
+    min-height: 200px;
 }
 
 .vt-config-card:hover {
@@ -543,7 +551,7 @@
 /* Canvas wrapper */
 .vt-config-canvas-wrap {
     flex: 1;
-    min-height: 0;
+    min-height: 140px;
     background: #f8f9fb;
     position: relative;
     overflow: hidden;
@@ -1027,6 +1035,10 @@
 @media (max-width: 860px) {
     #panel-destro { display: none; }
     #sidebar { width: 60px; min-width: 60px; }
+    /* Sidebar ridotta a 60px: riallinea il pannello Aiuto accanto ad essa */
+    .modal-overlay.modal-overlay-clean {
+        padding-left: 72px;
+    }
     #sidebar .sidebar-item span:not(.sidebar-icon) { display: none; }
     #sidebar .sidebar-section-title { display: none; }
     #sidebar .sidebar-separator { display: none; }
@@ -1537,25 +1549,169 @@ img.header-cat-icon {
     flex-shrink: 0;
 }
 
-/* Icone help manuale */
-.manuale-help-icon.bi {
-    font-size: 18px;
-    width: 24px;
-    text-align: center;
+/* Help contestuale: 2 pulsanti 50% + 50% (Mouse / Tastiera → 2 modali) */
+.manuale-help-bar {
+    display: flex;
+    gap: 6px;
+    margin: 2px 0 6px;
+}
+
+.manuale-help-btn {
+    flex: 1 1 50%;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 8px;
+    background: #f0f4f7;
+    border: 1px solid #dfe5ea;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-accent);
+    font-family: inherit;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: all var(--transition);
+}
+
+.manuale-help-btn:hover {
+    background: #e3ecf3;
+    border-color: var(--color-accent);
+}
+
+.manuale-help-btn:active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+}
+
+.manuale-help-btn .bi {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+/* Modale Aiuto: larghezza adattata al contenuto (invece dei 480px fissi) */
+.modal-container.modal-auto {
+    width: auto;
+    min-width: 300px;
+    max-width: 92vw;
+}
+
+/* Modale Aiuto: pannello accanto alla barra sinistra (dx), sfondo invariato.
+   L'overlay resta trasparente (niente sfondo scuro) ma continua a intercettare
+   i click: il click fuori chiude il modale, la pagina sotto resta com'è. */
+.modal-overlay.modal-overlay-clean {
+    background: transparent;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: calc(var(--header-h) + 14px) 0 0 calc(var(--sidebar-w) + 12px);
+}
+
+.modal-overlay.modal-overlay-clean .modal-container {
+    max-width: calc(100vw - var(--sidebar-w) - 24px);
+    animation: modal-slide-in 0.18s ease;
+}
+
+@keyframes modal-slide-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Riga Snap + Ghost (50% + 50%) sopra il D-Pad — qui (non in base.css)
+   per vincere il cascade contro .btn/.btn-sm di panels_vincoli.css */
+.manuale-snap-ghost-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-top: 10px;
+}
+
+.manuale-snap-ghost-row .manuale-snap-cell,
+.manuale-snap-ghost-row .manuale-ghost-cell {
+    flex: 1 1 50%;
+    min-width: 0;
+}
+
+.manuale-snap-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Emoji colorate nei bottoni/label del tab Manuale */
+.manuale-emoji {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* Riga Aggiungi + Rimuovi (50% + 50%) */
+.manuale-add-remove-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-top: 6px;
+}
+
+.manuale-add-remove-row .manuale-add-cell,
+.manuale-add-remove-row .manuale-remove-cell {
+    flex: 1 1 50%;
+    min-width: 0;
+}
+
+/* Bottoni manuale a larghezza piena dentro le celle 50%.
+   Selettori per ID: sopravvivono alla sostituzione di className
+   fatta dal JS su #manuale-btn-ghost-toggle e non vengono battuti
+   da .btn/.btn-sm di panels_vincoli.css (caricato prima di questo). */
+#manuale-btn-aggiungi,
+#manuale-btn-rimuovi,
+#manuale-btn-ghost-toggle,
+#manuale-btn-pesi,
+#manuale-btn-salva {
+    width: 100%;
+    height: 33px;
+    padding: 0 8px;
+    white-space: nowrap;
+}
+
+.manuale-annulla-btn {
+    width: 100%;
+    margin-top: 6px;
+}
+
+/* Riga Distribuzione Pesi + Salva (50% + 50%) */
+.manuale-pesi-salva-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-top: 6px;
+}
+
+.manuale-pesi-salva-row .manuale-pesi-cell,
+.manuale-pesi-salva-row .manuale-salva-cell {
+    flex: 1 1 50%;
+    min-width: 0;
+}
+
+/* Sezione in fondo: riga orizzontale + info oggetto selezionato */
+.manuale-oggetto-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
 }
 
 /* Icone D-Pad */
-.manuale-dpad-title .bi {
-    font-size: 14px;
-    margin-right: 2px;
-}
-
 .dpad-btn .bi {
-    font-size: 14px;
+    font-size: 12px;
 }
 
 .dpad-confirm .bi {
-    font-size: 18px;
+    font-size: 15px;
 }
 
 /* Icone nei bottoni .btn */
@@ -1612,18 +1768,8 @@ img.header-cat-icon {
    ============================================================================= */
 
 /* =============================================================================
-   D-PAD — TARGET TOUCH PIÙ GRANDI
+   D-PAD — dimensioni compatte (30/34px da base.css, icone ridotte qui sopra)
    ============================================================================= */
-
-.dpad-arrow {
-    width: 38px;
-    height: 38px;
-}
-
-.dpad-confirm {
-    width: 42px;
-    height: 42px;
-}
 
 /* =============================================================================
    SIDEBAR NAV DINAMICO — ICONE PIÙ GRANDI

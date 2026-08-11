@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import random
+import re
+import math
 import uuid
 from datetime import timedelta
 
@@ -28,7 +30,7 @@ logger = logging.getLogger(__name__)
 from django.db import models, transaction
 from django.shortcuts import redirect, render
 from rest_framework import status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -46,6 +48,7 @@ from .models import (
     OggettoPosizionato,
     PianoDiCarico,
     SezioneCarico,
+    UserProfile,
     StatoPiano,
     VincoloOggetto,
     VincoloTraOggetti,
@@ -64,6 +67,7 @@ from .serializers import (
     PianoDiCaricoListSerializer,
     SezioneCaricoSerializer,
     SezioneCaricoWriteSerializer,
+    ImpostazioniOttimizzatoreSerializer,
     VincoloOggettoUpdateSerializer,
     VincoloTraOggettiSerializer,
 )
@@ -335,18 +339,34 @@ def homepage(request):
 
     # GET: prepara il contesto per la landing page
 
-    # Oggetti demo per il panel destro
-    oggetti = Oggetto.objects.all().order_by("codice")[:5]
-    oggetti_demo = []
-    for o in oggetti:
-        oggetti_demo.append({
-            "codice": o.codice,
-            "descrizione": o.descrizione or "",
-            "colore": o.colore or "#447e9b",
-            "dimensioni": f"{o.lunghezza_mm / 10:.0f}×{o.larghezza_mm / 10:.0f}×{o.altezza_mm / 10:.0f} cm",
-            "peso_kg": f"{o.peso_kg} kg",
-            "quantita": random.randint(3, 25),
-        })
+    # Dati dimostrativi statici: la landing è pubblica e non deve leggere
+    # l'anagrafica privata degli oggetti di alcun utente.
+    oggetti_demo = [
+        {
+            "codice": "DEMO-A01",
+            "descrizione": "Scatola ricambi auto",
+            "colore": "#447e9b",
+            "dimensioni": "60×40×30 cm",
+            "peso_kg": "35 kg",
+            "quantita": 6,
+        },
+        {
+            "codice": "DEMO-B01",
+            "descrizione": "Quadro elettrico",
+            "colore": "#cc44ff",
+            "dimensioni": "80×60×120 cm",
+            "peso_kg": "120 kg",
+            "quantita": 2,
+        },
+        {
+            "codice": "DEMO-C01",
+            "descrizione": "Pallet industriale",
+            "colore": "#ff6644",
+            "dimensioni": "120×80×100 cm",
+            "peso_kg": "250 kg",
+            "quantita": 4,
+        },
+    ]
 
     return render(request, "caricamento/landing.html", {
         "login_error": login_error,
@@ -389,33 +409,42 @@ def workspace(request, piano_id=None):
     from django.core.paginator import Paginator
     from django.db.models import Prefetch
 
-    piani_qs = PianoDiCarico.objects.select_related("contenitore").order_by("-created_at")
+    piani_qs = PianoDiCarico.objects.filter(
+        owner=request.user,
+    ).select_related("contenitore").order_by("-created_at")
     paginator = Paginator(piani_qs, 50)
     page_number = request.GET.get("page", 1)
     piani = paginator.get_page(page_number)
 
-    contenitori = Contenitore.objects.prefetch_related("sezioni").all().order_by("nome")
+    contenitori = Contenitore.objects.filter(
+        owner=request.user,
+    ).prefetch_related("sezioni").order_by("nome")
 
     # --- Oggetti: paginati (50/pag) con vincoli prefetched ---
-    oggetti_qs = Oggetto.objects.prefetch_related(
+    oggetti_qs = Oggetto.objects.filter(
+        owner=request.user,
+    ).prefetch_related(
         Prefetch("vincoli", queryset=VincoloOggetto.objects.all())
-    ).all().order_by("codice")
+    ).order_by("codice")
     oggetti_paginator = Paginator(oggetti_qs, 50)
     oggetti_page_number = request.GET.get("oggetti_page", 1)
     oggetti = oggetti_paginator.get_page(oggetti_page_number)
 
     # --- Vincoli: TUTTI (tabella piccola, serve lookup per oggetto_id nel frontend) ---
-    vincoli = VincoloOggetto.objects.all()
+    vincoli = VincoloOggetto.objects.filter(oggetto__owner=request.user)
 
     # --- Catalogo oggetti leggero: TUTTI (serve per dropdown e colonne Vincoli-tra) ---
-    oggetti_catalog = list(Oggetto.objects.values(
+    oggetti_catalog = list(Oggetto.objects.filter(owner=request.user).values(
         "id", "codice", "descrizione", "lunghezza_mm", "larghezza_mm", "altezza_mm",
         "peso_kg", "quantita_disponibile", "colore",
     ).order_by("codice"))
 
-    vincoli_tra_oggetti = VincoloTraOggetti.objects.select_related(
+    vincoli_tra_oggetti = VincoloTraOggetti.objects.filter(
+        oggetto_a__owner=request.user,
+        oggetto_b__owner=request.user,
+    ).select_related(
         "oggetto_a", "oggetto_b"
-    ).all().order_by("-created_at")
+    ).order_by("-created_at")
 
     # Serializza dettagli_posizionamento come JSON per il frontend
     vincoli_tra_js = []
@@ -426,6 +455,11 @@ def workspace(request, piano_id=None):
             "dettagli_json": dett_json,
         })
 
+    # La configurazione icone viene iniettata nella pagina (json_script nel
+    # template) così il frontend la applica subito, senza fetch né flash di
+    # icone Bootstrap. Stessa fonte dell'endpoint /api/icone-config/.
+    icon_config = _load_icon_config()
+
     return render(request, "caricamento/workspace.html", {
         "piani": piani,
         "contenitori": contenitori,
@@ -434,6 +468,53 @@ def workspace(request, piano_id=None):
         "vincoli": vincoli,
         "vincoli_tra_oggetti": vincoli_tra_js,
         "piano_id": piano_id,
+        "icon_config": icon_config,
+    })
+
+
+# ===========================================================================
+# API: Preferenze personali del workspace e dell'ottimizzatore
+# ===========================================================================
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def api_impostazioni_ottimizzatore(request):
+    """Legge o salva le preferenze dell'ottimizzatore dell'utente autenticato.
+
+    GET /api/impostazioni_ottimizzatore/
+        Restituisce ``{"impostazioni": {...}}``.
+    PUT /api/impostazioni_ottimizzatore/
+        Aggiorna le sezioni inviate della configurazione personale,
+        preservando le sezioni e i campi non inclusi nel payload.
+
+    Le preferenze sono volutamente associate a ``UserProfile`` e non a
+    ``ImpostazioniSistema``: strategie e opzioni di visualizzazione sono
+    personali, mentre ImpostazioniSistema contiene la configurazione globale
+    dell'applicazione.
+    """
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    if request.method == "GET":
+        return Response({
+            "impostazioni": profile.impostazioni_ottimizzatore or {},
+        })
+
+    serializer = ImpostazioniOttimizzatoreSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    payload = serializer.validated_data
+
+    # PUT aggiorna le sezioni inviate e preserva le altre per consentire
+    # aggiornamenti parziali senza perdere preferenze già salvate.
+    impostazioni = dict(profile.impostazioni_ottimizzatore or {})
+    impostazioni.update({
+        nome: dict(valori) for nome, valori in payload.items()
+    })
+    profile.impostazioni_ottimizzatore = impostazioni
+    profile.save(update_fields=["impostazioni_ottimizzatore", "updated_at"])
+
+    return Response({
+        "success": True,
+        "impostazioni": impostazioni,
     })
 
 
@@ -456,21 +537,25 @@ class ContenitoreViewSet(viewsets.ModelViewSet):
 
     queryset = Contenitore.objects.prefetch_related("sezioni").all()
 
+    def get_queryset(self):
+        qs = super().get_queryset().filter(owner=self.request.user)
+        if self.action == "list":
+            mostra_archiviati = self.request.query_params.get("archiviati", "") == "1"
+            qs = qs.filter(archiviato=mostra_archiviati)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(owner=self.request.user)
+
     def get_serializer_class(self):
         if self.action == "list":
             return ContenitoreListSerializer
         if self.action == "create":
             return ContenitoreCreateSerializer
         return ContenitoreDetailSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        # Filtro archiviati SOLO sulla list: default mostra attivi, ?archiviati=1 mostra archiviati.
-        # Su retrieve/update/delete NON filtriamo, così l'utente può sempre modificare/eliminare.
-        if self.action == "list":
-            mostra_archiviati = self.request.query_params.get("archiviati", "") == "1"
-            qs = qs.filter(archiviato=mostra_archiviati)
-        return qs
 
     def destroy(self, request, *args, **kwargs):
         """Elimina un contenitore. Blocca con 409 se ci sono piani di carico collegati."""
@@ -548,21 +633,25 @@ class OggettoViewSet(viewsets.ModelViewSet):
 
     queryset = Oggetto.objects.all()
 
+    def get_queryset(self):
+        qs = super().get_queryset().filter(owner=self.request.user)
+        if self.action == "list":
+            mostra_archiviati = self.request.query_params.get("archiviati", "") == "1"
+            qs = qs.filter(archiviato=mostra_archiviati)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(owner=self.request.user)
+
     def get_serializer_class(self):
         if self.action == "list":
             return OggettoListSerializer
         if self.action == "create":
             return OggettoCreateSerializer
         return OggettoDetailSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        # Filtro archiviati SOLO sulla list: default mostra attivi, ?archiviati=1 mostra archiviati.
-        # Su retrieve/update/delete NON filtriamo, così l'utente può sempre modificare/eliminare.
-        if self.action == "list":
-            mostra_archiviati = self.request.query_params.get("archiviati", "") == "1"
-            qs = qs.filter(archiviato=mostra_archiviati)
-        return qs
 
     def destroy(self, request, *args, **kwargs):
         """Elimina un oggetto. Blocca con 409 se è posizionato in piani di carico."""
@@ -624,7 +713,7 @@ class OggettoViewSet(viewsets.ModelViewSet):
                 {"errore": "Nessun ID fornito."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs = Oggetto.objects.filter(id__in=ids)
+        qs = Oggetto.objects.filter(id__in=ids, owner=request.user)
         deleted_count, _ = qs.delete()
         return Response({"eliminati": deleted_count})
 
@@ -650,14 +739,25 @@ class OggettoViewSet(viewsets.ModelViewSet):
             )
 
         # Prende o crea i VincoloOggetto per tutti gli ID
-        vincoli_qs = VincoloOggetto.objects.filter(oggetto_id__in=ids)
+        vincoli_qs = VincoloOggetto.objects.filter(
+            oggetto_id__in=ids,
+            oggetto__owner=request.user,
+        )
         vincoli_map = {v.oggetto_id: v for v in vincoli_qs}
+        owned_ids = set(
+            Oggetto.objects.filter(id__in=ids, owner=request.user)
+            .values_list("id", flat=True)
+        )
+        if owned_ids != set(ids):
+            raise ValidationError({"ids": "Uno o più oggetti non appartengono all'utente."})
 
         aggiornati = 0
         for oid in ids:
             vincolo = vincoli_map.get(oid)
             if vincolo is None:
-                vincolo = VincoloOggetto(oggetto_id=oid)
+                vincolo, _ = VincoloOggetto.objects.get_or_create(
+                    oggetto_id=oid,
+                )
             # Applica i campi
             for campo, valore in vincoli_data.items():
                 if hasattr(vincolo, campo):
@@ -696,6 +796,25 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         num_oggetti=models.Count("oggetti_posizionati"),
     )
 
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
+
+    def _verifica_contenitore_utente(self, contenitore):
+        if contenitore.owner_id != self.request.user.id:
+            raise ValidationError({"contenitore": "Contenitore non appartenente all'utente."})
+
+    def perform_create(self, serializer):
+        contenitore = serializer.validated_data["contenitore"]
+        self._verifica_contenitore_utente(contenitore)
+        serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        contenitore = serializer.validated_data.get(
+            "contenitore", serializer.instance.contenitore
+        )
+        self._verifica_contenitore_utente(contenitore)
+        serializer.save(owner=self.request.user)
+
     def get_serializer_class(self):
         if self.action == "list":
             return PianoDiCaricoListSerializer
@@ -729,7 +848,13 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             raise ValidationError(serializer.errors)
         validated = serializer.validated_data
         asincrono = validated["asincrono"]
+        salva_risultato = validated["salva_risultato"]
         config = validated.get("config", None)  # dict o None
+
+        if asincrono and not salva_risultato:
+            raise ValidationError(
+                {"salva_risultato": "La preview deve essere eseguita in modo sincrono."}
+            )
 
         if asincrono:
             # Task asincrono via Django Q2
@@ -754,7 +879,11 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             )
         else:
             # Esecuzione sincrona (bloccante)
-            risultato = esegui_ottimizzazione_sincrona(piano.id, config=config)
+            risultato = esegui_ottimizzazione_sincrona(
+                piano.id,
+                config=config,
+                salva_risultato=salva_risultato,
+            )
 
             # Ricarica il piano per dati aggiornati
             piano.refresh_from_db()
@@ -768,6 +897,9 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 "oggetti_non_posizionati": risultato["oggetti_non_posizionati"],
                 "saturazione": round(risultato["saturazione_percentuale"], 1),
                 "messaggio": risultato["messaggio"],
+                "report_priorita": risultato.get("report_priorita", {}),
+                "posizioni_preview": risultato.get("posizioni_preview", []),
+                "salva_risultato": salva_risultato,
             }
 
             # Aggiungi metriche estese se configurate per output dettagliato
@@ -825,21 +957,19 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         serializer = OggettoDaCaricareSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        oggetto_id = serializer.validated_data["oggetto_id"]
+        if not Oggetto.objects.filter(id=oggetto_id, owner=request.user).exists():
+            raise ValidationError({"oggetto_id": "Oggetto non appartenente all'utente."})
+
         oggetto_da_caricare, created = OggettoDaCaricare.objects.update_or_create(
             piano_di_carico=piano,
-            oggetto_id=serializer.validated_data["oggetto_id"],
+            oggetto_id=oggetto_id,
             defaults={
                 "quantita": serializer.validated_data.get("quantita", 1),
                 "priorita": serializer.validated_data.get("priorita", 0),
                 "note": serializer.validated_data.get("note", ""),
             },
         )
-
-        # Ogni salvataggio dal pannello frontend consolida la configurazione
-        # manuale: le q.tà confermate dall'utente sono la nuova fonte di verità.
-        if piano.algoritmo != "manuale":
-            piano.algoritmo = "manuale"
-            piano.save(update_fields=["algoritmo", "updated_at"])
 
         return Response(
             {
@@ -1036,9 +1166,18 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def salva_posizioni_manuali(self, request, pk=None):
-        """Salva le posizioni 3D modificate in modalità manuale.
+        """Salva o sincronizza le posizioni 3D del piano.
 
         POST /api/piani/{id}/salva_posizioni_manuali/
+
+        Il campo ``origine`` distingue i due flussi:
+        - ``manuale``: l'utente ha modificato direttamente la scena 3D e il
+          piano viene marcato come manuale;
+        - ``sincronizzazione``: il frontend aggiorna le posizioni per allineare
+          la lista di carico, senza cambiare l'origine dell'elaborazione.
+
+        Per compatibilità con i client precedenti, l'assenza di ``origine``
+        mantiene il comportamento manuale.
 
         Corpo richiesta (JSON):
             {
@@ -1055,6 +1194,12 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         """
         piano = self.get_object()
         oggetti_data = request.data.get("oggetti", [])
+        origine = request.data.get("origine", "manuale")
+        if origine not in {"manuale", "sincronizzazione"}:
+            return Response(
+                {"errore": "Origine non valida. Usare 'manuale' o 'sincronizzazione'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not oggetti_data:
             return Response(
@@ -1068,41 +1213,82 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             piano.oggetti_posizionati.all().delete()
 
             # Recupera tutti gli oggetti in una query
-            codici = [item["codice"] for item in oggetti_data]
+            codici = [item.get("codice") for item in oggetti_data]
             oggetti_map = {
                 o.codice: o
-                for o in Oggetto.objects.filter(codice__in=codici)
+                for o in Oggetto.objects.filter(
+                    codice__in=codici,
+                    owner=request.user,
+                )
             }
+            codici_piano = set(
+                piano.oggetti_da_caricare.values_list("oggetto__codice", flat=True)
+            )
+            codici_non_validi = set(codici) - codici_piano
+            if codici_non_validi:
+                raise ValidationError({
+                    "oggetti": "Sono presenti oggetti non selezionati nel piano."
+                })
 
             nuovi = []
             for item in oggetti_data:
                 codice = item.get("codice")
                 oggetto = oggetti_map.get(codice)
                 if not oggetto:
-                    continue
+                    raise ValidationError({
+                        "oggetti": "Uno o più oggetti non appartengono all'utente."
+                    })
 
                 pc = item.get("posizione_cm", {})
                 dc = item.get("dimensioni_cm", {})
+                try:
+                    x, y, z = (float(pc[key]) for key in ("x", "y", "z"))
+                    dx, dy, dz = (float(dc[key]) for key in ("x", "y", "z"))
+                except (KeyError, TypeError, ValueError):
+                    raise ValidationError({
+                        "oggetti": "Posizione e dimensioni devono contenere valori numerici completi."
+                    })
+                if (
+                    not all(math.isfinite(value) for value in (x, y, z, dx, dy, dz))
+                    or min(x, y, z, dx, dy, dz) < 0
+                    or min(dx, dy, dz) <= 0
+                ):
+                    raise ValidationError({
+                        "oggetti": "Coordinate non negative e dimensioni positive richieste."
+                    })
+                if (
+                    x * 10 + dx * 10 > piano.contenitore.lunghezza_mm
+                    or y * 10 + dy * 10 > piano.contenitore.larghezza_mm
+                    or z * 10 + dz * 10 > piano.contenitore.altezza_mm
+                ):
+                    raise ValidationError({
+                        "oggetti": "Un posizionamento supera le dimensioni del contenitore."
+                    })
 
                 nuovi.append(OggettoPosizionato(
                     piano_di_carico=piano,
                     oggetto=oggetto,
-                    coordinata_x_mm=round(pc.get("x", 0) * 10),
-                    coordinata_y_mm=round(pc.get("y", 0) * 10),
-                    coordinata_z_mm=round(pc.get("z", 0) * 10),
-                    dimensione_x_mm=round(dc.get("x", 0) * 10),
-                    dimensione_y_mm=round(dc.get("y", 0) * 10),
-                    dimensione_z_mm=round(dc.get("z", 0) * 10),
+                    coordinata_x_mm=round(x * 10),
+                    coordinata_y_mm=round(y * 10),
+                    coordinata_z_mm=round(z * 10),
+                    dimensione_x_mm=round(dx * 10),
+                    dimensione_y_mm=round(dy * 10),
+                    dimensione_z_mm=round(dz * 10),
                     colore=item.get("colore", "#4488ff"),
                     rotazione_applicata=item.get("rotazione", "XYZ"),
                 ))
 
             OggettoPosizionato.objects.bulk_create(nuovi)
 
-            # Aggiorna lo stato del piano
-            piano.stato = StatoPiano.COMPLETATO
-            piano.algoritmo = "manuale"
-            piano.save(update_fields=["stato", "algoritmo", "updated_at"])
+            # La sincronizzazione non deve alterare lo stato di un piano
+            # automatico parziale; una modifica manuale, invece, completa il
+            # piano perché le posizioni sono state confermate dall'utente.
+            update_fields = ["updated_at"]
+            if origine == "manuale":
+                piano.stato = StatoPiano.COMPLETATO
+                piano.algoritmo = "manuale"
+                update_fields.extend(["stato", "algoritmo"])
+            piano.save(update_fields=update_fields)
 
         return Response({
             "successo": True,
@@ -1121,13 +1307,49 @@ class VincoloTraOggettiViewSet(viewsets.ModelViewSet):
     queryset = VincoloTraOggetti.objects.select_related("oggetto_a", "oggetto_b").all()
     serializer_class = VincoloTraOggettiSerializer
 
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            oggetto_a__owner=self.request.user,
+            oggetto_b__owner=self.request.user,
+        )
+
+    def perform_create(self, serializer):
+        oggetto_a = serializer.validated_data["oggetto_a"]
+        oggetto_b = serializer.validated_data["oggetto_b"]
+        if oggetto_a.owner_id != self.request.user.id or oggetto_b.owner_id != self.request.user.id:
+            raise ValidationError({"oggetto_a": "Gli oggetti devono appartenere all'utente."})
+        serializer.save()
+
+    def perform_update(self, serializer):
+        oggetto_a = serializer.validated_data.get(
+            "oggetto_a", serializer.instance.oggetto_a
+        )
+        oggetto_b = serializer.validated_data.get(
+            "oggetto_b", serializer.instance.oggetto_b
+        )
+        if (
+            oggetto_a.owner_id != self.request.user.id
+            or oggetto_b.owner_id != self.request.user.id
+        ):
+            raise ValidationError({"oggetto_a": "Gli oggetti devono appartenere all'utente."})
+        serializer.save()
+
 
 # ===========================================================================
 # API: Gestione Icone (Admin only)
 # ===========================================================================
 
-ICON_CONFIG_PATH = os.path.join(settings.BASE_DIR, "icon_config.json")
-ICON_UPLOAD_DIR = os.path.join(settings.BASE_DIR, "caricamento", "static", "caricamento", "img")
+# Percorsi sovrascrivibili via env per il deploy Docker:
+# - ICON_CONFIG_PATH → volume persistente per la config icone
+# - ICON_UPLOAD_DIR   → volume condiviso per i PNG caricati dagli admin
+ICON_CONFIG_PATH = os.environ.get(
+    "ICON_CONFIG_PATH",
+    os.path.join(settings.BASE_DIR, "icon_config.json"),
+)
+ICON_UPLOAD_DIR = os.environ.get(
+    "ICON_UPLOAD_DIR",
+    os.path.join(settings.BASE_DIR, "caricamento", "static", "caricamento", "img"),
+)
 
 
 def _load_icon_config():
@@ -1148,11 +1370,40 @@ def _save_icon_config(data):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
+# Chiavi consentite per la sezione "colori" del config icone (colori aree/slider
+# + "base": colore di riferimento per la generazione delle tonalità coordinate).
+COLORI_CATALOG = {
+    "base", "header", "sidebar", "panel-bg", "panel-border", "main-bg",
+    "accent", "accent-hover",
+    "slider-track-start", "slider-track", "slider-thumb", "strategia-thumb",
+}
+
+
+def _verifica_file_icone_esistono(data):
+    """Raccoglie i riferimenti PNG mancanti nella cartella img."""
+    mancanti = []
+    riferimenti = []
+    for section in ("config", "bottoni"):
+        section_data = data.get(section)
+        if not isinstance(section_data, dict):
+            continue
+        for entry in section_data.values():
+            if isinstance(entry, dict) and entry.get("file"):
+                riferimenti.append(entry["file"])
+    for fn in sorted(set(riferimenti)):
+        if not os.path.exists(os.path.join(ICON_UPLOAD_DIR, os.path.basename(fn))):
+            mancanti.append(fn)
+    return mancanti
+
+
 @login_required
 def api_icone_config(request):
     """
     GET  /api/icone-config/  → Restituisce la configurazione icone attuale
-    POST /api/icone-config/  → Salva la configurazione icone (solo admin)
+    POST /api/icone-config/  → Salva configurazione icone e bottoni (solo admin).
+
+    Valida che tutti i file PNG referenziati (icone e bottoni) esistano
+    nella cartella img prima di salvare.
     """
     if request.method == "GET":
         config = _load_icon_config()
@@ -1166,13 +1417,126 @@ def api_icone_config(request):
         except (json.JSONDecodeError, UnicodeDecodeError):
             return JsonResponse({"error": "JSON non valido."}, status=400)
 
+        if "config" not in data and "bottoni" not in data and "colori" not in data:
+            return JsonResponse(
+                {"error": "Campi 'config', 'bottoni' o 'colori' richiesti."},
+                status=400,
+            )
+
+        # Merge difensivo: un payload parziale non deve mai perdere la
+        # sezione non inviata della configurazione esistente.
+        existing = _load_icon_config()
         if "config" not in data:
-            return JsonResponse({"error": "Campo 'config' richiesto."}, status=400)
+            data["config"] = existing.get("config", {})
+        if "bottoni" not in data:
+            data["bottoni"] = existing.get("bottoni", {})
+        if "colori" not in data:
+            data["colori"] = existing.get("colori", {})
+
+        # Sanitizzazione del colore dei bottoni: solo #rrggbb, maiuscole
+        # normalizzate in minuscole. Un valore non valido viene scartato
+        # (mai un payload di stile arbitrario nel file di configurazione).
+        hex_color_re = re.compile(r"^#[0-9a-fA-F]{6}$")
+        bottoni = data.get("bottoni")
+        if isinstance(bottoni, dict):
+            for entry in bottoni.values():
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("color"):
+                    color = str(entry["color"]).strip()
+                    if hex_color_re.match(color):
+                        entry["color"] = color.lower()
+                    else:
+                        entry.pop("color", None)
+                # Dimensioni bottone: larghezza % (40-100) e altezza px (20-120)
+                if "width_pct" in entry:
+                    try:
+                        entry["width_pct"] = max(40, min(100, int(entry["width_pct"])))
+                    except (TypeError, ValueError):
+                        entry.pop("width_pct", None)
+                if "height_px" in entry:
+                    try:
+                        entry["height_px"] = max(20, min(120, int(entry["height_px"])))
+                    except (TypeError, ValueError):
+                        entry.pop("height_px", None)
+
+        # Sanitizzazione dei colori: solo le chiavi del catalogo e solo valori
+        # #rrggbb validi (minuscoli). Qualsiasi altra chiave/valore viene scartato.
+        colori = data.get("colori")
+        if isinstance(colori, dict):
+            colori_validi = {}
+            for key, value in colori.items():
+                if key not in COLORI_CATALOG:
+                    continue
+                if isinstance(value, str) and hex_color_re.match(value.strip()):
+                    colori_validi[key] = value.strip().lower()
+            data["colori"] = colori_validi
+
+        # Validazione: i file PNG referenziati devono esistere nella cartella img
+        mancanti = _verifica_file_icone_esistono(data)
+        if mancanti:
+            return JsonResponse({
+                "error": "File PNG non trovati: " + ", ".join(mancanti),
+                "file_mancanti": mancanti,
+            }, status=400)
 
         _save_icon_config(data)
         return JsonResponse({"success": True, "message": "Configurazione salvata."})
 
     return JsonResponse({"error": "Metodo non consentito."}, status=405)
+
+
+@login_required
+def api_icone_file_delete(request):
+    """
+    DELETE /api/icone-file/  → Elimina un PNG caricato (solo admin).
+
+    Corpo (JSON): {"filename": "icona.png"}
+    Rifiuta con 409 se il file è ancora referenziato dalla configurazione
+    attuale (icone o bottoni).
+    """
+    if request.method != "DELETE":
+        return JsonResponse({"error": "Metodo non consentito."}, status=405)
+
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Solo amministratori."}, status=403)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "JSON non valido."}, status=400)
+
+    filename = (data.get("filename") or "").strip()
+    if not filename.lower().endswith(".png"):
+        return JsonResponse({"error": "Solo file PNG."}, status=400)
+
+    safe_name = os.path.basename(filename).replace("..", "")
+    path = os.path.join(ICON_UPLOAD_DIR, safe_name)
+
+    if not os.path.exists(path):
+        return JsonResponse({"error": "File non trovato."}, status=404)
+
+    # Controlla che il file non sia referenziato nella configurazione attuale
+    cfg = _load_icon_config()
+    referenziati = set()
+    for entry in (cfg.get("config") or {}).values():
+        if isinstance(entry, dict) and entry.get("file"):
+            referenziati.add(entry["file"])
+    for entry in (cfg.get("bottoni") or {}).values():
+        if isinstance(entry, dict) and entry.get("file"):
+            referenziati.add(entry["file"])
+
+    if safe_name in referenziati:
+        return JsonResponse({
+            "error": (
+                f"'{safe_name}' è ancora usato nella configurazione. "
+                "Rimuovi il riferimento prima di eliminarlo."
+            ),
+        }, status=409)
+
+    os.remove(path)
+    logger.info("Icon PNG deleted: %s by %s", safe_name, request.user.username)
+    return JsonResponse({"success": True, "message": f"'{safe_name}' eliminato."})
 
 
 @login_required

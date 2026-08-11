@@ -58,6 +58,17 @@ class TipoMezzo(models.TextChoices):
 class Contenitore(models.Model):
     """Rappresenta un contenitore/veicolo con dimensioni interne e portata."""
 
+    # Nullable per consentire la migrazione dei dati legacy; i record creati
+    # dall'API ricevono sempre il proprietario autenticato.
+    owner = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT,
+        related_name="contenitori",
+        null=True,
+        blank=True,
+        help_text=_("Utente proprietario del contenitore."),
+    )
+
     nome = models.CharField(
         max_length=128,
         unique=True,
@@ -163,6 +174,17 @@ class Contenitore(models.Model):
 
 class Oggetto(models.Model):
     """Rappresenta un oggetto/pacco da imbarcare."""
+
+    # Nullable per consentire la migrazione dei dati legacy; i record creati
+    # dall'API ricevono sempre il proprietario autenticato.
+    owner = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT,
+        related_name="oggetti",
+        null=True,
+        blank=True,
+        help_text=_("Utente proprietario dell'oggetto."),
+    )
 
     codice = models.CharField(
         max_length=64,
@@ -340,6 +362,17 @@ class StatoPiano(models.TextChoices):
 class PianoDiCarico(models.Model):
     """Rappresenta un piano di carico: associazione tra un contenitore
     e un insieme di oggetti posizionati al suo interno."""
+
+    # Nullable per consentire la migrazione dei dati legacy; i record creati
+    # dall'API ricevono sempre il proprietario autenticato.
+    owner = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT,
+        related_name="piani_di_carico",
+        null=True,
+        blank=True,
+        help_text=_("Utente proprietario del piano di carico."),
+    )
 
     nome = models.CharField(
         max_length=128,
@@ -750,6 +783,11 @@ class UserProfile(models.Model):
     is_paying = models.BooleanField(
         default=False,
         help_text=_("Utente pagante: accesso illimitato senza scadenza trial."),
+    )
+    impostazioni_ottimizzatore = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_("Preferenze personali del workspace e dell'ottimizzatore."),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

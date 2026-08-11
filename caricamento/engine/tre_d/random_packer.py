@@ -13,11 +13,14 @@ Per ogni restart:
 Leggero: solo 1 chiamata load_truck_v2 per restart, adatto a VPS.
 """
 
+import copy
 import random
 from typing import List, Optional
 
 from .packer_3d_v2 import filter_unfitted, _e_una_base
 from .packer_3d_v2 import load_truck_v2
+from .priority_policy import priorita_effettive, priorita_esplicita
+from .priority_policy import score_soluzione
 
 
 def _estrai_tipo(obj) -> str:
@@ -45,22 +48,17 @@ def _shuffle_per_tipo(objects: List, vincoli_sopra=None) -> List:
     if vincoli_sopra is None:
         vincoli_sopra = {}
 
-    # Raggruppa per priorità
-    prio_groups = {}
+    # Raggruppa esclusivamente per priorità esplicita. I vincoli descrivono
+    # la geometria e non promuovono le basi nella fase dell'oggetto A.
+    effective = priorita_effettive(objects)
+    phase_groups = {}
     for o in objects:
-        p = getattr(o, 'priorita', 0) or 0
-        prio_groups.setdefault(p, []).append(o)
+        phase = effective.get(o.oggetto_id, priorita_esplicita(o))
+        phase_groups.setdefault(phase, []).append(o)
 
     result = []
-
-    # Priorità esplicite: 1, 2, 3, ...
-    for p in sorted(k for k in prio_groups if k > 0):
-        result.extend(_shuffle_tipi_in_priorita(prio_groups[p], vincoli_sopra))
-
-    # Priorità 0: in fondo
-    if 0 in prio_groups:
-        result.extend(_shuffle_tipi_in_priorita(prio_groups[0], vincoli_sopra))
-
+    for phase in sorted(phase_groups, key=lambda value: (value == 0, value or 999)):
+        result.extend(_shuffle_tipi_in_priorita(phase_groups[phase], vincoli_sopra))
     return result
 
 
@@ -105,6 +103,7 @@ def run_packing_random(
     num_restarts: int = 5,
     container_dim=None,
     tracker=None,
+    compattazione_aggressiva: bool = False,
 ) -> List:
     """Esegue N restart con shuffle per tipo e load_truck_v2 (senza backtracking).
 
@@ -131,12 +130,16 @@ def run_packing_random(
     num_restarts = max(1, min(num_restarts, 50))
 
     best_solution = None
-    best_length = float('inf')
-    best_count = 0
+    best_score = None
 
     for _ in range(num_restarts):
         # Shuffle per tipo (con priorità e ordinamento logico)
-        shuffled = _shuffle_per_tipo(objects, vincoli_sopra)
+        # Ogni restart lavora su proprie istanze: load_truck_v2 modifica
+        # coordinate e dimensioni durante le prove di orientamento.
+        shuffled = [
+            copy.deepcopy(obj)
+            for obj in _shuffle_per_tipo(objects, vincoli_sopra)
+        ]
 
         # Tracker fresco per ogni restart
         fresh_tracker = None
@@ -151,22 +154,26 @@ def run_packing_random(
             container_dim=container_dim,
             tracker=fresh_tracker,
             preserve_order=True,
+            compattazione_aggressiva=compattazione_aggressiva,
         )
 
         placed, _ = filter_unfitted(solution)
         if placed:
-            new_length = max(o.x + o.width for o in placed)
-            new_count = len(placed)
-            if new_count > best_count or (new_count == best_count and new_length < best_length):
-                best_solution = solution
-                best_length = new_length
-                best_count = new_count
+            new_score = score_soluzione(
+                placed,
+                container_dim[2] if container_dim else None,
+                all_objects=objects,
+            )
+            if best_score is None or new_score > best_score:
+                best_solution = copy.deepcopy(solution)
+                best_score = new_score
 
     # Fallback: nessun restart ha piazzato oggetti
     if best_solution is None:
         best_solution = load_truck_v2(
-            objects, vincoli_sopra=vincoli_sopra,
+            copy.deepcopy(objects), vincoli_sopra=vincoli_sopra,
             container_dim=container_dim, tracker=tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
         )
 
     return best_solution

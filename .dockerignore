@@ -1,0 +1,22 @@
+# =============================================================================
+# .dockerignore — esclude dal build context i file non necessari
+# =============================================================================
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.log
+db.sqlite3
+staticfiles
+media
+.env
+*.env
+packer_prima_della_modifica.py
+push_github.txt
+push_to_github.ps1
+PRODUZIONE.md
+docker-compose.yml
+nginx

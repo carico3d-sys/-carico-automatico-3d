@@ -15,7 +15,7 @@ function selezionaMezzo(mezzoId, skipResetPianoAttivo) {
     var vecchioId = WS.activeMezzoId;
     WS.activeMezzoId = nuovoId;
     DOM.headerVehicleSelect.value = nuovoId || '';
-    DOM.ottimizzaBtn.disabled = !(raccogliOggettiDaPanel().length > 0 && nuovoId);
+    _aggiornaStatoAzioniAuto();
     // Se il mezzo è cambiato e c'era un piano attivo, invalidalo (il piano è legato al vecchio contenitore).
     // Quando carichiamo esplicitamente un piano salvato, saltiamo questo reset perché il piano resta valido.
     if (!skipResetPianoAttivo && nuovoId !== null && nuovoId !== vecchioId && WS.activePianoId && vecchioId !== null) {
@@ -107,6 +107,31 @@ function _sincronizzaSelezionePanel(itemDiv) {
 // PANNELLO DESTRO: GESTIONE OGGETTI NEL CARICO
 // =============================================================================
 
+function _aggiornaColoreQtyOriginale(itemDiv) {
+    if (!itemDiv) return;
+    var badge = itemDiv.querySelector('.panel-qty-originale');
+    if (!badge) return;
+
+    var qtyOriginale = parseInt(itemDiv.dataset.qtyOriginale, 10) || 0;
+    var qtyPosizionata = parseInt(itemDiv.querySelector('.panel-qty-input')?.value, 10) || 0;
+
+    if (!qtyOriginale) {
+        badge.classList.remove('qty-incompleta');
+        badge.style.background = 'transparent';
+        badge.style.borderColor = 'transparent';
+        badge.style.color = 'transparent';
+        return;
+    }
+
+    var incompleta = qtyPosizionata < qtyOriginale;
+    badge.classList.toggle('qty-incompleta', incompleta);
+    badge.style.background = incompleta ? '#f8d7da' : '#fff3cd';
+    badge.style.borderColor = incompleta ? '#dc3545' : '#ffc107';
+    badge.style.color = incompleta ? '#842029' : '#856404';
+    badge.title = 'Quantità richiesta: ' + qtyOriginale +
+        (incompleta ? ' — quantità piazzata: ' + qtyPosizionata : '');
+}
+
 function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     if (!oggettoId) return;
     if (qtyIniziale === undefined || qtyIniziale === null) qtyIniziale = 1;
@@ -169,7 +194,11 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
 
     // Event listeners
     var qtyInput = div.querySelector('.panel-qty-input');
-    qtyInput.addEventListener('change', function () { aggiornaRiepilogoPanel(); aggiornaStatoPulsante(); });
+    qtyInput.addEventListener('change', function () {
+        _aggiornaColoreQtyOriginale(div);
+        aggiornaRiepilogoPanel();
+        aggiornaStatoPulsante();
+    });
     qtyInput.addEventListener('input', function () {
         // Modifica manuale: pulisci qty originale
         if (div.dataset.qtyOriginale) {
@@ -216,13 +245,18 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
             div.classList.add('selected-multi');
             _aggiornaPanelBatchToolbar();
 
-            document.querySelectorAll('.panel-item').forEach(function (el) { el.classList.remove('selected'); });
-            div.classList.add('selected');
+            if (typeof _impostaSelezionePanelManuale === 'function') {
+                _impostaSelezionePanelManuale(div, div.dataset.oggettoId, div.dataset.codice);
+            } else {
+                document.querySelectorAll('.panel-item').forEach(function (el) { el.classList.remove('selected'); });
+                div.classList.add('selected');
+            }
             _sincronizzaSelezionePanel(div);
         }
     });
 
     DOM.panelItemsList.appendChild(div);
+    _aggiornaColoreQtyOriginale(div);
     DOM.panelEmpty.style.display = 'none';
     var panelHeader = document.getElementById('panel-items-header');
     if (panelHeader) panelHeader.style.display = 'flex';
@@ -265,22 +299,37 @@ function aggiornaRiepilogoPanel() {
     if (typeof _aggiornaSidebarRiepilogo === 'function') _aggiornaSidebarRiepilogo(totPezzi, totPeso, items.length);
 }
 
+function _aggiornaStatoAzioniAuto() {
+    var abilitato = !!(
+        WS.activeMezzoId &&
+        DOM.panelItemsList &&
+        DOM.panelItemsList.querySelectorAll('.panel-item').length > 0
+    );
+    if (DOM.ottimizzaBtn) DOM.ottimizzaBtn.disabled = !abilitato;
+    if (DOM.btnSalvaAuto) DOM.btnSalvaAuto.disabled = !abilitato;
+    if (DOM.btnElaboraAuto) DOM.btnElaboraAuto.disabled = !abilitato;
+}
+
 function aggiornaStatoPulsante() {
-    var items = DOM.panelItemsList.querySelectorAll('.panel-item');
-    DOM.ottimizzaBtn.disabled = !(items.length > 0 && WS.activeMezzoId);
+    _aggiornaStatoAzioniAuto();
 }
 
 function svuotaCarico() {
     if (DOM.panelItemsList.children.length === 0) return;
     if (!confirm('Svuotare tutti gli oggetti dal carico?')) return;
 
-    // Svuota pannello destro
+    // Svuota pannello destro e azzera la selezione manuale persistente.
+    // Evita che un nuovo carico erediti la riga selezionata del precedente.
+    if (typeof WS !== 'undefined') {
+        WS._manualPanelSelectedOggettoId = null;
+        WS._manualPanelSelectedCodice = null;
+    }
     DOM.panelItemsList.innerHTML = '';
     _pulisciPanelMultiSel();
     DOM.panelEmpty.style.display = 'flex';
     var panelHeaderSv = document.getElementById('panel-items-header');
     if (panelHeaderSv) panelHeaderSv.style.display = 'none';
-    DOM.ottimizzaBtn.disabled = true;
+    _aggiornaStatoAzioniAuto();
     if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = true;
     if (typeof _aggiornaSidebarRiepilogo === 'function') _aggiornaSidebarRiepilogo(0, 0, 0);
     nascondiDistribuzionePesi();
@@ -705,8 +754,13 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
             '<button class="btn-item-action btn-modify" title="Modifica">✏️</button>' +
         '</div>';
 
+    _aggiornaColoreQtyOriginale(itemDiv);
     var qtyInput = itemDiv.querySelector('.panel-qty-input');
-    qtyInput.addEventListener('change', function () { aggiornaRiepilogoPanel(); aggiornaStatoPulsante(); });
+    qtyInput.addEventListener('change', function () {
+        _aggiornaColoreQtyOriginale(itemDiv);
+        aggiornaRiepilogoPanel();
+        aggiornaStatoPulsante();
+    });
     qtyInput.addEventListener('input', function () {
         if (itemDiv.dataset.qtyOriginale) {
             var badge = itemDiv.querySelector('.panel-qty-originale');
@@ -860,7 +914,12 @@ async function popolaPanelDaPiano(pianoId) {
         // o proviene da ottimizzazione automatica (q.tà richieste vs piazzate)
         var isManuale = data.piano && data.piano.algoritmo === 'manuale';
 
-        // Svuota panel e ripopola via aggiungiAlCarico
+        // Svuota panel e ripopola via aggiungiAlCarico. Il piano nuovo
+        // non deve ereditare la selezione manuale del piano precedente.
+        if (typeof WS !== 'undefined') {
+            WS._manualPanelSelectedOggettoId = null;
+            WS._manualPanelSelectedCodice = null;
+        }
         DOM.panelItemsList.innerHTML = '';
 
         // Unisci i codici: piazzati + salvati + richiesti
@@ -919,7 +978,13 @@ async function popolaPanelDaPiano(pianoId) {
 // =============================================================================
 
 function nuovoCarico() {
-    if (DOM.panelItemsList.children.length > 0 && !confirm('Creare un nuovo carico? Il carico attuale andrà perso.')) return;
+    if (DOM.panelItemsList.children.length > 0 && !confirm('Creare un nuovo carico? Le modifiche non salvate andranno perse.')) return;
+
+    // Azzera anche la selezione manuale persistente del carico precedente.
+    if (typeof WS !== 'undefined') {
+        WS._manualPanelSelectedOggettoId = null;
+        WS._manualPanelSelectedCodice = null;
+    }
 
     // Nascondi intestazione colonne
     var panelHeader3 = document.getElementById('panel-items-header');
@@ -948,7 +1013,7 @@ function nuovoCarico() {
 
     // Reset header
     DOM.headerVehicleSelect.value = '';
-    DOM.ottimizzaBtn.disabled = true;
+    _aggiornaStatoAzioniAuto();
     if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = true;
     if (typeof _aggiornaSidebarRiepilogo === 'function') _aggiornaSidebarRiepilogo(0, 0, 0);
 

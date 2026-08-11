@@ -430,7 +430,19 @@ function mostraContenitoreVuoto(dimensioniCm, nomeMezzo) {
     // Nascondi slider sequenza carico
     var sliderBar = document.getElementById('vp-slider-bar');
     if (sliderBar) sliderBar.style.display = 'none';
-    STATE.dati = null;
+    // Mantieni le dimensioni del mezzo anche senza un piano salvato.
+    // La modalità manuale usa STATE.dati.contenitore per calcolare i limiti
+    // e trovare il primo spazio libero. Impostarlo a null faceva fallire
+    // subito _trovaPosizione3D() nel nuovo carico, mostrando erroneamente
+    // "Nessuno slot libero" anche con la scena completamente vuota.
+    STATE.dati = {
+        piano: null,
+        contenitore: {
+            dimensioni_cm: dimensioniCm,
+            nome: nomeMezzo || '',
+        },
+        oggetti: [],
+    };
     STATE.pianoId = null;
     STATE.tooltip = null;
     STATE._containerLabelSprite = null;

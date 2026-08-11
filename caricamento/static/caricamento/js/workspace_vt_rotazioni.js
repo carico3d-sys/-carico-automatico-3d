@@ -57,10 +57,13 @@ function _vtCalcolaRotazioniValide(oggettoId) {
     return rotazioni;
 }
 
-function _vtCalcolaConfigurazioni() {
-    var aId = _vtState.oggettoAId;
-    var bId = _vtState.oggettoBId;
-    if (!aId || !bId) { _vtState.configurazioni = []; return; }
+function _vtCalcolaConfigurazioni(aIdOverride, bIdOverride) {
+    var aId = aIdOverride || _vtState.oggettoAId;
+    var bId = bIdOverride || _vtState.oggettoBId;
+    if (!aId || !bId) {
+        if (!aIdOverride && !bIdOverride) _vtState.configurazioni = [];
+        return [];
+    }
 
     var rotsA = _vtCalcolaRotazioniValide(aId);
     var rotsB = _vtCalcolaRotazioniValide(bId);
@@ -122,7 +125,8 @@ function _vtCalcolaConfigurazioni() {
             }
         }
     }
-    _vtState.configurazioni = configs;
+    if (!aIdOverride && !bIdOverride) _vtState.configurazioni = configs;
+    return configs;
 }
 
 /**

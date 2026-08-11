@@ -282,7 +282,11 @@ function _applicaImportazione(data, nomeFile) {
         }
     }
 
-    // 2. Svuota il carico attuale
+    // 2. Svuota il carico attuale e resetta la selezione manuale persistente.
+    if (typeof WS !== 'undefined') {
+        WS._manualPanelSelectedOggettoId = null;
+        WS._manualPanelSelectedCodice = null;
+    }
     DOM.panelItemsList.innerHTML = '';
     DOM.panelEmpty.style.display = 'flex';
 
@@ -478,6 +482,7 @@ async function salvaPianoDB() {
 
     try {
         var pianoId = WS.activePianoId;
+        var pianoCreatoDuranteSalvataggio = false;
 
         // Se non esiste un piano, crealo
         if (!pianoId) {
@@ -492,6 +497,7 @@ async function salvaPianoDB() {
             var pianoData = await createResp.json();
             pianoId = pianoData.id;
             WS.activePianoId = pianoId;
+            pianoCreatoDuranteSalvataggio = true;
 
             var mezzo = WS.contenitori.find(function (c) { return c.id == WS.activeMezzoId; });
             WS.piani.unshift({
@@ -543,7 +549,13 @@ async function salvaPianoDB() {
             if (_trimmedCount > 0) {
                 showToast('🔧 ' + _trimmedCount + ' oggetti 3D rimossi per allineare la scena alle q.tà del pannello.', 'info');
             }
-            await _salvaPosizioniManuali(pianoId);
+            // Se la scena è stata modificata con drag/rotazione/rimozione,
+            // il salvataggio è manuale; altrimenti è solo sincronizzazione
+            // della lista di carico e non deve cambiare l'origine del piano.
+            await _salvaPosizioniManuali(
+                pianoId,
+                WS._manualDragOccurred ? 'manuale' : 'sincronizzazione'
+            );
             WS._manualDragOccurred = false;
         }
 
@@ -553,8 +565,37 @@ async function salvaPianoDB() {
         DOM.headerExportBtn.disabled = false;
         setStatus('idle', 'Salvato nel DB');
         showToast('💾 Piano salvato nel database (ID: ' + pianoId + ')', 'success');
+
+        // Se il dettaglio del piano è aperto nei Piani Recenti, ricarica i dati
+        // appena persistiti e ridisegna l'anteprima statica con un solo render.
+        if (typeof _aggiornaAnteprimaPianoDopoSalvataggio === 'function') {
+            _aggiornaAnteprimaPianoDopoSalvataggio(pianoId);
+        }
     } catch (err) {
         console.error('Salva DB error:', err);
+
+        // Se il piano è stato creato in questa operazione ma il salvataggio
+        // delle posizioni è fallito, rimuovilo per non lasciare un piano
+        // bozza senza oggetti posizionati. I piani già esistenti restano
+        // invariati e possono essere corretti con un nuovo salvataggio.
+        if (pianoCreatoDuranteSalvataggio && pianoId) {
+            try {
+                var rollbackResp = await fetch('/api/piani/' + pianoId + '/', {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': getCSRFToken() },
+                });
+                if (rollbackResp.ok || rollbackResp.status === 204) {
+                    WS.activePianoId = null;
+                    WS.piani = WS.piani.filter(function (p) { return p.id != pianoId; });
+                    showToast('↩️ Piano non creato: le posizioni 3D non sono state salvate.', 'warning');
+                } else {
+                    console.warn('Rollback piano fallito: HTTP ' + rollbackResp.status);
+                }
+            } catch (rollbackErr) {
+                console.warn('Errore rollback piano:', rollbackErr);
+            }
+        }
+
         showToast('❌ Salvataggio fallito: ' + err.message, 'error');
         setStatus('error', 'Errore salvataggio');
     }
@@ -564,7 +605,23 @@ async function salvaPianoDB() {
 // 5. SALVATAGGIO POSIZIONI MANUALI 3D
 // =============================================================================
 
-async function _salvaPosizioniManuali(pianoId) {
+function _normalizzaRotazionePerApi(rotazione) {
+    var valore = String(rotazione || 'XYZ');
+    var mappa = {
+        'LxPxH': 'XYZ',
+        'PxLxH': 'YXZ',
+        'LxHxP': 'XZY',
+        'HxPxL': 'ZYX',
+        'PxHxL': 'YZX',
+        'HxLxP': 'ZXY',
+    };
+    if (mappa[valore]) return mappa[valore];
+    var compatta = valore.replace(/[^XYZ]/gi, '').toUpperCase();
+    return compatta.length === 3 ? compatta : 'XYZ';
+}
+
+async function _salvaPosizioniManuali(pianoId, origine) {
+    origine = origine || 'manuale';
     var posizioni = [];
 
     STATE.oggettiMesh.forEach(function (group) {
@@ -605,27 +662,34 @@ async function _salvaPosizioniManuali(pianoId) {
                 z: dimCm.y,              // API altezza  = dimCm.y
             },
             colore: ud.colore || '#447e9b',
-            rotazione: ud.rotazione || 'XYZ',
+            // Il DB memorizza una permutazione di assi lunga 3 caratteri;
+            // le etichette UI come "LxPxH" non sono valide per il campo.
+            rotazione: _normalizzaRotazionePerApi(ud._orientamento || ud.rotazione || 'XYZ'),
         });
     });
 
-    if (posizioni.length === 0) return;
+    if (posizioni.length === 0) {
+        throw new Error('Nessuna posizione 3D valida da salvare.');
+    }
 
     try {
         var resp = await fetch('/api/piani/' + pianoId + '/salva_posizioni_manuali/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ oggetti: posizioni }),
+            body: JSON.stringify({ oggetti: posizioni, origine: origine }),
         });
         if (!resp.ok) {
             var errData = await resp.json().catch(function () { return {}; });
-            console.warn('Salvataggio posizioni manuali fallito: HTTP ' + resp.status, errData);
-        } else {
-            var data = await resp.json();
-            console.log('Posizioni manuali salvate: ' + data.oggetti_salvati + ' oggetti');
+            var dettaglio = errData.errore || errData.detail || ('HTTP ' + resp.status);
+            throw new Error('Salvataggio posizioni manuali fallito: ' + dettaglio);
         }
+        var data = await resp.json();
+        if (data.successo !== true) {
+            throw new Error('Il server non ha confermato il salvataggio delle posizioni.');
+        }
+        console.log('Posizioni manuali salvate: ' + data.oggetti_salvati + ' oggetti');
     } catch (e) {
         console.warn('Errore salvataggio posizioni manuali:', e);
-        showToast('⚠️ Posizioni 3D non salvate: ' + e.message, 'warning');
+        throw e;
     }
 }

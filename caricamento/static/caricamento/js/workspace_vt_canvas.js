@@ -122,27 +122,42 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
     grid.position.y = -0.5;
     scene.add(grid);
 
-    // Materiali
-    var colorA = 0x3b82f6, colorB = 0xec4899;
-    var matA, matB;
-    if (isShaded) {
-        matA = new THREE.MeshPhongMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.35 });
-        matB = new THREE.MeshPhongMaterial({ color: 0xcbd5e1, transparent: true, opacity: 0.35 });
-    } else {
-        matA = new THREE.MeshPhongMaterial({ color: colorA, transparent: true, opacity: 0.9 });
-        matB = new THREE.MeshPhongMaterial({ color: colorB, transparent: true, opacity: 0.9 });
-    }
+    // Materiali: usa il colore definito nell'anagrafica dell'oggetto.
+    // Il fallback mantiene la stessa palette usata dal resto del workspace
+    // quando l'oggetto non ha un colore esplicito.
+    var oggettoA = (typeof trovaOggetto === 'function') ? trovaOggetto(_vtState.oggettoAId) : null;
+    var oggettoB = (typeof trovaOggetto === 'function') ? trovaOggetto(_vtState.oggettoBId) : null;
+    var colorA = (typeof coloreOggetto === 'function')
+        ? coloreOggetto(oggettoA || { id: _vtState.oggettoAId, colore: '' })
+        : ((oggettoA && oggettoA.colore) || '#447e9b');
+    var colorB = (typeof coloreOggetto === 'function')
+        ? coloreOggetto(oggettoB || { id: _vtState.oggettoBId, colore: '' })
+        : ((oggettoB && oggettoB.colore) || '#447e9b');
+    var matA = new THREE.MeshPhongMaterial({
+        color: colorA,
+        transparent: true,
+        opacity: isShaded ? 0.35 : 0.9,
+    });
+    var matB = new THREE.MeshPhongMaterial({
+        color: colorB,
+        transparent: true,
+        opacity: isShaded ? 0.35 : 0.9,
+    });
 
-    var edgeColorA = isShaded ? 0xaaaaaa : 0x1e40af;
-    var edgeColorB = isShaded ? 0xaaaaaa : 0xbe185d;
-    var edgeOpacity = isShaded ? 0.25 : 0.7;
+    // Bordi scuri derivati dal colore dell'anagrafica, così il colore resta
+    // riconoscibile anche quando la configurazione è attenuata.
+    var edgeA = new THREE.Color(colorA).multiplyScalar(0.55);
+    var edgeB = new THREE.Color(colorB).multiplyScalar(0.55);
+    var edgeColorA = edgeA.getHex();
+    var edgeColorB = edgeB.getHex();
+    var edgeOpacity = isShaded ? 0.35 : 0.7;
 
     // --- Pavimento (centrato su B) ---
     var platW = Math.max(ax, bx) + Math.abs(offX) + 8;
     var platD = Math.max(ay, by) + Math.abs(offZ) + 8;
     var platCenterX = offX / 2;
     var platCenterZ = offZ / 2;
-    var platColor = isSelected ? 0xdbeafe : (isShaded ? 0xe5e5e5 : 0xf0f4ff);
+    var platColor = isSelected ? new THREE.Color(colorA).lerp(new THREE.Color(colorB), 0.5) : 0xf0f4ff;
     var platGeo = new THREE.PlaneGeometry(platW, platD);
     var platMat = new THREE.MeshPhongMaterial({
         color: platColor, transparent: true, opacity: isShaded ? 0.12 : (isSelected ? 0.3 : 0.15),

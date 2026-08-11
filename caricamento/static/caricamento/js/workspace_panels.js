@@ -83,19 +83,14 @@ async function _parseDeleteError(resp) {
 // VINCOLI TRA OGGETTI — Nuovo layout 3 colonne (A | MiniViewport | B)
 // =============================================================================
 
-var _vtState = {
-    oggettoAId: 0,
-    oggettoBId: 0,
-    editingVincoloId: null,
-    editingVincolo: null,
-};
-
 function renderVincoliTraPanel() {
     // v4: Canvas Three.js indipendenti — griglia di card cliccabili
     _vtDistruggiCanvases();
     _vtState = {
         oggettoAId: 0, oggettoBId: 0,
-        configurazioni: [],
+        oggettiASelezionati: [], oggettiBSelezionati: [],
+        ultimoASelezionato: 0, ultimoBSelezionato: 0,
+        configurazioni: [], batchEsclusioni: {}, batchInCorso: false,
         editingVincoloId: null, editingVincolo: null,
     };
 
@@ -127,7 +122,7 @@ function renderVincoliTraPanel() {
                 // Colonna A (sinistra)
                 '<div class="vt-obj-col">' +
                     '<div class="vt-obj-col-header">' +
-                        '<span class="field-label">🔵 Oggetto A</span>' +
+                        '<span class="field-label">🔵 Oggetto A <small>(Ctrl/Shift: multipla)</small></span>' +
                         '<input type="text" class="vt-obj-search" id="vt-search-a" placeholder="Filtra..." autocomplete="off">' +
                     '</div>' +
                     '<div class="vt-obj-list" id="vt-list-a"></div>' +
@@ -165,7 +160,7 @@ function renderVincoliTraPanel() {
                 // Colonna B (destra)
                 '<div class="vt-obj-col">' +
                     '<div class="vt-obj-col-header">' +
-                        '<span class="field-label">🟣 Oggetto B</span>' +
+                        '<span class="field-label">🟣 Oggetto B <small>(Ctrl/Shift: multipla)</small></span>' +
                         '<input type="text" class="vt-obj-search" id="vt-search-b" placeholder="Filtra..." autocomplete="off">' +
                     '</div>' +
                     '<div class="vt-obj-list" id="vt-list-b"></div>' +
@@ -612,21 +607,50 @@ function _mostraPlaceholderMiniViewport(messaggio) {
 
 // --- Piani Recenti ---
 
+// ID del piano attualmente mostrato nel pannello di dettaglio.
+// Serve a rinfrescare solo l'anteprima effettivamente aperta.
+var _pianoDettaglioApertoId = null;
+var _pianiDettaglioRichiesta = 0;
+
+// Libera renderer, scena e risorse del canvas di anteprima attualmente montato.
+// Viene chiamata prima di sostituire il contenuto del dettaglio, così i refresh
+// non lasciano contesti WebGL inutilizzati.
+function _distruggiAnteprima3DPiano() {
+    var canvas = document.getElementById('pd-anteprima-canvas');
+    if (!canvas) return;
+
+    var renderer = canvas._pdRenderer;
+    if (renderer) {
+        renderer.dispose();
+        if (typeof renderer.forceContextLoss === 'function') renderer.forceContextLoss();
+    }
+
+    var scene = canvas._pdScene;
+    if (scene) {
+        scene.traverse(function (obj) {
+            if (obj.geometry) obj.geometry.dispose();
+            if (!obj.material) return;
+            var materiali = Array.isArray(obj.material) ? obj.material : [obj.material];
+            materiali.forEach(function (materiale) {
+                if (materiale.map) materiale.map.dispose();
+                materiale.dispose();
+            });
+        });
+    }
+
+    canvas._pdRenderer = null;
+    canvas._pdScene = null;
+}
+
 // Helper: costruisce l'HTML della lista piani
 function _buildPianiListHtml() {
     var listHtml = '';
     WS.piani.forEach(function (p) {
-        var statoClass = 'stato-bozza';
-        if (p.stato === 'completato') statoClass = 'stato-completato';
-        else if (p.stato === 'in_elaborazione') statoClass = 'stato-in_elaborazione';
-        else if (p.stato === 'parziale') statoClass = 'stato-parziale';
-        else if (p.stato === 'fallito' || p.stato === 'errore') statoClass = 'stato-errore';
+        // Nella lista verticale di "Apri Piano" mostriamo solo il nome.
         listHtml += '<div class="pv-list-item" data-piano-id="' + p.id + '">' +
             '<div class="pv-list-item-info">' +
                 '<strong>' + escapeHtml(p.nome) + '</strong>' +
-                '<span>' + escapeHtml(p.container) + '</span>' +
             '</div>' +
-            '<span class="stato-badge ' + statoClass + '">' + escapeHtml(p.stato_display || p.stato) + '</span>' +
         '</div>';
     });
     return listHtml || '<div class="pv-empty"><span class="pv-empty-icon">📁</span><span>Nessun piano salvato</span></div>';
@@ -656,6 +680,8 @@ function _wirePianiListClickHandlers() {
 }
 
 function renderPianiPanel() {
+    _pianiDettaglioRichiesta++;
+    _pianoDettaglioApertoId = null;
     DOM.pvListTitle.innerHTML = '<i class="bi bi-folder2-open"></i> Piani Recenti';
     DOM.pvFormTitle.textContent = 'Dettaglio Piano';
     DOM.pvListCount.textContent = WS.piani.length;
@@ -730,8 +756,13 @@ function renderPianiPanel() {
 }
 
 function renderPianiDettaglio(pianoId) {
+    _pianoDettaglioApertoId = pianoId;
+    var richiesta = ++_pianiDettaglioRichiesta;
     var p = WS.piani.find(function (x) { return x.id == pianoId; });
     if (!p) return;
+
+    // Il dettaglio verrà sostituito dal loader: libera prima il canvas vecchio.
+    _distruggiAnteprima3DPiano();
     DOM.pvFormTitle.innerHTML = '<i class="bi bi-file-earmark"></i> ' + escapeHtml(p.nome);
 
     var statoClass = 'stato-bozza';
@@ -745,18 +776,21 @@ function renderPianiDettaglio(pianoId) {
 
     // Fetch full data: dettagli piano + distribuzione pesi
     Promise.all([
-        fetch('/api/piani/' + pianoId + '/').then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }),
-        fetch('/api/piani/' + pianoId + '/distribuzione_pesi/').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+        fetch('/api/piani/' + pianoId + '/', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }),
+        fetch('/api/piani/' + pianoId + '/distribuzione_pesi/', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (results) {
+        // Ignora risposte arrivate in ritardo dopo un altro click o refresh.
+        if (richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         var pianoFull = results[0];
         var distribuzione = results[1];
-        _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass);
+        _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta);
     }).catch(function () {
+        if (richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         DOM.pvFormBody.innerHTML = '<p style="color:#c0392b;text-align:center;padding:40px;">Errore caricamento dettagli.</p>';
     });
 }
 
-function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass) {
+function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta) {
     var oggetti = (pianoFull.oggetti_posizionati || []);
     var contenitore = pianoFull.contenitore || {};
     var sezioniCont = (contenitore.sezioni || []);
@@ -832,15 +866,21 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
             '<div class="pd-pianale-val">Occupato ' + pianaleOccM + 'm / ' + pianaleTotM + 'm (' + pianalePct + '%) · Libero ' + pianaleLiberoM + 'm</div>' +
         '</div>';
 
-    // --- Data creazione ---
-    var dataStr = '';
-    if (pianoFull.created_at) {
-        var d = new Date(pianoFull.created_at);
-        if (!isNaN(d.getTime())) {
-            dataStr = d.getDate() + ' ' + (mesiIt[d.getMonth()] || '') + ' ' + d.getFullYear() + ' ' +
-                String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-        }
+    // --- Date del piano ---
+    function formattaDataPiano(valore) {
+        if (!valore) return '';
+        var d = new Date(valore);
+        if (isNaN(d.getTime())) return '';
+        return d.getDate() + ' ' + (mesiIt[d.getMonth()] || '') + ' ' + d.getFullYear() + ' ' +
+            String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
+    var dataCreazioneStr = formattaDataPiano(pianoFull.created_at);
+    var ultimaModificaStr = formattaDataPiano(pianoFull.updated_at);
+    var datePianoHtml =
+        '<div style="font-size:10px;color:#999;margin-bottom:6px;">' +
+            'Data creazione: ' + (dataCreazioneStr || '—') +
+            ' · Ultima modifica: ' + (ultimaModificaStr || '—') +
+        '</div>';
 
     // --- Layout completo ---
     DOM.pvFormBody.innerHTML =
@@ -860,7 +900,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
                 '</div>' +
                 '<div style="font-size:11px;color:#666;margin-bottom:1px;">Mezzo: <strong>' + escapeHtml(p.container || contenitore.nome || '-') + '</strong></div>' +
                 '<div style="font-size:11px;color:#666;margin-bottom:1px;">' + formatCm(dimsCont.x) + '×' + formatCm(dimsCont.y) + '×' + formatCm(dimsCont.z) + ' cm · ' + volumeM3.toFixed(1) + ' m³</div>' +
-                (dataStr ? '<div style="font-size:10px;color:#999;margin-bottom:6px;">' + dataStr + '</div>' : '<div style="margin-bottom:6px;"></div>') +
+                datePianoHtml +
                 '<!-- PESO PER ASSE -->' +
                 '<div class="pd-info-section">' +
                     '<div class="field-label">📊 Peso per Asse</div>' +
@@ -967,8 +1007,19 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
 
     // Render anteprima 3D
     setTimeout(function () {
+        // Evita che un render ritardato di un piano precedente finisca
+        // nel canvas del piano appena selezionato.
+        if (richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         _renderAnteprima3DPiano('pd-anteprima-canvas', oggetti, dimsCont);
     }, 100);
+}
+
+// Ricarica dal server il dettaglio attualmente aperto dopo un salvataggio.
+// Il canvas resta statico: viene eseguito un solo render, soltanto quando serve.
+function _aggiornaAnteprimaPianoDopoSalvataggio(pianoId) {
+    if (_pianoDettaglioApertoId == null || _pianoDettaglioApertoId != pianoId) return;
+    if (!document.getElementById('pd-anteprima-canvas')) return;
+    renderPianiDettaglio(pianoId);
 }
 
 // =============================================================================
@@ -987,13 +1038,9 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     canvas.width = w;
     canvas.height = h;
 
-    // Libera eventuale vecchia scena
-    if (canvas._pdRenderer) {
-        canvas._pdRenderer.dispose();
-        if (canvas._pdScene) {
-            canvas._pdScene.traverse(function (obj) { if (obj.geometry) obj.geometry.dispose(); if (obj.material) { if (Array.isArray(obj.material)) obj.material.forEach(function (m) { m.dispose(); }); else obj.material.dispose(); } });
-        }
-    }
+    // Libera eventuale vecchia scena sul canvas (utile anche in caso di
+    // ridisegno diretto senza ricreare il markup del dettaglio).
+    _distruggiAnteprima3DPiano();
 
     var scene = new THREE.Scene();
     scene.background = new THREE.Color('#e8ecf0');
@@ -1004,12 +1051,52 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     canvas._pdRenderer = renderer;
 
-    // Camera isometrica fissa — zoomata per riempire il canvas
+    // Camera isometrica fissa — immagine ingrandita del 20% rispetto alla
+    // scala precedente, mantenendo invariato il canvas.
     var maxDim = Math.max(dimsCont.x || 1000, dimsCont.y || 1000, dimsCont.z || 1000) / 10;
-    var dist = maxDim * 1.0;
-    var camera = new THREE.PerspectiveCamera(40, w / h, 1, dist * 4);
-    camera.position.set(dist * 0.8, dist * 0.75, dist * 0.8);
-    camera.lookAt((dimsCont.x || 0) / 20, 0, (dimsCont.z || 0) / 20);
+
+    // Stessa convenzione del mainview:
+    // API.x = lunghezza → Three.js X,
+    // API.y = larghezza → Three.js Z,
+    // API.z = altezza → Three.js Y.
+    var centerX = (dimsCont.x || 100) / 20;
+    var centerY = (dimsCont.z || 100) / 20;
+    var centerZ = (dimsCont.y || 100) / 20;
+
+    // Il mainview parte da (800, 600, 1000) e guarda il contenitore.
+    // Manteniamo lo zoom +20%, ma applichiamo una piccola variazione
+    // controllata all'orientamento: più inclinazione dall'alto e una lieve
+    // rotazione laterale, senza modificare coordinate o geometrie.
+    var zoom = 1.1;
+    var mainViewCamera = { x: 800, y: 600, z: 1000 };
+    var yaw = 10 * Math.PI / 180;     // rotazione laterale opposta, 10 gradi
+    var pitch = 8 * Math.PI / 180;    // inclinazione dall'alto, 8 gradi
+    var viewX = mainViewCamera.x - centerX;
+    var viewY = mainViewCamera.y - centerY;
+    var viewZ = mainViewCamera.z - centerZ;
+
+    // Ruota il vettore attorno all'asse verticale (yaw).
+    var yawX = viewX * Math.cos(yaw) + viewZ * Math.sin(yaw);
+    var yawZ = -viewX * Math.sin(yaw) + viewZ * Math.cos(yaw);
+    var horizontal = Math.sqrt(yawX * yawX + yawZ * yawZ);
+
+    // Inclina la vista verso il basso/alto mantenendo invariata la distanza.
+    var pitchY = viewY * Math.cos(pitch) + horizontal * Math.sin(pitch);
+    var pitchHorizontal = -viewY * Math.sin(pitch) + horizontal * Math.cos(pitch);
+    var horizontalScale = horizontal > 0 ? pitchHorizontal / horizontal : 1;
+
+    var camera = new THREE.PerspectiveCamera(
+        45,
+        w / h,
+        1,
+        Math.max(10000, maxDim * 4)
+    );
+    camera.position.set(
+        centerX + (yawX * horizontalScale) / zoom,
+        centerY + pitchY / zoom,
+        centerZ + (yawZ * horizontalScale) / zoom
+    );
+    camera.lookAt(centerX, centerY, centerZ);
     camera.updateProjectionMatrix();
 
     // Luci
@@ -1019,9 +1106,11 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     scene.add(dir);
 
     // Contenitore wireframe
+    // Il contenitore usa X=lunghezza, Y=altezza, Z=larghezza,
+    // come buildContainer() del mainview.
     var cx = (dimsCont.x || 100) / 10;
-    var cy = (dimsCont.y || 100) / 10;
-    var cz = (dimsCont.z || 100) / 10;
+    var cy = (dimsCont.z || 100) / 10;
+    var cz = (dimsCont.y || 100) / 10;
     var contGeo = new THREE.BoxGeometry(cx, cy, cz);
     var contEdges = new THREE.EdgesGeometry(contGeo);
     var contLine = new THREE.LineSegments(contEdges, new THREE.LineBasicMaterial({ color: '#8899aa', transparent: true, opacity: 0.5 }));
@@ -1034,12 +1123,14 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     var colorIdx = 0;
     var defaultColors = ['#447e9b','#e74c3c','#27ae60','#f39c12','#9b59b6','#1abc9c','#e67e22','#2980b9'];
     oggetti.forEach(function (o) {
+        // Stesso mapping del mainview: API z è l'altezza verticale,
+        // mentre API y è la profondità Three.js.
         var dx = (parseFloat(o.dimensione_x_mm) || 10) / 10;
-        var dy = (parseFloat(o.dimensione_y_mm) || 10) / 10;
-        var dz = (parseFloat(o.dimensione_z_mm) || 10) / 10;
+        var dy = (parseFloat(o.dimensione_z_mm) || 10) / 10;
+        var dz = (parseFloat(o.dimensione_y_mm) || 10) / 10;
         var px = (parseFloat(o.posizione_x_mm || o.coordinata_x_mm) || 0) / 10;
-        var py = (parseFloat(o.posizione_y_mm || o.coordinata_y_mm) || 0) / 10;
-        var pz = (parseFloat(o.posizione_z_mm || o.coordinata_z_mm) || 0) / 10;
+        var py = (parseFloat(o.posizione_z_mm || o.coordinata_z_mm) || 0) / 10;
+        var pz = (parseFloat(o.posizione_y_mm || o.coordinata_y_mm) || 0) / 10;
         if (dx <= 0 || dy <= 0 || dz <= 0) return;
 
         var col = o.colore;

@@ -1,4 +1,17 @@
 /* icons.css — colori icone Bootstrap + media queries responsive */
+
+/* =============================================================================
+   ANTI-FLASH ICONE
+   Finché il JS non ha applicato la config icone (e rimosso la classe
+   icons-not-ready da <html>), le icone Bootstrap restano invisibili.
+   Così il primo paint non mostra mai le icone di default al posto dei PNG.
+   Opacity (non display) per non alterare il layout. I PNG <img> non sono
+   <i> e restano sempre visibili.
+   ============================================================================= */
+
+html.icons-not-ready i {
+    opacity: 0;
+}
 /* =============================================================================
    MEDIA QUERY: TABLET e TOUCH (max-width: 1024px)
    ============================================================================= */

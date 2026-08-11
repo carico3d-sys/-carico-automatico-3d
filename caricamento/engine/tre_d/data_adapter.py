@@ -24,6 +24,7 @@ from caricamento.models import (
     VincoloTraOggetti,
 )
 
+from ..common import _build_lookup_vincoli_tra
 from .packer_3d_v2 import Obj
 from .packer_3d_v2 import run_packing_v2
 
@@ -114,6 +115,14 @@ def _carica_oggetti(piano: PianoDiCarico) -> List[Obj]:
                 solo_su_piano=solo_su_piano,
                 fragile=fragile,
                 priorita=priorita,
+                vincolo_oggetto_id=(
+                    getattr(vincolo_oggetto, "pk", None)
+                    if vincolo_oggetto is not None else None
+                ),
+                note_vincolo=(
+                    getattr(vincolo_oggetto, "note", "")
+                    if vincolo_oggetto is not None else ""
+                ),
             )
             # Memorizzo anche il colore come attributo (utile per salvare)
             obj._colore = _get_colore(oggetto, index)
@@ -130,36 +139,30 @@ def _carica_oggetti(piano: PianoDiCarico) -> List[Obj]:
 
 
 def _carica_vincoli_sopra(piano: PianoDiCarico) -> dict:
-    """Carica i vincoli 'sopra' tra oggetti.
+    """Carica il lookup completo dei vincoli ``sopra`` del piano.
 
-    Returns:
-        dict: {oggetto_id_A: {oggetto_id_B1, oggetto_id_B2, ...}}
-        dove A deve stare sopra B1 O B2 O ... (qualsiasi dei B)
-        Include TUTTI i vincoli, anche auto-referenziali (A sopra A).
+    La struttura restituita è quella consumata dal packer:
+    ``{A_id: {B_id: dettagli}}``. Sono incluse solo relazioni attive con
+    entrambi gli oggetti nella lista del piano.
     """
-    from collections import defaultdict
-
-    # Recupera gli oggetti associati a questo piano
     oggetti_nel_piano = set(
         OggettoDaCaricare.objects.filter(piano_di_carico=piano)
         .values_list("oggetto_id", flat=True)
     )
-
-    # Filtra i vincoli tra oggetti presenti nel piano
     vincoli = VincoloTraOggetti.objects.filter(
         attivo=True,
         tipo_relazione="sopra",
         oggetto_a_id__in=oggetti_nel_piano,
         oggetto_b_id__in=oggetti_nel_piano,
+    ).select_related("oggetto_a", "oggetto_b")
+    lookup = _build_lookup_vincoli_tra(
+        vincoli,
+        oggetto_ids=oggetti_nel_piano,
     )
-
-    # Costruisce {oggetto_a_id: {oggetto_b_id, ...}} includendo TUTTI
-    # i vincoli. Un dict di set permette multipli B per lo stesso A
-    # (es. 76 sopra {75, 76}).
-    vincoli_sopra = defaultdict(set)
-    for v in vincoli:
-        vincoli_sopra[v.oggetto_a_id].add(v.oggetto_b_id)
-    return dict(vincoli_sopra)
+    return {
+        a_id: {entry[0]: entry[3] for entry in entries}
+        for a_id, entries in lookup.items()
+    }
 
 
 # ============================

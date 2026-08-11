@@ -22,8 +22,12 @@ from ..common import (
 )
 
 from .data_adapter import _mm_to_cm, _cm_to_mm
-from .packer_3d_v2 import Obj, filter_unfitted, load_truck_v2
-from .random_packer import run_packing_random
+from .packer_3d_v2 import Obj, filter_unfitted
+from .priority_policy import (
+    valida_priorita,
+    valida_vincoli_sopra,
+)
+from .strategies import strategy_for_config
 
 
 class TreDPacker:
@@ -54,6 +58,18 @@ class TreDPacker:
         # Output (popolati da esegui())
         self.results: List[ItemPacked] = []
         self.unfitted_codes: List[str] = []
+        self.priority_report: Dict = {
+            "prioritari_richiesti": [],
+            "prioritari_caricati": [],
+            "prioritari_mancanti": [],
+            "priorita_completa": True,
+        }
+        self.priority_missing_codes: List[str] = []
+        self.constraint_report: Dict = {
+            "vincoli_richiesti": 0,
+            "vincoli_non_rispettati": [],
+            "vincoli_completi": True,
+        }
 
     def aggiungi_oggetto(self, oggetto, vincoli=None, colore="#4488ff", priorita=0):
         """Raccoglie un oggetto da processare (interfaccia standard)."""
@@ -111,6 +127,12 @@ class TreDPacker:
                 fragile=fragile,
                 priorita=priorita,
                 peso_massimo_tetto=peso_massimo_tetto,
+                vincolo_oggetto_id=(
+                    getattr(vincoli, "pk", None) if vincoli is not None else None
+                ),
+                note_vincolo=(
+                    getattr(vincoli, "note", "") if vincoli is not None else ""
+                ),
             )
             obj._colore = colore
             obj._peso_kg = float(oggetto.peso_kg)
@@ -120,16 +142,14 @@ class TreDPacker:
         # Struttura: {A_id: {B_id: dettagli}} dove dettagli è un set di
         # tuple (dimsA, dimsB) o None se non ci sono vincoli di
         # orientamento specifici.
-        # Filtra i vincoli con dettagli_posizionamento = set() (nessuna
-        # configurazione valida: significa che il vincolo non e' attivo).
+        # ``None`` significa che il vincolo non ha dettagli dimensionali.
+        # ``set()`` invece è significativo: il vincolo esiste ma tutte le
+        # configurazioni sono escluse, quindi la combinazione deve essere
+        # vietata e non può ricadere nelle regole standard.
         vincoli_sopra = {}
         for a_id, vincoli_list in self.vincoli_tra_lookup.items():
             for b_id, tipo_rel, _, dettagli in vincoli_list:
                 if tipo_rel == "sopra":
-                    # Salta vincoli con configurazioni valide vuote
-                    # (es. set() = nessuna disposizione possibile)
-                    if dettagli is not None and isinstance(dettagli, set) and not dettagli:
-                        continue
                     if a_id not in vincoli_sopra:
                         vincoli_sopra[a_id] = {}
                     vincoli_sopra[a_id][b_id] = dettagli
@@ -151,25 +171,26 @@ class TreDPacker:
             from ..sezione_weight_tracker import SezioneWeightTracker
             tracker = SezioneWeightTracker(list(self.sezioni))
 
-        # Esegue l'algoritmo con i limiti del contenitore
-        # v2 (best Y-fill) è il default
-        if self.config.ordinamento_casuale:
-            # Random: 5 restart × 1 load_truck_v2 ciascuno = 5 chiamate totali
-            risultati = run_packing_random(
-                objs, vincoli_sopra=vincoli_sopra,
-                num_restarts=5,
-                container_dim=container_dim,
-                tracker=tracker,
-            )
-        else:
-            # Deterministico: singolo passaggio v2, nessun backtracking
-            risultati = load_truck_v2(
-                objs, vincoli_sopra=vincoli_sopra,
-                container_dim=container_dim, tracker=tracker,
-            )
+        # Esegue la strategia selezionata con i limiti del contenitore.
+        # La factory mantiene la precedenza storica delle configurazioni,
+        # mentre ogni algoritmo concreto vive nel proprio adattatore.
+        strategia = strategy_for_config(self.config)
+        risultati = strategia.execute(
+            objs,
+            vincoli_sopra,
+            container_dim,
+            tracker=tracker,
+            compattazione_aggressiva=self.config.compattazione_aggressiva,
+        )
 
         # Converte i risultati in ItemPacked (mm) — solo oggetti posizionati
         placed_objs, unfitted_objs = filter_unfitted(risultati)
+        self.priority_report = valida_priorita(objs, placed_objs)
+        self.constraint_report = valida_vincoli_sopra(
+            objs, placed_objs, vincoli_sopra
+        )
+        self.priority_report["vincoli"] = self.constraint_report
+        self.priority_missing_codes = list(self.priority_report["prioritari_mancanti"])
         self.results = []
         for obj in placed_objs:
             self.results.append(ItemPacked(
@@ -187,6 +208,10 @@ class TreDPacker:
                 peso_sopra_kg=Decimal(str(getattr(obj, "_peso_sopra_kg", 0))),
             ))
         self.unfitted_codes = [obj.id for obj in unfitted_objs]
+        # I prioritari mancanti sono esposti separatamente per il report/API.
+        for obj_id in self.priority_missing_codes:
+            if obj_id not in self.unfitted_codes:
+                self.unfitted_codes.append(obj_id)
 
     def genera_metriche(self) -> Dict:
         """Genera metriche minimali compatibili con il formato atteso."""

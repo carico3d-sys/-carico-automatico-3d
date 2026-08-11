@@ -140,9 +140,11 @@ function _onTastieraManualeKeyDown(e) {
     if (typeof WS === 'undefined' || !WS.manualMode) return;
     if (!STATE.scene) return;
 
-    // Non intercettare se l'utente sta scrivendo in un input
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' ||
-        e.target.tagName === 'SELECT') return;
+    // Non intercettare i campi testuali né le altre combo. La select dello
+    // snap è l'unica eccezione: con un oggetto selezionato, le frecce devono
+    // muoverlo anche se il controllo conserva il focus dopo la scelta.
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'SELECT' && e.target.id !== 'manuale-snap-step') return;
 
     // Non interferire se il ghost è attivo
     if (_ghostState && _ghostState.active) return;

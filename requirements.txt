@@ -4,28 +4,31 @@ Django==5.2.1
 # Django REST Framework (API)
 djangorestframework==3.16.1
 
-# CORS headers per sviluppo frontend
+# CORS headers
 django-cors-headers==4.9.0
 
 # Coda task asincroni (Django Q2)
-django-q2>=1.7.0
+django-q2==1.10.0
 
 # Database SQL parser (dipendenza di Django)
 sqlparse==0.5.3
 
 # PostgreSQL adapter
-psycopg2-binary>=2.9
+psycopg2-binary==2.9.12
 
 # Variabili d'ambiente da file .env
-python-dotenv>=1.0
+python-dotenv==1.2.2
 
 # Autenticazione social (Google OAuth2)
-django-allauth>=0.63.0
+django-allauth==65.18.0
 
 # Dipendenze django-allauth
-PyJWT>=2.0
-cryptography>=3.4
-requests>=2.25
+PyJWT==2.13.0
+cryptography==50.0.0
+requests==2.34.2
+
+# WSGI server per la produzione
+gunicorn==23.0.0
 
 # Fingerprinting browser (opzionale, per demo abuse prevention)
 # fingerprintjs è caricato via CDN nel frontend

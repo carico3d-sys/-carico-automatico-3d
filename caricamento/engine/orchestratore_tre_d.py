@@ -19,7 +19,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..models import (
-    Oggetto,
     OggettoDaCaricare,
     OggettoPosizionato,
     PianoDiCarico,
@@ -37,19 +36,28 @@ from .common import (
 from .tre_d import TreDPacker
 
 
+def _piano_e_parziale(oggetti_richiesti: int, oggetti_posizionati: int) -> bool:
+    """Indica se il piano contiene meno istanze di quelle richieste.
+
+    Priorità e vincoli vengono esposti nei report diagnostici, ma non rendono
+    da soli il piano "parziale": lo stato parziale riguarda esclusivamente
+    la quantità effettivamente posizionata.
+    """
+    return oggetti_posizionati < oggetti_richiesti
+
+
 def esegui_ottimizzazione_tre_d(
     piano_id: int,
     config: Optional[ConfigurazioneOttimizzazione] = None,
+    salva_risultato: bool = True,
 ) -> OptimizerResult:
-    """Esegue l'ottimizzazione con solo TreDPacker e salva i risultati.
+    """Esegue l'ottimizzazione con TreDPacker.
 
-    Args:
-        piano_id: PK del PianoDiCarico.
-        config: configurazione dell'ottimizzatore (opzionale).
-
-    Returns:
-        OptimizerResult con lo stato dell'operazione e le metriche.
+    Se ``salva_risultato`` è False, calcola comunque il posizionamento e
+    restituisce i risultati in memoria senza aggiornare lo stato, le metriche
+    o gli oggetti posizionati del piano nel database.
     """
+
     # 1. Carica piano e contenitore
     try:
         piano = PianoDiCarico.objects.select_related("contenitore").get(pk=piano_id)
@@ -64,33 +72,50 @@ def esegui_ottimizzazione_tre_d(
     dims = (contenitore.lunghezza_mm, contenitore.larghezza_mm, contenitore.altezza_mm)
     sezioni = list(contenitore.sezioni.all())
 
-    # Vincoli tra oggetti
-    vincoli_tra_qs = VincoloTraOggetti.objects.filter(attivo=True).select_related(
-        "oggetto_a", "oggetto_b"
+    # Oggetti da caricare dalla lista del piano. I vincoli tra oggetti
+    # devono essere filtrati sulla lista effettiva prima del lookup.
+    oggetti_da_caricare = list(
+        OggettoDaCaricare.objects.filter(
+            piano_di_carico=piano
+        ).select_related("oggetto__vincoli")
     )
-    vincoli_tra_lookup = _build_lookup_vincoli_tra(vincoli_tra_qs)
+    # La lista del piano è la fonte unica degli oggetti da ottimizzare.
+    # Non esiste fallback all'anagrafica: un piano vuoto non deve caricare
+    # automaticamente tutti gli oggetti disponibili.
+    oggetto_ids = {entry.oggetto_id for entry in oggetti_da_caricare}
 
-    # Oggetti da caricare (con fallback)
-    oggetti_da_caricare = OggettoDaCaricare.objects.filter(
-        piano_di_carico=piano
-    ).select_related("oggetto__vincoli")
+    # Vincoli tra oggetti: esclusivamente relazioni con entrambi gli
+    # oggetti presenti nella lista effettiva da caricare.
+    vincoli_tra_qs = VincoloTraOggetti.objects.filter(
+        attivo=True,
+        oggetto_a_id__in=oggetto_ids,
+        oggetto_b_id__in=oggetto_ids,
+    ).select_related("oggetto_a", "oggetto_b")
+    vincoli_tra_lookup = _build_lookup_vincoli_tra(
+        vincoli_tra_qs,
+        oggetto_ids=oggetto_ids,
+    )
 
-    oggetti_fallback = Oggetto.objects.filter(
-        quantita_disponibile__gte=1
-    ).select_related("vincoli")
-
-    if not oggetti_da_caricare.exists() and not oggetti_fallback.exists():
-        piano.stato = StatoPiano.FALLITO
-        piano.messaggio_errore = "Nessun oggetto selezionato ne' disponibile."
-        piano.completato_at = timezone.now()
-        piano.save(update_fields=["stato", "messaggio_errore", "completato_at"])
+    if not oggetti_da_caricare:
+        if salva_risultato:
+            piano.stato = StatoPiano.FALLITO
+            piano.messaggio_errore = "Nessun oggetto selezionato nella lista del piano."
+            piano.completato_at = timezone.now()
+            piano.save(update_fields=["stato", "messaggio_errore", "completato_at"])
         return OptimizerResult(
             successo=False,
             piano_id=piano.id,
             container_nome=contenitore.nome,
             container_dimensioni=dims,
-            messaggio="Nessun oggetto selezionato ne' disponibile.",
+            messaggio="Nessun oggetto selezionato nella lista del piano.",
         )
+
+    # La quantità richiesta è la somma delle istanze indicate nella lista
+    # del piano, non il numero di codici distinti.
+    oggetti_richiesti = sum(
+        max(0, int(getattr(entry, "quantita", 0) or 0))
+        for entry in oggetti_da_caricare
+    )
 
     # 2. Crea e popola il packer
     packer = TreDPacker(
@@ -100,19 +125,21 @@ def esegui_ottimizzazione_tre_d(
         vincoli_tra_lookup=vincoli_tra_lookup,
         sezioni=sezioni,
     )
-    _popola_tre_d(packer, oggetti_da_caricare, oggetti_fallback)
+    _popola_tre_d(packer, oggetti_da_caricare)
 
     # 3. Esegui
-    piano.stato = StatoPiano.IN_ELABORAZIONE
-    piano.save(update_fields=["stato"])
+    if salva_risultato:
+        piano.stato = StatoPiano.IN_ELABORAZIONE
+        piano.save(update_fields=["stato"])
 
     try:
         packer.esegui()
     except Exception as exc:
-        piano.stato = StatoPiano.ERRORE
-        piano.messaggio_errore = f"{type(exc).__name__}: {exc}"
-        piano.completato_at = timezone.now()
-        piano.save(update_fields=["stato", "messaggio_errore", "completato_at"])
+        if salva_risultato:
+            piano.stato = StatoPiano.ERRORE
+            piano.messaggio_errore = f"{type(exc).__name__}: {exc}"
+            piano.completato_at = timezone.now()
+            piano.save(update_fields=["stato", "messaggio_errore", "completato_at"])
         return OptimizerResult(
             successo=False,
             piano_id=piano.id,
@@ -128,33 +155,43 @@ def esegui_ottimizzazione_tre_d(
         for r in packer.results
     )
 
-    with transaction.atomic():
-        piano.oggetti_posizionati.all().delete()
-        for r in packer.results:
-            OggettoPosizionato.objects.create(
-                piano_di_carico=piano,
-                oggetto_id=r.oggetto_id,
-                coordinata_x_mm=r.coordinata_x_mm,
-                coordinata_y_mm=r.coordinata_y_mm,
-                coordinata_z_mm=r.coordinata_z_mm,
-                dimensione_x_mm=r.dimensione_x_mm,
-                dimensione_y_mm=r.dimensione_y_mm,
-                dimensione_z_mm=r.dimensione_z_mm,
-                rotazione_applicata=r.rotazione_applicata,
-                colore=r.colore,
-                peso_posato_sopra_kg=r.peso_sopra_kg,
-            )
+    if salva_risultato:
+        with transaction.atomic():
+            piano.oggetti_posizionati.all().delete()
+            for r in packer.results:
+                OggettoPosizionato.objects.create(
+                    piano_di_carico=piano,
+                    oggetto_id=r.oggetto_id,
+                    coordinata_x_mm=r.coordinata_x_mm,
+                    coordinata_y_mm=r.coordinata_y_mm,
+                    coordinata_z_mm=r.coordinata_z_mm,
+                    dimensione_x_mm=r.dimensione_x_mm,
+                    dimensione_y_mm=r.dimensione_y_mm,
+                    dimensione_z_mm=r.dimensione_z_mm,
+                    rotazione_applicata=r.rotazione_applicata,
+                    colore=r.colore,
+                    peso_posato_sopra_kg=r.peso_sopra_kg,
+                )
 
-        piano.stato = StatoPiano.COMPLETATO
-        piano.peso_totale_kg = Decimal(str(round(peso_totale, 2)))
-        piano.volume_utilizzato_mm3 = volume_totale
-        piano.algoritmo = "Algoritmo 3D Semplificato" + (" 🎲 Monte Carlo" if (config and config.ordinamento_casuale) else "")
-        piano.completato_at = timezone.now()
-        piano.messaggio_errore = ""
-        piano.save(update_fields=[
-            "stato", "peso_totale_kg", "volume_utilizzato_mm3",
-            "algoritmo", "completato_at", "messaggio_errore",
-        ])
+            report_priorita = getattr(packer, "priority_report", None)
+            piano_parziale = _piano_e_parziale(
+                oggetti_richiesti,
+                len(packer.results),
+            )
+            piano.stato = (
+                StatoPiano.PARZIALE
+                if piano_parziale
+                else StatoPiano.COMPLETATO
+            )
+            piano.peso_totale_kg = Decimal(str(round(peso_totale, 2)))
+            piano.volume_utilizzato_mm3 = volume_totale
+            piano.algoritmo = "Algoritmo 3D Semplificato" + (" 🎲 Monte Carlo" if (config and config.ordinamento_casuale) else "")
+            piano.completato_at = timezone.now()
+            piano.messaggio_errore = ""
+            piano.save(update_fields=[
+                "stato", "peso_totale_kg", "volume_utilizzato_mm3",
+                "algoritmo", "completato_at", "messaggio_errore",
+            ])
 
     # 5. Metriche
     volume_container = dims[0] * dims[1] * dims[2]
@@ -162,41 +199,46 @@ def esegui_ottimizzazione_tre_d(
     metriche = packer.genera_metriche()
 
     oggetti_non_posizionati = list(packer.unfitted_codes)
+    report_priorita = getattr(packer, "priority_report", None)
+    piano_parziale = _piano_e_parziale(
+        oggetti_richiesti,
+        len(packer.results),
+    )
 
     return OptimizerResult(
-        successo=True,
+        successo=not piano_parziale,
         piano_id=piano.id,
         container_nome=contenitore.nome,
         container_dimensioni=dims,
         oggetti_posizionati=list(packer.results),
         oggetti_non_posizionati=oggetti_non_posizionati,
-        peso_totale_kg=piano.peso_totale_kg,
+        peso_totale_kg=(
+            piano.peso_totale_kg
+            if salva_risultato
+            else Decimal(str(round(peso_totale, 2)))
+        ),
         volume_utilizzato_mm3=volume_totale,
         saturazione_percentuale=round(saturazione, 1),
         metriche=metriche,
-        messaggio=f"Completato: {len(packer.results)} oggetti posizionati.",
+        messaggio=(
+            f"Piano parziale: {len(packer.results)} di "
+            f"{oggetti_richiesti} oggetti posizionati."
+            if piano_parziale else
+            f"Completato: {len(packer.results)} oggetti posizionati."
+        ),
+        report_priorita=report_priorita,
     )
 
 
-def _popola_tre_d(packer, oggetti_da_caricare, oggetti_fallback_qs) -> None:
-    """Popola un TreDPacker con gli oggetti dal DB."""
-    if oggetti_da_caricare.exists():
-        for o_dc in oggetti_da_caricare:
-            oggetto = o_dc.oggetto
-            priorita = o_dc.priorita
-            for _ in range(o_dc.quantita):
-                try:
-                    vincoli = oggetto.vincoli
-                except VincoloOggetto.DoesNotExist:
-                    vincoli = None
-                colore = _genera_colore_da_oggetto(oggetto.id, oggetto.colore)
-                packer.aggiungi_oggetto(oggetto, vincoli, colore, priorita=priorita)
-    else:
-        for oggetto in oggetti_fallback_qs:
-            for _ in range(oggetto.quantita_disponibile):
-                try:
-                    vincoli = oggetto.vincoli
-                except VincoloOggetto.DoesNotExist:
-                    vincoli = None
-                colore = _genera_colore_da_oggetto(oggetto.id, oggetto.colore)
-                packer.aggiungi_oggetto(oggetto, vincoli, colore)
+def _popola_tre_d(packer, oggetti_da_caricare) -> None:
+    """Popola un TreDPacker esclusivamente dalla lista del piano."""
+    for o_dc in oggetti_da_caricare:
+        oggetto = o_dc.oggetto
+        priorita = o_dc.priorita
+        for _ in range(o_dc.quantita):
+            try:
+                vincoli = oggetto.vincoli
+            except VincoloOggetto.DoesNotExist:
+                vincoli = None
+            colore = _genera_colore_da_oggetto(oggetto.id, oggetto.colore)
+            packer.aggiungi_oggetto(oggetto, vincoli, colore, priorita=priorita)

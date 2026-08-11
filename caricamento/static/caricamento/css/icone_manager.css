@@ -5,7 +5,7 @@
    ============================================================================= */
 
 .modal-icon-manager {
-    width: 1050px !important;
+    width: 1500px !important;   /* 1050px originali → 1365 (+30%) → 1500 */
     max-width: 98vw !important;
     max-height: 90vh !important;
 }
@@ -16,6 +16,64 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+/* =============================================================================
+   TAB NAV (Icone | Bottoni)
+   ============================================================================= */
+
+.icone-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 16px 0;
+    background: #f8f9fb;
+    border-bottom: 1px solid #e2e6ea;
+    flex-shrink: 0;
+}
+
+.icone-tab {
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.icone-tab:hover {
+    color: var(--color-accent, #447e9b);
+    background: #eef3f7;
+}
+
+.icone-tab.active {
+    color: var(--color-accent, #447e9b);
+    background: #fff;
+    border-color: #e2e6ea;
+    border-bottom: 2px solid #fff;
+    margin-bottom: -1px;
+}
+
+.icone-tab i {
+    font-size: 14px;
+}
+
+.icone-tab-panel {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+}
+
+.icone-tab-panel.active {
+    display: flex;
 }
 
 /* =============================================================================
@@ -315,10 +373,239 @@
 }
 
 /* =============================================================================
+   BOTTONI CONFIGURABILI (tab Bottoni)
+   ============================================================================= */
+
+.bt-col-preview {
+    width: 170px;
+    text-align: center;
+}
+
+.bt-col-desc {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.bt-col-file {
+    width: 180px;
+}
+
+.bt-col-dims {
+    width: 195px;
+    text-align: center;
+}
+
+/* Campi larghezza/altezza icona (%): più larghi e leggibili */
+.icone-table-bottoni .bt-dim-w,
+.icone-table-bottoni .bt-dim-h {
+    width: 62px;
+    padding: 6px 4px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.bt-col-btnsize {
+    width: 180px;
+    text-align: center;
+}
+
+/* Campi larghezza % / altezza px del bottone */
+.icone-table-bottoni .bt-size-w,
+.icone-table-bottoni .bt-size-h {
+    width: 58px;
+    padding: 6px 4px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.bt-col-label {
+    width: 150px;
+}
+
+.bt-col-labelsize {
+    width: 80px;
+    text-align: center;
+}
+
+.bt-col-pos {
+    width: 165px;
+}
+
+.bt-col-color {
+    width: 120px;
+    text-align: center;
+}
+
+.bt-col-toggle {
+    width: 70px;
+    text-align: center;
+}
+
+/* Picker colore + campo hex */
+.icone-color-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.icone-color-row input[type="color"] {
+    width: 34px;
+    height: 30px;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.icone-color-row input[type="color"]:hover {
+    border-color: var(--color-accent, #447e9b);
+}
+
+.icone-color-row .bt-color-hex {
+    width: 68px;
+    padding: 5px 4px;
+    font-size: 11px;
+    text-align: center;
+    letter-spacing: 0.3px;
+}
+
+.bt-th-hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 9px;
+    color: #999;
+}
+
+/* La tabella dei bottoni è più larga della modale: compare una barra di
+   scorrimento orizzontale; la colonna Anteprima resta fissa a sinistra.
+   min-width = somma delle 10 colonne (1510px) + 70px di margine. */
+.icone-table-bottoni {
+    min-width: 1580px;
+}
+
+.icone-table-bottoni th.bt-col-preview,
+.icone-table-bottoni td.bt-col-preview {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    box-shadow: 1px 0 0 #e2e6ea;
+}
+
+.icone-table-bottoni thead th.bt-col-preview {
+    background: #f0f2f5;
+    z-index: 4;
+}
+
+.icone-table-bottoni tbody td.bt-col-preview {
+    z-index: 3;
+}
+
+.icone-table-bottoni tbody tr:hover td.bt-col-preview {
+    background: #f8f9fb;
+}
+
+/* Anteprima bottone finto: riproduce il layout reale del bottone */
+.bt-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 150px;
+    height: 52px;
+    padding: 0 8px;
+    border: 1px solid #b8c4cc;
+    border-bottom: 2px solid #9aa8b2;
+    border-radius: 0;
+    background: #eef2f5;
+    color: #333;
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.bt-preview-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.bt-preview-icon img {
+    object-fit: contain;
+}
+
+.bt-preview-icon i {
+    font-size: 20px;
+    color: #555;
+}
+
+.bt-preview-icon .manuale-emoji {
+    font-size: 20px;
+}
+
+.bt-preview-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =============================================================================
+   CESTINO FILE PNG
+   ============================================================================= */
+
+.icone-del-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #b85c5c;
+    flex-shrink: 0;
+}
+.icone-del-btn:hover {
+    background: #fdf0f0;
+    border-color: #d98a8a;
+    color: #c0392b;
+}
+.icone-del-btn i {
+    font-size: 14px;
+}
+
+/* Selettore posizione testo */
+.icone-table-bottoni select.form-select {
+    width: 100%;
+    padding: 5px 6px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    font-family: inherit;
+    outline: none;
+}
+.icone-table-bottoni select.form-select:focus {
+    border-color: var(--color-accent, #447e9b);
+}
+
+/* =============================================================================
    RESPONSIVE
    ============================================================================= */
 
-@media (max-width: 1100px) {
+@media (max-width: 1560px) {
     .modal-icon-manager {
         width: 95vw !important;
     }
@@ -342,4 +629,274 @@
     .icone-col-dims {
         width: 100px;
     }
+    .bt-preview-btn {
+        width: 120px;
+    }
+    .bt-col-pos {
+        width: 130px;
+    }
+    .bt-col-btnsize {
+        width: 160px;
+    }
+}
+
+/* =============================================================================
+   TAB COLORI (Aree | Slider) — color picker per i pannelli/header/slider
+   ============================================================================= */
+
+.colori-subtabs {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px 0;
+    flex-shrink: 0;
+}
+
+.colori-subtab {
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    background: #fff;
+    border: 1px solid #d8dde3;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.colori-subtab:hover {
+    background: #f0f4f8;
+}
+
+.colori-subtab.active {
+    background: #447e9b;
+    color: #fff;
+    border-color: #447e9b;
+}
+
+.colori-subpanel {
+    display: none;
+    padding: 14px 16px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;   /* consente lo scroll dentro la modale a 90vh */
+}
+
+.colori-subpanel.active {
+    display: block;
+}
+
+/* --- Anteprima live del layout (usa le stesse CSS variables: si aggiorna da sola) --- */
+.colori-preview {
+    margin: 12px 16px 0;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #e8ecf0;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.colori-preview-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.colori-preview-stage {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-panel-border, #ddd);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.colori-preview-header {
+    height: 18px;
+    background: var(--color-header, #1a1a2e);
+}
+
+.colori-preview-body {
+    display: flex;
+    height: 64px;
+}
+
+.colori-preview-sidebar {
+    width: 34%;
+    background: var(--color-sidebar-bg, #f5f5f5);
+    border-right: 1px solid var(--color-panel-border, #ddd);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+}
+
+.colori-preview-sidebar-tab {
+    flex: 1;
+    background: var(--color-panel-bg, #fafafa);
+    border: 1px solid var(--color-panel-border, #ddd);
+    border-radius: 3px;
+}
+
+.colori-preview-sidebar-tab.active {
+    border-color: var(--color-accent, #447e9b);
+}
+
+.colori-preview-main {
+    flex: 1;
+    background: var(--color-bg, #f0f2f5);
+}
+
+.colori-preview-slider {
+    margin-top: 8px;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--color-slider-track-start, #e8ecf2) 0%, var(--color-slider-track-end, #447e9b) 100%);
+}
+
+/* --- Riga "Colore di base": genera automaticamente le tonalità coordinate --- */
+.colori-base-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin: 12px 16px 0;
+    background: #eef4fb;
+    border: 1px solid #c9d9ea;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.colori-base-swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.15);
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.colori-base-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f3a5f;
+}
+
+.colori-base-input {
+    width: 44px;
+    height: 32px;
+    padding: 2px;
+    border: 1px solid #b9cde0;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.colori-base-hex {
+    width: 92px;
+    font-family: monospace;
+    text-transform: lowercase;
+}
+
+.colori-base-hint {
+    font-size: 11px;
+    color: #5b7590;
+    line-height: 1.35;
+}
+
+.colori-base-gen {
+    margin-left: auto;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: #447e9b;
+    border: 1px solid #36708d;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+}
+
+.colori-base-gen:hover {
+    background: #5095b5;
+}
+
+.colori-base-gen:active {
+    transform: scale(0.96);
+}
+
+.colori-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: #fff;
+    border: 1px solid #e8ecf0;
+    border-radius: 6px;
+    max-width: 620px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.colori-row:hover {
+    border-color: #c9d4de;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.colori-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    border: 1px solid rgba(0,0,0,0.12);
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.colori-label {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.colori-input {
+    width: 44px;
+    height: 32px;
+    padding: 2px;
+    border: 1px solid #d8dde3;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.colori-hex {
+    width: 92px;
+    font-family: monospace;
+    text-transform: lowercase;
+}
+
+.colori-reset {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d8dde3;
+    background: #f8f9fb;
+    border-radius: 4px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.colori-reset:hover {
+    background: #eef3f7;
+    color: #447e9b;
+}
+
+.colori-reset:active {
+    transform: scale(0.94);
 }

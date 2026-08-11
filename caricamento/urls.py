@@ -48,7 +48,14 @@ urlpatterns = [
     path("visualizzatore/", views.visualizzatore_3d, name="visualizzatore_3d"),
     path("visualizzatore/<int:piano_id>/", views.visualizzatore_3d, name="visualizzatore_3d_piano"),
 
+    # Preferenze personali del workspace/ottimizzatore
+    path(
+        "api/impostazioni_ottimizzatore/",
+        views.api_impostazioni_ottimizzatore,
+        name="api_impostazioni_ottimizzatore",
+    ),
     # Gestione Icone (Admin only)
     path("api/icone-config/", views.api_icone_config, name="api_icone_config"),
     path("api/icone-upload/", views.api_icone_upload, name="api_icone_upload"),
+    path("api/icone-file/", views.api_icone_file_delete, name="api_icone_file_delete"),
 ]

@@ -14,7 +14,11 @@ from .engine import (
 )
 
 
-def avvia_ottimizzazione(piano_id: int, config: dict = None) -> dict:
+def avvia_ottimizzazione(
+    piano_id: int,
+    config: dict = None,
+    salva_risultato: bool = True,
+) -> dict:
     """Esegue l'ottimizzazione 3D per un PianoDiCarico.
 
     Questa funzione viene passata a async_task() per l'esecuzione
@@ -36,7 +40,11 @@ def avvia_ottimizzazione(piano_id: int, config: dict = None) -> dict:
     # Esegue direttamente l'Algoritmo 3D Semplificato (TreDPacker).
     # Il SezioneWeightTracker viene attivato automaticamente se il mezzo
     # ha sezioni configurate e "Priorità alla distribuzione dei pesi" è attiva.
-    risultato = esegui_ottimizzazione_tre_d(piano_id, config=configurazione)
+    risultato = esegui_ottimizzazione_tre_d(
+        piano_id,
+        config=configurazione,
+        salva_risultato=salva_risultato,
+    )
 
     # Costruisci output base
     output = {
@@ -46,6 +54,28 @@ def avvia_ottimizzazione(piano_id: int, config: dict = None) -> dict:
         "oggetti_non_posizionati": risultato.oggetti_non_posizionati,
         "saturazione_percentuale": round(risultato.saturazione_percentuale, 1),
         "messaggio": risultato.messaggio,
+        "report_priorita": risultato.report_priorita or {},
+        "posizioni_preview": [
+            {
+                "oggetto_id": item.oggetto_id,
+                "codice": item.codice,
+                "posizione_mm": {
+                    "x": item.coordinata_x_mm,
+                    "y": item.coordinata_y_mm,
+                    "z": item.coordinata_z_mm,
+                },
+                "dimensioni_mm": {
+                    "x": item.dimensione_x_mm,
+                    "y": item.dimensione_y_mm,
+                    "z": item.dimensione_z_mm,
+                },
+                "rotazione": item.rotazione_applicata,
+                "colore": item.colore,
+                "peso_kg": float(item.peso_kg),
+                "peso_sopra_kg": float(item.peso_sopra_kg),
+            }
+            for item in risultato.oggetti_posizionati
+        ],
     }
 
     # Aggiungi metriche estese se presenti
@@ -59,13 +89,25 @@ def avvia_ottimizzazione(piano_id: int, config: dict = None) -> dict:
     return output
 
 
-def esegui_ottimizzazione_sincrona(piano_id: int, config: dict = None) -> dict:
+def esegui_ottimizzazione_sincrona(
+    piano_id: int,
+    config: dict = None,
+    salva_risultato: bool = True,
+) -> dict:
     """Wrapper sincrono per eseguire l'ottimizzazione direttamente
     (utile per test e debugging senza coda)."""
-    return avvia_ottimizzazione(piano_id, config=config)
+    return avvia_ottimizzazione(
+        piano_id,
+        config=config,
+        salva_risultato=salva_risultato,
+    )
 
 
-def accoda_ottimizzazione(piano_id: int, config: dict = None) -> str:
+def accoda_ottimizzazione(
+    piano_id: int,
+    config: dict = None,
+    salva_risultato: bool = True,
+) -> str:
     """Accoda un'ottimizzazione nella coda Django Q2.
 
     NOTA: Questo metodo non blocca. Il worker Django Q2 eseguirà
@@ -82,5 +124,6 @@ def accoda_ottimizzazione(piano_id: int, config: dict = None) -> str:
         "caricamento.tasks.avvia_ottimizzazione",  # string path per pickle
         piano_id,
         config=config,  # kwargs passati come dict
+        salva_risultato=salva_risultato,
     )
     return task_id

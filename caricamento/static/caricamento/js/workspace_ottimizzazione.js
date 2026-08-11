@@ -875,11 +875,92 @@ function aggiornaGraficoPesiInTempoReale() {
     _disegnaDistribuzionePesiLocale();
 }
 
-async function elaboraOttimizzazione() {
+function _impostaAzioniAutoDisabilitate(disabilitate) {
+    [DOM.ottimizzaBtn, DOM.btnSalvaAuto, DOM.btnElaboraAuto].forEach(function (btn) {
+        if (btn) btn.disabled = disabilitate;
+    });
+}
+
+function _costruisciDatiPreviewOttimizzazione(risultato, pianoId) {
+    var mezzo = WS.contenitori.find(function (c) {
+        return c.id == WS.activeMezzoId;
+    }) || {};
+    var posizione = risultato.posizioni_preview || [];
+    var oggetti = posizione.map(function (item) {
+        var oggetto = (WS.oggettiDisponibili || []).find(function (o) {
+            return String(o.codice) === String(item.codice);
+        }) || {};
+        return {
+            id: item.oggetto_id,
+            codice: item.codice,
+            descrizione: oggetto.descrizione || item.codice,
+            posizione_mm: item.posizione_mm,
+            dimensioni_mm: item.dimensioni_mm,
+            posizione_cm: {
+                x: item.posizione_mm.x / 10,
+                y: item.posizione_mm.y / 10,
+                z: item.posizione_mm.z / 10,
+            },
+            dimensioni_cm: {
+                x: item.dimensioni_mm.x / 10,
+                y: item.dimensioni_mm.y / 10,
+                z: item.dimensioni_mm.z / 10,
+            },
+            rotazione: item.rotazione || 'XYZ',
+            colore: item.colore || oggetto.colore || '#447e9b',
+            peso_kg: Number(item.peso_kg || oggetto.peso_kg || 0),
+            peso_sopra_kg: Number(item.peso_sopra_kg || 0),
+        };
+    });
+    var metriche = risultato.metriche || {};
+    return {
+        piano: {
+            id: pianoId,
+            nome: 'Anteprima ottimizzazione',
+            stato: risultato.successo ? 'completato' : 'parziale',
+        },
+        contenitore: {
+            nome: mezzo.nome || 'Mezzo selezionato',
+            dimensioni_cm: {
+                x: Number(mezzo.lunghezza_mm || 0) / 10,
+                y: Number(mezzo.larghezza_mm || 0) / 10,
+                z: Number(mezzo.altezza_mm || 0) / 10,
+            },
+        },
+        oggetti: oggetti,
+        metriche: {
+            peso_totale_kg: Number(metriche.peso_totale_kg || 0),
+            saturazione: Number(risultato.saturazione || 0),
+            oggetti_posizionati: oggetti.length,
+        },
+    };
+}
+
+async function _rimuoviPianoPreview(pianoId) {
+    if (!pianoId) return false;
+    try {
+        var response = await fetch('/api/piani/' + pianoId + '/', {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': getCSRFToken() },
+        });
+        if (!response.ok && response.status !== 204) {
+            throw new Error('HTTP ' + response.status);
+        }
+        WS.piani = (WS.piani || []).filter(function (p) { return p.id != pianoId; });
+        return true;
+    } catch (error) {
+        console.warn('Impossibile rimuovere il piano di preview:', error);
+        showToast('⚠️ La preview è stata elaborata, ma il piano tecnico non è stato eliminato.', 'warning');
+        return false;
+    }
+}
+
+async function elaboraOttimizzazione(salvaRisultato) {
     if (WS.ottimizzazioneInCorso) return;
+    salvaRisultato = salvaRisultato !== false;
 
     // Protezione: avvisa se ci sono modifiche manuali non salvate
-    if (WS._manualDragOccurred && WS.activePianoId) {
+    if (salvaRisultato && WS._manualDragOccurred && WS.activePianoId) {
         var conferma = confirm(
             '⚠️ Hai modifiche manuali NON salvate nella scena 3D.\n\n' +
             'L\'ottimizzazione automatica RICALCOLERA\' tutte le posizioni ' +
@@ -910,14 +991,19 @@ async function elaboraOttimizzazione() {
     }
 
     WS.ottimizzazioneInCorso = true;
-    DOM.ottimizzaBtn.disabled = true;
+    _impostaAzioniAutoDisabilitate(true);
     setStatus('busy', 'Ottimizzazione...');
     mostraTaskStatus('busy', 'Elaborazione in corso...');
     // L'ottimizzazione sta per ricalcolare il carico: i dati precedenti non sono più validi
     invalidaDistribuzionePesi();
 
-    var pianoId = WS.activePianoId;
+    // La preview usa sempre un piano tecnico separato: non deve modificare
+    // il piano attivo né la sua lista di oggetti.
+    var pianoAttivoOriginale = WS.activePianoId;
+    var statoPianoOriginale = (typeof STATE !== 'undefined') ? STATE.pianoId : null;
+    var pianoId = salvaRisultato ? WS.activePianoId : null;
     var pianoPreEsistente = !!pianoId;
+    var pianoPreviewId = null;
 
     try {
         if (!pianoId) {
@@ -934,7 +1020,11 @@ async function elaboraOttimizzazione() {
             if (!createResp.ok) throw new Error('Errore creazione piano: ' + createResp.status);
             var pianoData = await createResp.json();
             pianoId = pianoData.id;
-            WS.activePianoId = pianoId;
+            if (salvaRisultato) {
+                WS.activePianoId = pianoId;
+            } else {
+                pianoPreviewId = pianoId;
+            }
             if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = false;
             // Aggiungi alla cache locale
             var mezzo = WS.contenitori.find(function (c) { return c.id == mezzoId; });
@@ -976,6 +1066,8 @@ async function elaboraOttimizzazione() {
                     algoritmo_base: 'Algoritmo 3D Semplificato',
                     ordinamento_casuale: IMPOSTAZIONI.strategia_ottimizzazione.ordinamento_casuale || false,
                     distribuzione_pesi_attiva: IMPOSTAZIONI.strategia_ottimizzazione.distribuzione_pesi_attiva !== false,
+                    compattazione_aggressiva: IMPOSTAZIONI.strategia_ottimizzazione.compattazione_aggressiva || false,
+                    backtracking_avanzato: IMPOSTAZIONI.strategia_ottimizzazione.backtracking_avanzato || false,
                 },
 
             };
@@ -983,6 +1075,7 @@ async function elaboraOttimizzazione() {
 
         setStatus('busy', 'Elaborazione 3D...');
         mostraTaskStatus('busy', 'Calcolo posizionamento...');
+        payloadOttimizzazione.salva_risultato = salvaRisultato;
         var ottimizzaResp = await fetch('/api/piani/' + pianoId + '/ottimizza/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
@@ -1006,13 +1099,26 @@ async function elaboraOttimizzazione() {
         }
 
         if (risultato.successo) {
-            showToast('✅ Ottimizzazione completata! ' + (risultato.oggetti_posizionati || 0) + ' oggetti. Saturazione: ' + (risultato.saturazione || 0).toFixed(1) + '%', 'success');
+            showToast(
+                (salvaRisultato ? '✅ Ottimizzazione completata e salvata! ' : '👁️ Preview elaborata! ') +
+                (risultato.oggetti_posizionati || 0) + ' oggetti. Saturazione: ' +
+                (risultato.saturazione || 0).toFixed(1) + '%',
+                'success'
+            );
             setStatus('success', 'Completato');
             mostraTaskStatus('done', 'Completata (' + risultato.oggetti_posizionati + ' pezzi)');
-            var nomePiano = risultato.piano_nome || ('Piano #' + pianoId);
+            var nomePiano = salvaRisultato
+                ? (risultato.piano_nome || ('Piano #' + pianoId))
+                : 'Anteprima ottimizzazione';
             if (DOM.viewportToolbarLabel) DOM.viewportToolbarLabel.textContent = nomePiano;
             _setHeaderCaricoLabel(nomePiano);
-            await caricaScena3D(pianoId);
+            if (salvaRisultato) {
+                await caricaScena3D(pianoId);
+            } else {
+                renderizzaDati3D(_costruisciDatiPreviewOttimizzazione(risultato, pianoId));
+                WS.treSceneLoaded = true;
+                pianoPreviewId = pianoId;
+            }
             // Aggiorna sidebar riepilogo con i nuovi mt lineari (dopo caricamento scena 3D)
             _refreshSidebarLineari();
             if (risultato.metriche && risultato.metriche.distribuzione_pesi) {
@@ -1030,7 +1136,13 @@ async function elaboraOttimizzazione() {
             setStatus('idle', 'Parziale');
             mostraTaskStatus('fail', risultato.messaggio || 'Fallita');
             if (risultato.oggetti_posizionati > 0) {
-                await caricaScena3D(pianoId);
+                if (salvaRisultato) {
+                    await caricaScena3D(pianoId);
+                } else {
+                    renderizzaDati3D(_costruisciDatiPreviewOttimizzazione(risultato, pianoId));
+                    WS.treSceneLoaded = true;
+                    pianoPreviewId = pianoId;
+                }
             }
         }
     } catch (error) {
@@ -1039,8 +1151,14 @@ async function elaboraOttimizzazione() {
         setStatus('error', 'Errore');
         mostraTaskStatus('fail', error.message);
     } finally {
+        if (pianoPreviewId) {
+            await _rimuoviPianoPreview(pianoPreviewId);
+            WS.activePianoId = pianoAttivoOriginale || null;
+            if (typeof STATE !== 'undefined') STATE.pianoId = statoPianoOriginale || null;
+            if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = !pianoAttivoOriginale;
+        }
         WS.ottimizzazioneInCorso = false;
-        DOM.ottimizzaBtn.disabled = false;
+        _aggiornaStatoAzioniAuto();
     }
 }
 

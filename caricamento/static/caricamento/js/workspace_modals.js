@@ -303,17 +303,10 @@ function apriModalePiani() {
     var cardsHtml = WS.piani.length === 0
         ? '<p style="text-align:center;color:#999;padding:20px;">Nessun piano salvato.</p>'
         : WS.piani.slice(0, 20).map(function (p) {
-            var statoClass = 'stato-bozza';
-            if (p.stato === 'completato') statoClass = 'stato-completato';
-            else if (p.stato === 'in_elaborazione') statoClass = 'stato-in_elaborazione';
-            else if (p.stato === 'parziale') statoClass = 'stato-parziale';
-            else if (p.stato === 'fallito' || p.stato === 'errore') statoClass = 'stato-errore';
             return '<div class="panel-item" data-piano-id="' + p.id + '" style="margin-bottom:4px;">' +
                 '<div class="panel-item-info">' +
                     '<strong>' + escapeHtml(p.nome) + '</strong>' +
-                    '<span>' + escapeHtml(p.container) + '</span>' +
                 '</div>' +
-                '<span class="stato-badge ' + statoClass + '">' + escapeHtml(p.stato_display || p.stato) + '</span>' +
             '</div>';
         }).join('');
 
@@ -366,5 +359,5 @@ function apriModalePiani() {
 // Valori di default per le impostazioni dell'ottimizzatore
 // Versione impostazioni: incrementa quando i default cambiano
 // per forzare l'aggiornamento della cache localStorage
-var IMPOSTAZIONI_VERSION = 5;
+var IMPOSTAZIONI_VERSION = 7;
 

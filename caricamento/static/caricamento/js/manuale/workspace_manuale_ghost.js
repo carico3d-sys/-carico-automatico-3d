@@ -573,6 +573,11 @@ function _confermaGhost() {
         if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
 
         _incrementaPanelQty(oggetto.id, oggetto.codice);
+        // Mantieni selezionata la riga usata anche dopo l'aggiornamento
+        // della quantità e dopo la selezione del mesh nella scena.
+        if (typeof _ripristinaSelezionePanelManuale === 'function') {
+            _ripristinaSelezionePanelManuale(null, oggetto.id, oggetto.codice);
+        }
         showToast('✅ "' + oggetto.codice + '" piazzato!', 'success');
         _refreshSidebarLineari();
     }

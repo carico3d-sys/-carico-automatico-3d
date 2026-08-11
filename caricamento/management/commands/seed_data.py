@@ -9,7 +9,9 @@ Usage:
 
 from decimal import Decimal
 
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
+from django.core.management.base import CommandError
 from django.utils import timezone
 
 from caricamento.models import (
@@ -28,12 +30,36 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--username",
+            default="admin",
+            help="Utente proprietario dei dati seed (deve già esistere).",
+        )
+        parser.add_argument(
             "--ottimizza",
             action="store_true",
             help="Esegue anche l'ottimizzazione 3D dopo il seed.",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Consente il seed distruttivo in ambiente non-debug.",
+        )
 
     def handle(self, *args, **options):
+        from django.conf import settings
+        if not settings.DEBUG and not options["force"]:
+            raise CommandError(
+                "seed_data è distruttivo: in produzione usare --force esplicitamente."
+            )
+
+        try:
+            self.owner = User.objects.get(username=options["username"])
+        except User.DoesNotExist as exc:
+            raise CommandError(
+                f"Utente seed non trovato: {options['username']}. "
+                "Crea prima il superuser o passa --username."
+            ) from exc
+
         self._cancella_dati_esistenti()
         contenitori = self._crea_contenitori()
         self._crea_sezioni(contenitori)
@@ -50,15 +76,16 @@ class Command(BaseCommand):
 
     def _cancella_dati_esistenti(self):
         from caricamento.models import OggettoPosizionato
-        OggettoPosizionato.objects.all().delete()
-        PianoDiCarico.objects.all().delete()
-        Oggetto.objects.all().delete()
-        Contenitore.objects.all().delete()
+        OggettoPosizionato.objects.filter(piano_di_carico__owner=self.owner).delete()
+        PianoDiCarico.objects.filter(owner=self.owner).delete()
+        Oggetto.objects.filter(owner=self.owner).delete()
+        Contenitore.objects.filter(owner=self.owner).delete()
         self.stdout.write("Dati esistenti cancellati.")
 
     def _crea_contenitori(self):
         contenitori = [
             Contenitore.objects.create(
+                owner=self.owner,
                 nome="Container ISO 20' Standard",
                 tipo_mezzo=TipoMezzo.CONTAINER_20,
                 lunghezza_mm=5860,
@@ -69,6 +96,7 @@ class Command(BaseCommand):
                 note="Container standard 20 piedi. Porta posteriore.",
             ),
             Contenitore.objects.create(
+                owner=self.owner,
                 nome="Container ISO 40' High Cube",
                 tipo_mezzo=TipoMezzo.CONTAINER_40_HC,
                 lunghezza_mm=12030,
@@ -79,6 +107,7 @@ class Command(BaseCommand):
                 note="Container 40 piedi High Cube. Maggiore altezza interna.",
             ),
             Contenitore.objects.create(
+                owner=self.owner,
                 nome="Camion Bilico 13.6m",
                 tipo_mezzo=TipoMezzo.BILICO,
                 lunghezza_mm=13600,
@@ -89,6 +118,7 @@ class Command(BaseCommand):
                 note="Bilico con telaio. Dimensioni pianale.",
             ),
             Contenitore.objects.create(
+                owner=self.owner,
                 nome="Furgone Ducato 3.5t",
                 tipo_mezzo=TipoMezzo.FURGONE,
                 lunghezza_mm=3700,
@@ -209,6 +239,7 @@ class Command(BaseCommand):
         oggetti_creati = []
         for codice, desc, lx, ly, lz, peso, qta, vincoli_kw in oggetti_data:
             oggetto = Oggetto.objects.create(
+                owner=self.owner,
                 codice=codice,
                 descrizione=desc,
                 lunghezza_mm=lx,
@@ -232,6 +263,7 @@ class Command(BaseCommand):
     def _crea_piani(self, contenitori, oggetti):
         piani = [
             PianoDiCarico.objects.create(
+                owner=self.owner,
                 nome="Spedizione Container 20' — Ricambi Auto",
                 contenitore=contenitori[0],  # Container 20'
                 stato=StatoPiano.COMPLETATO,
@@ -239,6 +271,7 @@ class Command(BaseCommand):
                 completato_at=timezone.now(),
             ),
             PianoDiCarico.objects.create(
+                owner=self.owner,
                 nome="Carico Misto — Furgone 3.5t",
                 contenitore=contenitori[3],  # Furgone
                 stato=StatoPiano.COMPLETATO,
@@ -246,11 +279,13 @@ class Command(BaseCommand):
                 completato_at=timezone.now(),
             ),
             PianoDiCarico.objects.create(
+                owner=self.owner,
                 nome="Spedizione Container 40' HC — Materiali Edili",
                 contenitore=contenitori[1],  # Container 40' HC
                 stato=StatoPiano.BOZZA,
             ),
             PianoDiCarico.objects.create(
+                owner=self.owner,
                 nome="Carico Completo — Bilico 13.6m",
                 contenitore=contenitori[2],  # Bilico
                 stato=StatoPiano.COMPLETATO,

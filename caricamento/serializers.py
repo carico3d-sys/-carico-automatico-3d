@@ -277,6 +277,7 @@ class PianoDiCaricoDetailSerializer(serializers.ModelSerializer):
             "task_id",
             "messaggio_errore",
             "created_at",
+            "updated_at",
             "completato_at",
         ]
 
@@ -308,26 +309,90 @@ class OggettoDaCaricareSerializer(serializers.Serializer):
 
 class StrategiaOttimizzazioneSerializer(serializers.Serializer):
     """Sezione 3: Strategia di Ottimizzazione."""
+    # Nessun default qui: questo serializer è condiviso dall'API delle
+    # preferenze personali, dove un aggiornamento parziale deve conservare i
+    # campi già salvati. I default per la configurazione di ottimizzazione
+    # vengono applicati esplicitamente da ConfigurazioneOttimizzazioneSerializer.
     algoritmo_base = serializers.ChoiceField(
         choices=[
             'Algoritmo 3D Semplificato',
         ],
-        default='Algoritmo 3D Semplificato',
         required=False,
     )
     priorita_obiettivi = serializers.ListField(
         child=serializers.CharField(),
-        default=['Priorità al volume', 'Priorità alla distribuzione dei pesi'],
         required=False,
     )
     ordinamento_casuale = serializers.BooleanField(
-        default=False, required=False,
+        required=False,
         help_text="Se True, usa ordinamento casuale (Monte Carlo) invece che per dimensione.",
     )
     distribuzione_pesi_attiva = serializers.BooleanField(
-        default=True, required=False,
+        required=False,
         help_text="Se True, attiva il controllo dei limiti di peso sulle sezioni del contenitore.",
     )
+    compattazione_aggressiva = serializers.BooleanField(
+        required=False,
+        help_text="Se True, permette l'incastro di oggetti sotto lo sbalzo di oggetti impilati.",
+    )
+    backtracking_avanzato = serializers.BooleanField(
+        required=False,
+        help_text="Se True, attiva il backtracking a blocchi v3 (5 iterazioni mirate).",
+    )
+
+
+class ImpostazioniOutputSerializer(serializers.Serializer):
+    """Campi consentiti per le preferenze di output del workspace."""
+    azzera_grafico_pesi_nei_vuoti = serializers.BooleanField(required=False)
+    mostra_etichette_oggetti = serializers.BooleanField(required=False)
+    mostra_etichetta_contenitore = serializers.BooleanField(required=False)
+    modalita_rotazione = serializers.ChoiceField(
+        choices=["baricentrica", "eccentrica"], required=False
+    )
+
+
+class ImpostazioniManualeSerializer(serializers.Serializer):
+    """Campi consentiti per la modalità manuale."""
+    strategia_piazzamento = serializers.ChoiceField(
+        choices=["muro", "colonne"], required=False
+    )
+    massima_sporgenza_pct = serializers.IntegerField(
+        min_value=0, max_value=100, required=False
+    )
+
+
+class ImpostazioniOttimizzatoreSerializer(serializers.Serializer):
+    """Valida le sezioni delle preferenze personali del workspace.
+
+    Le sezioni e i campi sono opzionali per consentire aggiornamenti parziali;
+    i valori mancanti vengono mantenuti dal backend.
+    """
+    strategia_ottimizzazione = StrategiaOttimizzazioneSerializer(required=False)
+    output_ottimizzazione = ImpostazioniOutputSerializer(required=False)
+    manuale = ImpostazioniManualeSerializer(required=False)
+
+    def validate(self, data):
+        # DRF ignora di default le chiavi sconosciute nei Serializer annidati;
+        # rifiutiamole esplicitamente per non memorizzare configurazioni arbitrarie.
+        allowed_sections = set(self.fields)
+        unknown_sections = set(self.initial_data or {}) - allowed_sections
+        if unknown_sections:
+            raise serializers.ValidationError({
+                "sezioni": "Sezioni non ammesse: " + ", ".join(sorted(unknown_sections)),
+            })
+
+        for section_name, section_data in (self.initial_data or {}).items():
+            if not isinstance(section_data, dict):
+                raise serializers.ValidationError({
+                    section_name: "La sezione deve essere un oggetto JSON.",
+                })
+            allowed_fields = set(self.fields[section_name].fields)
+            unknown_fields = set(section_data) - allowed_fields
+            if unknown_fields:
+                raise serializers.ValidationError({
+                    section_name: "Campi non ammessi: " + ", ".join(sorted(unknown_fields)),
+                })
+        return data
 
 
 class ConfigurazioneOttimizzazioneSerializer(serializers.Serializer):
@@ -353,6 +418,10 @@ class AvviaOttimizzazioneSerializer(serializers.Serializer):
         default=True,
         help_text="Se True, esegue in coda asincrona (Django Q2). "
                   "Se False, esegue in tempo reale (solo per test).",
+    )
+    salva_risultato = serializers.BooleanField(
+        default=True,
+        help_text="Se False, esegue una preview senza salvare i posizionamenti.",
     )
     config = ConfigurazioneOttimizzazioneSerializer(
         required=False,

@@ -17,7 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from caricamento.health import healthz, worker_healthz
+
 urlpatterns = [
+    path('healthz/', healthz, name='healthz'),
+    path('worker-healthz/', worker_healthz, name='worker_healthz'),
     path('admin/', admin.site.urls),
     # django-allauth (Google OAuth2) — deve stare fuori dal namespace 'caricamento'
     path('accounts/', include('allauth.urls')),

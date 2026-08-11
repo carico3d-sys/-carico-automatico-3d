@@ -33,6 +33,8 @@ class ConfigurazioneOttimizzazione:
     algoritmo_base: str = "Algoritmo 3D Semplificato"
     ordinamento_casuale: bool = False
     distribuzione_pesi_attiva: bool = True
+    compattazione_aggressiva: bool = False  # se True, permette incastro sotto sbalzi
+    backtracking_avanzato: bool = False  # se True, attiva optimizer_v3 a blocchi
 
 
 
@@ -45,7 +47,9 @@ class ConfigurazioneOttimizzazione:
         return cls(
             algoritmo_base=strategia.get("algoritmo_base", defaults["strategia_ottimizzazione"]["algoritmo_base"]),
             ordinamento_casuale=strategia.get("ordinamento_casuale", False),
-            distribuzione_pesi_attiva=strategia.get("distribuzione_pesi_attiva", True)
+            distribuzione_pesi_attiva=strategia.get("distribuzione_pesi_attiva", True),
+            compattazione_aggressiva=strategia.get("compattazione_aggressiva", False),
+            backtracking_avanzato=strategia.get("backtracking_avanzato", False),
         )
 
 
@@ -55,6 +59,8 @@ def get_configurazione_default() -> dict:
             "algoritmo_base": "Algoritmo 3D Semplificato",
             "ordinamento_casuale": False,
             "distribuzione_pesi_attiva": True,
+            "compattazione_aggressiva": False,
+            "backtracking_avanzato": False,
         },
 
     }
@@ -94,6 +100,7 @@ class OptimizerResult:
     messaggio: str = ""
     metriche: Optional[Dict] = None
     soluzioni_alternative: List[dict] = field(default_factory=list)
+    report_priorita: Optional[Dict] = None
 
 
 # ---------------------------------------------------------------------------
@@ -122,9 +129,22 @@ VincoliTraLookup = Dict[
 
 def _build_lookup_vincoli_tra(
     vincoli_tra_qs,
+    oggetto_ids: Optional[Set[int]] = None,
 ) -> VincoliTraLookup:
-    lookup: Dict[int, List[Tuple[int, str, Optional[float], Optional[Set[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]]]]] = {}
+    """Costruisce il lookup dei vincoli tra gli oggetti del piano.
+
+    Se *oggetto_ids* è valorizzato, vengono mantenute solo le relazioni
+    con entrambi gli estremi presenti nella lista di carico. In questo modo
+    un vincolo dell'anagrafica riferito a un oggetto non incluso nel piano
+    non influenza l'ottimizzazione corrente.
+    """
+    lookup: VincoliTraLookup = {}
     for vt in vincoli_tra_qs:
+        if oggetto_ids is not None and (
+            vt.oggetto_a_id not in oggetto_ids
+            or vt.oggetto_b_id not in oggetto_ids
+        ):
+            continue
         valid_configs = _estrai_configurazioni_valide(vt.dettagli_posizionamento)
         entry_a = (vt.oggetto_b_id, vt.tipo_relazione, None, valid_configs)
         lookup.setdefault(vt.oggetto_a_id, []).append(entry_a)
@@ -132,11 +152,21 @@ def _build_lookup_vincoli_tra(
 
 
 def _estrai_configurazioni_valide(dettagli):
-    """Estrae le configurazioni valide da dettagli_posizionamento."""
-    if not dettagli:
+    """Estrae le configurazioni valide preservando le esclusioni esplicite.
+
+    Valori restituiti:
+    - ``None``: nessuna configurazione è stata definita (vincolo legacy
+      senza dettagli; la relazione può usare le regole standard/relazionali);
+    - ``set()``: il vincolo è definito, ma tutte le configurazioni sono
+      escluse o non valide (la combinazione è vietata);
+    - insieme non vuoto: solo le configurazioni contenute sono autorizzate.
+    """
+    if dettagli is None:
         return None
-    configurazioni = dettagli.get('configurazioni') or dettagli.get('configurazioni_valide')
-    if not configurazioni:
+    configurazioni = dettagli.get('configurazioni')
+    if configurazioni is None:
+        configurazioni = dettagli.get('configurazioni_valide')
+    if configurazioni is None:
         return None
     valide = set()
     for c in configurazioni:

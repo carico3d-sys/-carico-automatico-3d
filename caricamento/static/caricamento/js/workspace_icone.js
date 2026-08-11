@@ -1,8 +1,9 @@
 /**
  * Workspace Carico 3D — Gestione Icone (Admin only)
  *
- * Catalogo icone, modale di configurazione, toggle emoji/PNG,
- * upload file, salvataggio config su server.
+ * Catalogo icone, modale di configurazione a 2 tab (Icone | Bottoni),
+ * toggle emoji/PNG, upload file, salvataggio config su server,
+ * applicazione live senza reload, validazione e cancellazione PNG.
  *
  * Depends on: workspace_core.js (DOM, showToast, getCSRFToken, W, WS)
  *
@@ -27,6 +28,7 @@ var ICON_CATALOG = [
 
     // --- Header Tools ---
     { id: 'header-export',      type: 'bootstrap', iconClass: 'bi bi-filetype-txt',      file: '', dims: [20, 20], desc: 'Header: pulsante Posizioni',               location: 'Header',  selector: '#header-export-btn > i' },
+    { id: 'header-icone',       type: 'bootstrap', iconClass: 'bi bi-palette',           file: '', dims: [20, 20], desc: 'Header: pulsante Gestione Icone (admin)',   location: 'Header',  selector: '#header-icone-btn > i' },
 
     // --- Header Logout ---
     { id: 'header-logout',      type: 'bootstrap', iconClass: 'bi bi-box-arrow-right',   file: '', dims: [16, 16], desc: 'Header: link Esci',                        location: 'Header',  selector: '#header-logout > i' },
@@ -41,14 +43,11 @@ var ICON_CATALOG = [
     { id: 'sidebar-auto',       type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [18, 18], desc: 'Sidebar: tab Automatica',                  location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="automatica"] .sidebar-tab-icon' },
 
     // --- Sidebar Navigazione Dinamica ---
-    // (i titoli di sezione categoria sono stati rimossi — il pulsante header indica già la categoria)
-    // Nav items con data-view
     { id: 'nav-nuovo-carico',   type: 'bootstrap', iconClass: 'bi bi-file-earmark-plus', file: '', dims: [18, 18], desc: 'Sidebar Nav: Nuovo Carico',                location: 'Sidebar', selector: '.sidebar-nav-item[data-view="nuovo-carico"] > i' },
     { id: 'nav-apri-piano',     type: 'bootstrap', iconClass: 'bi bi-folder2',           file: '', dims: [18, 18], desc: 'Sidebar Nav: Apri Piano',                  location: 'Sidebar', selector: '.sidebar-nav-item[data-view="piani"] > i' },
     { id: 'nav-salva',          type: 'bootstrap', iconClass: 'bi bi-save',              file: '', dims: [18, 18], desc: 'Sidebar Nav: Salva',                       location: 'Sidebar', selector: '.sidebar-nav-item[data-view="salva-db"] > i' },
     { id: 'nav-esporta',        type: 'bootstrap', iconClass: 'bi bi-upload',            file: '', dims: [18, 18], desc: 'Sidebar Nav: Esporta',                     location: 'Sidebar', selector: '.sidebar-nav-item[data-view="export-file"] > i' },
     { id: 'nav-importa',        type: 'bootstrap', iconClass: 'bi bi-download',          file: '', dims: [18, 18], desc: 'Sidebar Nav: Importa',                     location: 'Sidebar', selector: '.sidebar-nav-item[data-view="import-file"] > i' },
-    // Nav items con data-action
     { id: 'nav-svuota',         type: 'bootstrap', iconClass: 'bi bi-trash',             file: '', dims: [18, 18], desc: 'Sidebar Nav: Svuota Carico',               location: 'Sidebar', selector: '.sidebar-nav-item[data-action="svuota-carico"] > i' },
     { id: 'nav-articoli',       type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [18, 18], desc: 'Sidebar Nav: Articoli',                    location: 'Sidebar', selector: '.sidebar-nav-item[data-view="oggetti"] > i' },
     { id: 'nav-vincoli',        type: 'bootstrap', iconClass: 'bi bi-link-45deg',        file: '', dims: [18, 18], desc: 'Sidebar Nav: Vincoli',                     location: 'Sidebar', selector: '.sidebar-nav-item[data-view="vincoli-tra"] > i' },
@@ -56,7 +55,6 @@ var ICON_CATALOG = [
     { id: 'nav-impostazioni',   type: 'bootstrap', iconClass: 'bi bi-sliders',           file: '', dims: [18, 18], desc: 'Sidebar Nav: Impostazioni',                location: 'Sidebar', selector: '.sidebar-nav-item[data-view="impostazioni"] > i' },
     { id: 'nav-admin',          type: 'bootstrap', iconClass: 'bi bi-shield-shaded',     file: '', dims: [18, 18], desc: 'Sidebar Nav: Pannello Admin',              location: 'Sidebar', selector: '#sidebar-nav-dynamic a.sidebar-nav-item > i.bi-shield-shaded' },
     { id: 'nav-esci',           type: 'bootstrap', iconClass: 'bi bi-box-arrow-right',   file: '', dims: [18, 18], desc: 'Sidebar Nav: Esci',                        location: 'Sidebar', selector: '#sidebar-nav-dynamic a.sidebar-nav-item > i.bi-box-arrow-right' },
-    // Strumenti Rapidi: azioni
     { id: 'nav-strum-nuovo',    type: 'bootstrap', iconClass: 'bi bi-file-earmark',      file: '', dims: [18, 18], desc: 'Sidebar Strumenti: Nuovo Carico',           location: 'Sidebar', selector: '.sidebar-nav-item[data-action="nuovo-carico"] > i' },
     { id: 'nav-pesi',           type: 'bootstrap', iconClass: 'bi bi-speedometer2',      file: '', dims: [18, 18], desc: 'Sidebar Strumenti: Distribuzione Pesi',      location: 'Sidebar', selector: '.sidebar-nav-item[data-action="grafico-pesi"] > i' },
     { id: 'nav-vista-carico',   type: 'bootstrap', iconClass: 'bi bi-bar-chart',         file: '', dims: [18, 18], desc: 'Sidebar Strumenti: Vista Carico',            location: 'Sidebar', selector: '.sidebar-nav-item[data-action="carico"] > i' },
@@ -97,21 +95,17 @@ var ICON_CATALOG = [
     { id: 'panel-empty',        type: 'bootstrap', iconClass: 'bi bi-inbox',             file: '', dims: [36, 36], desc: 'Panel Destro: nessun oggetto',              location: 'Panel Destro', selector: '#panel-destro .panel-empty-icon' },
 
     // --- Manuale Help (dentro sidebar tab Manuale) ---
-    { id: 'manuale-mouse',      type: 'bootstrap', iconClass: 'bi bi-mouse',             file: '', dims: [18, 18], desc: 'Manuale: icona mouse',                     location: 'Sidebar', selector: '.sidebar-manuale-content .manuale-help-icon.bi-mouse' },
-    { id: 'manuale-keyboard',   type: 'bootstrap', iconClass: 'bi bi-keyboard',          file: '', dims: [18, 18], desc: 'Manuale: icona tastiera',                  location: 'Sidebar', selector: '.sidebar-manuale-content .manuale-help-icon.bi-keyboard' },
-    { id: 'manuale-rotate',     type: 'bootstrap', iconClass: 'bi bi-arrow-repeat',      file: '', dims: [18, 18], desc: 'Manuale: icona rotazione',                 location: 'Sidebar', selector: '.sidebar-manuale-content .manuale-help-icon.bi-arrow-repeat' },
+    { id: 'manuale-help-mouse', type: 'bootstrap', iconClass: 'bi bi-mouse',             file: '', dims: [16, 16], desc: 'Manuale: pulsante Aiuto Mouse (modale)',    location: 'Sidebar', selector: '#manuale-btn-help-mouse > .bi' },
+    { id: 'manuale-help-tastiera', type: 'bootstrap', iconClass: 'bi bi-keyboard',       file: '', dims: [16, 16], desc: 'Manuale: pulsante Aiuto Tastiera (modale)', location: 'Sidebar', selector: '#manuale-btn-help-tastiera > .bi' },
 
     // --- D-Pad ---
-    { id: 'dpad-controller',    type: 'bootstrap', iconClass: 'bi bi-controller',        file: '', dims: [14, 14], desc: 'D-Pad: icona controller',                  location: 'Sidebar', selector: '.manuale-dpad-title > i' },
     { id: 'dpad-up',            type: 'bootstrap', iconClass: 'bi bi-chevron-up',        file: '', dims: [14, 14], desc: 'D-Pad: freccia su',                        location: 'Sidebar', selector: '#manuale-dpad-up > i' },
     { id: 'dpad-down',          type: 'bootstrap', iconClass: 'bi bi-chevron-down',      file: '', dims: [14, 14], desc: 'D-Pad: freccia giu',                       location: 'Sidebar', selector: '#manuale-dpad-down > i' },
     { id: 'dpad-left',          type: 'bootstrap', iconClass: 'bi bi-chevron-left',      file: '', dims: [14, 14], desc: 'D-Pad: freccia sinistra',                  location: 'Sidebar', selector: '#manuale-dpad-left > i' },
     { id: 'dpad-right',         type: 'bootstrap', iconClass: 'bi bi-chevron-right',     file: '', dims: [14, 14], desc: 'D-Pad: freccia destra',                    location: 'Sidebar', selector: '#manuale-dpad-right > i' },
     { id: 'dpad-confirm',       type: 'bootstrap', iconClass: 'bi bi-check-lg',          file: '', dims: [18, 18], desc: 'D-Pad: conferma posizione',                location: 'Sidebar', selector: '#manuale-dpad-confirm > i' },
 
-    // --- Bottoni Manuale ---
-    { id: 'manuale-ghost',      type: 'bootstrap', iconClass: 'bi bi-eye-slash',         file: '', dims: [14, 14], desc: 'Manuale: toggle ghost',                    location: 'Sidebar', selector: '#manuale-btn-ghost-toggle > i' },
-    { id: 'manuale-add',        type: 'bootstrap', iconClass: 'bi bi-plus-circle',       file: '', dims: [14, 14], desc: 'Manuale: aggiungi alla scena',             location: 'Sidebar', selector: '#manuale-btn-aggiungi > i' },
+    // --- Bottoni Manuale (emoji colorate: non configurabili come icone, solo Annulla resta Bootstrap) ---
     { id: 'manuale-cancel',     type: 'bootstrap', iconClass: 'bi bi-x-circle',          file: '', dims: [14, 14], desc: 'Manuale: annulla piazzamento',             location: 'Sidebar', selector: '#manuale-btn-annulla-ghost > i' },
 
     // --- Altro ---
@@ -127,86 +121,103 @@ var ICON_CATALOG = [
 ];
 
 // =============================================================================
-// STATO ICONE
+// CATALOGO BOTTONI — bottoni azione dei tab Auto e Manuale
 // =============================================================================
 
-var ICON_CONFIG = {};  // { 'header-documenti': { type: 'png', file: 'folder.png', dims: [40, 40] }, ... }
+var BUTTON_CATALOG = [
+    // --- Tab Auto (bottoni alti 52px) ---
+    { id: 'auto-ottimizza', selector: '#btn-ottimizza',       iconSelRelative: 'i',          iconClass: 'bi bi-lightning-charge', extraClass: '',            label_default: 'OTTIMIZZA E SALVA',  location: 'Tab Auto',    dims_px: [30, 30], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'auto-salva',     selector: '#btn-salva-auto',      iconSelRelative: 'i',          iconClass: 'bi bi-save',              extraClass: '',            label_default: 'SALVA',              location: 'Tab Auto',    dims_px: [24, 24], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'auto-elabora',   selector: '#btn-elabora-auto',    iconSelRelative: 'i',          iconClass: 'bi bi-play-fill',         extraClass: '',            label_default: 'ELABORA',            location: 'Tab Auto',    dims_px: [24, 24], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#6f42c1' },
+    { id: 'auto-pesi',      selector: '#auto-btn-pesi',       iconSelRelative: 'i',          iconClass: 'bi bi-bar-chart-fill',    extraClass: '',            label_default: 'Distribuzione Pesi', location: 'Tab Auto',    dims_px: [26, 26], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#17a2b8' },
+
+    // --- Tab Manuale (bottoni alti 33px) ---
+    { id: 'man-aggiungi',   selector: '#manuale-btn-aggiungi',  iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Aggiungi',            location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'man-rimuovi',    selector: '#manuale-btn-rimuovi',   iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Rimuovi',             location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'man-pesi',       selector: '#manuale-btn-pesi',      iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Pesi',                location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-salva',      selector: '#manuale-btn-salva',     iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Salva',               location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'man-ghost',      selector: '#manuale-btn-ghost-toggle', iconSelRelative: '.manuale-emoji', iconClass: '',               extraClass: 'manuale-emoji', label_default: 'Ghost: OFF',          location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-x-circle',          extraClass: '',            label_default: 'Annulla piazzamento', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+
+    // --- Finestre Main View: Piani di carico ---
+    // (bottoni generati dinamicamente all'apertura della vista: iconSelRelative
+    // vuoto perché l'emoji è nel testo, non in un elemento dedicato)
+    { id: 'win-piani-elimina',       selector: '#pv-batch-delete-piani',  iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina selezione',      emoji_default: '🗑', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-piani-clear',         selector: '#pv-batch-clear-piani',   iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                       emoji_default: '✕',  location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-piani-salva-nome',    selector: '#pd-btn-salva-nome',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                       emoji_default: '💾', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-piani-carica',        selector: '#pv-piano-carica',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Carica nel viewport 3D', emoji_default: '📦', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-piani-delete',        selector: '#pv-piano-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina piano',          emoji_default: '🗑', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-piani-seleziona',     selector: '#pv-piano-seleziona',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Seleziona questo mezzo', emoji_default: '🚛', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+
+    // --- Finestre Main View: Vincoli ---
+    { id: 'win-vincoli-escludi',     selector: '#vt-btn-escludi',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Escludi tutti',     emoji_default: '🚫', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-vincoli-nuovo',       selector: '#vt-btn-new',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',             emoji_default: '➕', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-vincoli-crea',        selector: '#vt-btn-create',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Crea Vincolo',      emoji_default: '➕', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-vincoli-aggiorna',    selector: '#vt-btn-update',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Aggiorna Vincolo',  emoji_default: '💾', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'win-vincoli-delete',      selector: '#vt-btn-delete',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina',           emoji_default: '🗑', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+
+    // --- Finestre Main View: Articoli ---
+    { id: 'win-art-reset-vista',     selector: '#pv3d-btn-reset-vista',   iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Reset vista',     emoji_default: '🏠', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-reset-oggetto',   selector: '#pv3d-btn-reset-oggetto', iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Reset oggetto',   emoji_default: '↺', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-delete',          selector: '#pv-batch-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina selezione', emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-art-vincoli',         selector: '#pv-batch-vincoli',       iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Vincoli',         emoji_default: '🔧', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-art-clear',           selector: '#pv-batch-clear',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                 emoji_default: '✕',  location: 'Finestre: Articoli', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-nuovo',           selector: '#pv-ogg-nuovo',           iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            emoji_default: '➕', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-salva',           selector: '#pv-ogg-save',            iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-art-delete-ogg',      selector: '#pv-ogg-delete',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina oggetto',   emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-art-batch-annulla',   selector: '#modal-batch-cancel',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Annulla',           emoji_default: '✕',  location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-batch-applica',   selector: '#modal-batch-save',       iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Applica',           emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+
+    // --- Finestre Main View: Trasporti ---
+    { id: 'win-trasp-delete',        selector: '#pv-batch-delete-mezzi',  iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina selezione', emoji_default: '🗑', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-trasp-clear',         selector: '#pv-batch-clear-mezzi',   iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                 emoji_default: '✕',  location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-trasp-nuovo',         selector: '#pv-mezzo-nuovo',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            emoji_default: '➕', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-trasp-salva',         selector: '#pv-mezzo-save',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             emoji_default: '💾', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-trasp-delete-mezzo',  selector: '#pv-mezzo-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina mezzo',     emoji_default: '🗑', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' }
+];
+
+// =============================================================================
+// CATALOGO COLORI — colori di pannelli, header e slider (CSS variables)
+// =============================================================================
+
+// Colore di base usato per generare le tonalità coordinate (default: acciaio attuale)
+var COLOR_BASE_DEFAULT = '#447e9b';
+
+var COLOR_CATALOG = [
+    // --- Aree ---
+    { id: 'header',        variable: '--color-header',        label: 'Header',             group: 'aree',  def: '#1a1a2e' },
+    { id: 'sidebar',       variable: '--color-sidebar-bg',   label: 'Sidebar',            group: 'aree',  def: '#f5f5f5' },
+    { id: 'panel-bg',      variable: '--color-panel-bg',     label: 'Pannelli tab',       group: 'aree',  def: '#fafafa' },
+    { id: 'panel-border',  variable: '--color-panel-border', label: 'Bordi pannelli',     group: 'aree',  def: '#dddddd' },
+    { id: 'main-bg',       variable: '--color-bg',           label: 'Main view',          group: 'aree',  def: '#f0f2f5' },
+    { id: 'accent',        variable: '--color-accent',       label: 'Accento',            group: 'aree',  def: '#447e9b' },
+    { id: 'accent-hover',  variable: '--color-accent-hover', label: 'Accento hover',      group: 'aree',  def: '#5095b5' },
+
+    // --- Slider ---
+    { id: 'slider-track-start', variable: '--color-slider-track-start', label: 'Traccia inizio',      group: 'slider', def: '#e8ecf2' },
+    { id: 'slider-track',       variable: '--color-slider-track-end',   label: 'Traccia spaziatura',  group: 'slider', def: '#447e9b' },
+    { id: 'slider-thumb',       variable: '--color-slider-thumb',       label: 'Manopola spaziatura',  group: 'slider', def: '#447e9b' },
+    { id: 'strategia-thumb',    variable: '--color-strategia-thumb',    label: 'Manopola strategia',   group: 'slider', def: '#447e9b' }
+];
+
+// =============================================================================
+// STATO ICONE / BOTTONI / COLORI
+// =============================================================================
+
+var ICON_CONFIG = {};      // { 'header-documenti': { type: 'png', file: 'folder.png', dims: [40, 40] }, ... }
+var BOTTONI_CONFIG = {};   // { 'auto-ottimizza': { type, file, dims_px, label, label_size, label_pos, color }, ... }
+var COLOR_CONFIG = {};     // { 'header': '#1a1a2e', ... }
+
+// Snapshot dell'HTML originale dei bottoni (prima di ogni applicazione config)
+var _btnSnapshot = {};
+
+// Flag anti-loop per il MutationObserver: evita di riapplicare la config
+// mentre l'applicazione stessa sta modificando il DOM.
+var _iconApplying = false;
 
 // =============================================================================
 // INIZIALIZZAZIONE
 // =============================================================================
-
-/**
- * Carica la configurazione icone dal server.
- */
-async function _loadIconConfig() {
-    try {
-        var resp = await fetch('/api/icone-config/');
-        if (resp.ok) {
-            var data = await resp.json();
-            ICON_CONFIG = data.config || {};
-        }
-    } catch (e) {
-        console.warn('Icon config: using defaults (could not load from server)', e.message);
-    }
-    _applyIconConfig();
-}
-
-/**
- * Applica la configurazione icone al DOM: sostituisce le icone in base ai toggle.
- * Per le icone impostate su 'png', sostituisce il <i> con un <img>.
- * Usa il campo `selector` (se presente) per targettare in modo univoco l'elemento;
- * altrimenti fallback sul selettore basato sulla classe Bootstrap.
- */
-var _applyIconConfig = function _applyIconConfig() {
-    for (var id in ICON_CONFIG) {
-        if (!ICON_CONFIG.hasOwnProperty(id)) continue;
-        var cfg = ICON_CONFIG[id];
-        if (cfg.type !== 'png' || !cfg.file) continue;
-
-        var icon = _findCatalogIcon(id);
-        if (!icon) continue;
-
-        var dims = cfg.dims || icon.dims || [40, 40];
-        var imgUrl = '/static/caricamento/img/' + cfg.file;
-
-        // Usa il selettore univoco se presente, altrimenti fallback sulla classe
-        var selector;
-        if (icon.selector) {
-            selector = icon.selector;
-        } else {
-            selector = 'i.' + icon.iconClass.replace(/ /g, '.');
-        }
-
-        var elements;
-        try {
-            elements = document.querySelectorAll(selector);
-        } catch (e) {
-            console.warn('Icone: selettore non valido per ' + id + ': ' + selector, e.message);
-            continue;
-        }
-
-        elements.forEach(function (el) {
-            // Non sostituire icone dentro la modale stessa
-            if (el.closest('#icone-manager-overlay')) return;
-            // Skip non-<i> e non-<img> elements
-            if (el.tagName !== 'I' && el.tagName !== 'IMG') return;
-
-            var img = document.createElement('img');
-            img.src = imgUrl;
-            img.className = el.className;  // mantiene le classi per il CSS
-            img.style.width = dims[0] + 'px';
-            img.style.height = dims[1] + 'px';
-            img.style.objectFit = 'contain';
-            img.alt = '';
-            // Per header-cat-icon
-            if (el.classList.contains('header-cat-icon')) {
-                img.classList.add('header-cat-icon');
-            }
-            el.parentNode.replaceChild(img, el);
-        });
-    }
-}
 
 function _findCatalogIcon(id) {
     for (var i = 0; i < ICON_CATALOG.length; i++) {
@@ -215,47 +226,400 @@ function _findCatalogIcon(id) {
     return null;
 }
 
-// =============================================================================
-// MODALE GESTIONE ICONE
-// =============================================================================
+function _findCatalogButton(id) {
+    for (var i = 0; i < BUTTON_CATALOG.length; i++) {
+        if (BUTTON_CATALOG[i].id === id) return BUTTON_CATALOG[i];
+    }
+    return null;
+}
+
+/** Conta i bottoni del catalogo appartenenti a un tab ('tab' o 'finestre'). */
+function _countCatalogButtons(tab) {
+    var n = 0;
+    for (var i = 0; i < BUTTON_CATALOG.length; i++) {
+        if ((BUTTON_CATALOG[i].tab || 'tab') === tab) n++;
+    }
+    return n;
+}
 
 /**
- * Apre la modale di gestione icone (solo admin).
+ * Legge la configurazione icone inline dal template (json_script
+ * #icon-config-data, iniettata dal server nella pagina). Funzione SINCROMA:
+ * disponibile subito, senza fetch, quindi niente flash di icone Bootstrap
+ * al primo paint. Restituisce true se i dati inline sono stati caricati.
  */
+function _applicaConfigInline() {
+    var inlineEl = document.getElementById('icon-config-data');
+    if (!inlineEl || !inlineEl.textContent) return false;
+    try {
+        var inlineData = JSON.parse(inlineEl.textContent);
+        ICON_CONFIG = inlineData.config || {};
+        BOTTONI_CONFIG = inlineData.bottoni || {};
+        COLOR_CONFIG = inlineData.colori || {};
+        return true;
+    } catch (e) {
+        console.warn('Icon config: dati inline non validi, uso la fetch', e.message);
+        return false;
+    }
+}
+
+/**
+ * Rende visibili le icone: rimuove la classe anti-flash icons-not-ready
+ * da <html>. Chiamata subito dopo la prima applicazione della config;
+ * un timer di sicurezza in initIconManager garantisce il reveal anche
+ * se qualcosa va storto (mai icone nascoste per sempre).
+ */
+function _mostraIcone() {
+    var h = document.documentElement;
+    if (h && h.classList.contains('icons-not-ready')) {
+        h.classList.remove('icons-not-ready');
+    }
+}
+
+/**
+ * Carica la configurazione icone + bottoni + colori.
+ *
+ * La fonte primaria è la config inline nel template (sincrona, via
+ * _applicaConfigInline). La fetch a /api/icone-config/ resta solo come
+ * fallback (es. se il tag manca o il JSON inline non è valido).
+ * In entrambi i casi, al termine rende visibili le icone (_mostraIcone).
+ */
+async function _loadIconConfig() {
+    if (_applicaConfigInline()) {
+        _applyIconConfig();
+        _applyButtonConfig();
+        _applyColorConfig();
+        _mostraIcone();
+        return;
+    }
+    try {
+        var resp = await fetch('/api/icone-config/');
+        if (resp.ok) {
+            var data = await resp.json();
+            ICON_CONFIG = data.config || {};
+            BOTTONI_CONFIG = data.bottoni || {};
+            COLOR_CONFIG = data.colori || {};
+        }
+    } catch (e) {
+        console.warn('Icon config: using defaults (could not load from server)', e.message);
+    }
+    _applyIconConfig();
+    _applyButtonConfig();
+    _applyColorConfig();
+    _mostraIcone();
+}
+
+/**
+ * Trova gli elementi su cui agire per un'icona, sia che siano ancora <i>
+ * sia che siano già stati sostituiti con <img> (necessario per applicare
+ * le modifiche live senza ricaricare la pagina).
+ */
+function _trovaElementiIcona(icon) {
+    var els = [];
+    if (icon.selector) {
+        // Prova prima il selettore originale (elementi ancora <i>)
+        try {
+            els = Array.prototype.slice.call(document.querySelectorAll(icon.selector));
+        } catch (e) { /* selettore non valido */ }
+        // Se non trova nulla, prova la versione senza tag (per elementi già <img>)
+        // Sostituisce il tag <i> con * sia quando è seguito da . # [ sia quando
+        // è l'ultimo token del selettore (es. #vp-btn-top > i → #vp-btn-top *).
+        if (els.length === 0) {
+            var tagless = icon.selector
+                .replace(/(^|[\s>])i(?=[.#\[]|$)/g, '$1*')
+                .replace(/\s*>\s*\*/g, ' *');
+            try {
+                els = Array.prototype.slice.call(document.querySelectorAll(tagless));
+            } catch (e2) { /* ignora */ }
+        }
+    } else {
+        var cls = icon.iconClass.replace(/ /g, '.');
+        try {
+            els = Array.prototype.slice.call(document.querySelectorAll('i.' + cls + ', img.' + cls));
+        } catch (e) { /* ignora */ }
+    }
+    // Filtra solo elementi icona (I o IMG) e fuori dalla modale
+    return els.filter(function (el) {
+        if (el.tagName !== 'I' && el.tagName !== 'IMG') return false;
+        if (el.closest && el.closest('#icone-manager-overlay')) return false;
+        return true;
+    });
+}
+
+/**
+ * Applica la configurazione icone al DOM. Prima RIPRISTINA le icone
+ * Bootstrap (per gli elementi già sostituiti con <img>), poi riapplica
+ * i PNG configurati: così funziona anche live, senza reload.
+ */
+var _applyIconConfig = function _applyIconConfig() {
+    ICON_CATALOG.forEach(function (icon) {
+        // 1. Ripristina il default Bootstrap per ogni icona del catalogo
+        var elements = _trovaElementiIcona(icon);
+        elements.forEach(function (el) {
+            if (el.tagName === 'IMG') {
+                var i = document.createElement('i');
+                i.className = el.className;   // l'<img> mantiene le classi originali
+                el.parentNode.replaceChild(i, el);
+            }
+        });
+
+        // 2. Se configurata come PNG, sostituisci con <img>
+        var cfg = ICON_CONFIG[icon.id];
+        if (!cfg || cfg.type !== 'png' || !cfg.file) return;
+
+        var elements2 = _trovaElementiIcona(icon);
+        var dims = cfg.dims || icon.dims || [40, 40];
+        var imgUrl = '/static/caricamento/img/' + cfg.file;
+
+        elements2.forEach(function (el) {
+            if (el.closest && el.closest('#icone-manager-overlay')) return;
+            var img = document.createElement('img');
+            img.src = imgUrl;
+            img.className = el.className;   // mantiene le classi per il CSS
+            img.style.width = dims[0] + 'px';
+            img.style.height = dims[1] + 'px';
+            img.style.objectFit = 'contain';
+            img.alt = '';
+            if (el.classList.contains('header-cat-icon')) {
+                img.classList.add('header-cat-icon');
+            }
+            el.parentNode.replaceChild(img, el);
+        });
+    });
+};
+
+/**
+ * Applica la configurazione bottoni al DOM (live, senza reload).
+ * Per ogni bottone: ripristina il default, poi applica icona PNG (con
+ * dimensioni in %), testo personalizzato, dimensione testo e posizione.
+ */
+var _applyButtonConfig = function _applyButtonConfig() {
+    if (_iconApplying) return;
+    _iconApplying = true;
+    try {
+        _applyButtonConfigInner();
+    } finally {
+        _iconApplying = false;
+    }
+};
+
+var _applyButtonConfigInner = function _applyButtonConfigInner() {
+    BUTTON_CATALOG.forEach(function (btnDef) {
+        var el = document.querySelector(btnDef.selector);
+        if (!el) return;
+        var cfg = BOTTONI_CONFIG[btnDef.id] || {};
+
+        // Ripristina il default prima di riapplicare
+        if (_btnSnapshot[btnDef.id] !== undefined) {
+            el.innerHTML = _btnSnapshot[btnDef.id];
+        }
+        el.style.fontSize = '';
+        el.style.display = '';
+        el.style.flexDirection = '';
+        el.style.justifyContent = '';
+        el.style.alignItems = '';
+        el.style.gap = '';
+        el.style.backgroundColor = '';
+        el.style.color = '';
+        el.style.borderColor = '';
+        el.style.boxShadow = '';
+        el.style.width = '';
+        el.style.height = '';
+        el.style.margin = '';
+        delete el.dataset.iconColor;
+
+        var hasConfig = false;
+        for (var k in cfg) {
+            if (cfg.hasOwnProperty(k)) { hasConfig = true; break; }
+        }
+        if (!hasConfig) return;
+
+        // L'elemento icona va catturato PRIMA di ogni sostituzione: dopo il
+        // passaggio <i> → <img> il selettore tag-based (es. 'i') non matcha più.
+        // Per i bottoni delle finestre (emoji nel testo) non esiste un
+        // elemento icona separato: iconSelRelative è vuoto.
+        var iconEl = btnDef.iconSelRelative ? el.querySelector(btnDef.iconSelRelative) : null;
+
+        // Icona PNG (dimensione in px)
+        if (cfg.type === 'png' && cfg.file) {
+            var dims = cfg.dims_px || _legacyDimsPx(btnDef, cfg) || btnDef.dims_px || [24, 24];
+            var img = document.createElement('img');
+            img.src = '/static/caricamento/img/' + cfg.file;
+            img.className = iconEl ? iconEl.className : (btnDef.extraClass || '');
+            img.style.width = dims[0] + 'px';
+            img.style.height = dims[1] + 'px';
+            img.style.objectFit = 'contain';
+            img.style.flexShrink = '0';
+            img.alt = '';
+            if (iconEl) {
+                iconEl.parentNode.replaceChild(img, iconEl);
+            } else {
+                // Nessun elemento icona: il contenuto è testo/emoji, lo
+                // sostituiamo interamente con l'immagine.
+                el.textContent = '';
+                el.appendChild(img);
+            }
+            iconEl = img;   // aggiorna il riferimento per la fase label
+        }
+
+        // Testo personalizzato (mantiene l'elemento icona)
+        if (cfg.label) {
+            if (iconEl) {
+                var nodes = Array.prototype.slice.call(el.childNodes);
+                nodes.forEach(function (n) {
+                    if (n.nodeType === 3) el.removeChild(n);
+                    else if (n !== iconEl) el.removeChild(n);
+                });
+            } else {
+                el.textContent = '';
+            }
+            el.appendChild(document.createTextNode(cfg.label));
+        }
+
+        // Dimensione testo, layout flex e posizione rispetto all'icona
+        if (cfg.label_size) el.style.fontSize = cfg.label_size + 'px';
+        el.style.display = 'flex';
+        el.style.flexDirection = cfg.label_pos || 'row';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        if (iconEl) el.style.gap = '6px';
+
+        // Colore del bottone: sfondo + testo a contrasto + bordo/ombra scuriti.
+        // Il data-icon-color attiva gli hover/active via filter nel CSS.
+        if (cfg.color && _isHexColor(cfg.color)) {
+            var dark = _darkenColor(cfg.color, 0.25);
+            el.style.backgroundColor = cfg.color;
+            el.style.color = _textColorFor(cfg.color);
+            el.style.borderColor = dark;
+            el.style.boxShadow = '0 2px 0 ' + dark + ', inset 0 1px 0 rgba(255,255,255,0.22)';
+            el.dataset.iconColor = '1';
+        }
+
+        // Dimensioni del bottone: larghezza % (rispetto al contenitore) e
+        // altezza px (override dell'altezza fissa 52/33). Larghezza < 100%
+        // centra il bottone nel suo spazio con margin auto.
+        if (cfg.width_pct) {
+            el.style.width = cfg.width_pct + '%';
+            el.style.margin = (cfg.width_pct < 100) ? '0 auto' : '';
+        }
+        if (cfg.height_px) {
+            el.style.height = cfg.height_px + 'px';
+        }
+    });
+};
+
+// =============================================================================
+// MODALE GESTIONE ICONE (tab Icone | Bottoni)
+// =============================================================================
+
 function apriModaleIcone() {
     if (!W.user || !W.user.isStaff) {
         showToast('Accesso riservato agli amministratori.', 'warning');
         return;
     }
 
-    // Costruisci il body della modale
     var html = '' +
+        '<div class="icone-tabs" id="icone-tabs">' +
+            '<button type="button" class="icone-tab active" data-icone-tab="icone"><i class="bi bi-grid"></i> Icone</button>' +
+            '<button type="button" class="icone-tab" data-icone-tab="bottoni"><i class="bi bi-ui-radios"></i> Bottoni</button>' +
+            '<button type="button" class="icone-tab" data-icone-tab="finestre"><i class="bi bi-window"></i> Bottoni Finestre</button>' +
+            '<button type="button" class="icone-tab" data-icone-tab="colori"><i class="bi bi-palette2"></i> Colori</button>' +
+        '</div>' +
         '<div class="icone-toolbar">' +
             '<div class="icone-toolbar-info">' +
-                '<span class="icone-toolbar-count">' + ICON_CATALOG.length + ' icone nel catalogo</span>' +
+                '<span class="icone-toolbar-count" id="icone-toolbar-count">' + ICON_CATALOG.length + ' icone · ' + _countCatalogButtons('tab') + ' bottoni · ' + _countCatalogButtons('finestre') + ' finestre · ' + COLOR_CATALOG.length + ' colori</span>' +
             '</div>' +
             '<div class="icone-toolbar-actions">' +
-                '<button class="btn btn-sm" id="icone-btn-refresh"><i class="bi bi-arrow-repeat"></i> Ricarica default</button>' +
-                '<button class="btn btn-primary btn-sm" id="icone-btn-salva"><i class="bi bi-save"></i> Salva configurazione</button>' +
+                '<button class="btn btn-sm" id="icone-btn-refresh" title="Ripristina i valori predefiniti della tabella (poi clicca Salva)"><i class="bi bi-arrow-repeat"></i> Ricarica default</button>' +
+                '<button class="btn btn-sm" id="icone-btn-aggiorna" title="Applica subito le modifiche alla pagina, senza salvare"><i class="bi bi-arrow-clockwise"></i> Aggiorna icone</button>' +
+                '<button class="btn btn-primary btn-sm" id="icone-btn-salva" title="Salva la configurazione su server e la applica subito"><i class="bi bi-save"></i> Salva configurazione</button>' +
             '</div>' +
         '</div>' +
-        '<div class="icone-table-wrap">' +
-            '<table class="icone-table">' +
-                '<thead>' +
-                    '<tr>' +
+        '<div class="icone-tab-panel active" data-icone-panel="icone">' +
+            '<div class="icone-table-wrap">' +
+                '<table class="icone-table">' +
+                    '<thead><tr>' +
                         '<th class="icone-col-preview">Bootstrap <span style="opacity:0.4;">|</span> PNG</th>' +
                         '<th class="icone-col-desc">Descrizione / Posizione</th>' +
                         '<th class="icone-col-type">Tipo</th>' +
                         '<th class="icone-col-file">File PNG</th>' +
                         '<th class="icone-col-dims">Dim. (px)</th>' +
                         '<th class="icone-col-toggle">Usa PNG</th>' +
-                    '</tr>' +
-                '</thead>' +
-                '<tbody id="icone-table-body"></tbody>' +
-            '</table>' +
+                    '</tr></thead>' +
+                    '<tbody id="icone-table-body"></tbody>' +
+                '</table>' +
+            '</div>' +
+        '</div>' +
+        '<div class="icone-tab-panel" data-icone-panel="bottoni">' +
+            '<div class="icone-table-wrap">' +
+                '<table class="icone-table icone-table-bottoni">' +
+                    '<thead><tr>' +
+                        '<th class="bt-col-preview">Anteprima</th>' +
+                        '<th class="bt-col-desc">Bottone</th>' +
+                        '<th class="bt-col-file">Icona PNG</th>' +
+                        '<th class="bt-col-dims">Dim. icona (px)<br><span class="bt-th-hint">larghezza × altezza</span></th>' +
+                        '<th class="bt-col-btnsize">Dim. bottone<br><span class="bt-th-hint">larghezza % × altezza px</span></th>' +
+                        '<th class="bt-col-label">Scritta</th>' +
+                        '<th class="bt-col-labelsize">Dim. testo<br><span class="bt-th-hint">px</span></th>' +
+                        '<th class="bt-col-pos">Posizione testo</th>' +
+                        '<th class="bt-col-color">Colore<br><span class="bt-th-hint">sfondo bottone</span></th>' +
+                        '<th class="bt-col-toggle">Usa PNG</th>' +
+                    '</tr></thead>' +
+                    '<tbody id="icone-table-body-bottoni"></tbody>' +
+                '</table>' +
+            '</div>' +
+        '</div>' +
+        '<div class="icone-tab-panel" data-icone-panel="finestre">' +
+            '<div class="icone-table-wrap">' +
+                '<table class="icone-table icone-table-bottoni">' +
+                    '<thead><tr>' +
+                        '<th class="bt-col-preview">Anteprima</th>' +
+                        '<th class="bt-col-desc">Bottone</th>' +
+                        '<th class="bt-col-file">Icona PNG</th>' +
+                        '<th class="bt-col-dims">Dim. icona (px)<br><span class="bt-th-hint">larghezza × altezza</span></th>' +
+                        '<th class="bt-col-btnsize">Dim. bottone<br><span class="bt-th-hint">larghezza % × altezza px</span></th>' +
+                        '<th class="bt-col-label">Scritta</th>' +
+                        '<th class="bt-col-labelsize">Dim. testo<br><span class="bt-th-hint">px</span></th>' +
+                        '<th class="bt-col-pos">Posizione testo</th>' +
+                        '<th class="bt-col-color">Colore<br><span class="bt-th-hint">sfondo bottone</span></th>' +
+                        '<th class="bt-col-toggle">Usa PNG</th>' +
+                    '</tr></thead>' +
+                    '<tbody id="icone-table-body-bottoni-finestre"></tbody>' +
+                '</table>' +
+            '</div>' +
+        '</div>' +
+        '<div class="icone-tab-panel" data-icone-panel="colori">' +
+            '<div class="colori-base-row" id="colori-base-row">' +
+                '<span class="colori-base-swatch" id="colori-base-swatch"></span>' +
+                '<label class="colori-base-label" for="colori-base-input">Colore di base</label>' +
+                '<input type="color" class="colori-base-input" id="colori-base-input" title="Scegli il colore di riferimento">' +
+                '<input type="text" class="form-input colori-base-hex" id="colori-base-hex" maxlength="7" placeholder="#rrggbb" title="Colore di riferimento">' +
+                '<span class="colori-base-hint">genera tonalità coordinate per tutte le aree<br><small>per grigi puri usa #808080 o un grigio perfettamente neutro</small></span>' +
+                '<button type="button" class="colori-base-gen" id="colori-base-gen"><i class="bi bi-magic"></i> Genera tonalità</button>' +
+            '</div>' +
+            '<div class="colori-preview">' +
+                '<div class="colori-preview-title">Anteprima live</div>' +
+                '<div class="colori-preview-stage">' +
+                    '<div class="colori-preview-header"></div>' +
+                    '<div class="colori-preview-body">' +
+                        '<div class="colori-preview-sidebar">' +
+                            '<div class="colori-preview-sidebar-tab"></div>' +
+                            '<div class="colori-preview-sidebar-tab"></div>' +
+                            '<div class="colori-preview-sidebar-tab active"></div>' +
+                        '</div>' +
+                        '<div class="colori-preview-main"></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="colori-preview-slider"></div>' +
+            '</div>' +
+            '<div class="colori-subtabs" id="colori-subtabs">' +
+                '<button type="button" class="colori-subtab active" data-colori-subtab="aree">Aree</button>' +
+                '<button type="button" class="colori-subtab" data-colori-subtab="slider">Slider</button>' +
+            '</div>' +
+            '<div class="colori-subpanel active" data-colori-subpanel="aree" id="colori-list-aree"></div>' +
+            '<div class="colori-subpanel" data-colori-subpanel="slider" id="colori-list-slider"></div>' +
         '</div>';
 
-    // Usa la modale standard ma con classi custom per dimensioni maggiori
     DOM.modalTitle.textContent = 'Gestione Icone';
     DOM.modalBody.innerHTML = html;
     DOM.modalConfirm.textContent = 'Chiudi';
@@ -264,14 +628,43 @@ function apriModaleIcone() {
     DOM.modalClose.onclick = chiudiModaleIcone;
     DOM.modalOverlay.classList.remove('hidden');
 
-    // Aggiungi classe per modale grande
     document.querySelector('.modal-container').classList.add('modal-icon-manager');
 
-    // Popola la tabella
+    // Tab switching
+    document.querySelectorAll('#icone-tabs .icone-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            var nome = this.dataset.iconeTab;
+            document.querySelectorAll('#icone-tabs .icone-tab').forEach(function (t) {
+                t.classList.toggle('active', t === tab);
+            });
+            document.querySelectorAll('.icone-tab-panel[data-icone-panel]').forEach(function (p) {
+                p.classList.toggle('active', p.dataset.iconePanel === nome);
+            });
+        });
+    });
+
+    // Popola le tre tabelle
     _popolaTabellaIcone();
+    _popolaTabellaBottoni('icone-table-body-bottoni', 'tab');
+    _popolaTabellaBottoni('icone-table-body-bottoni-finestre', 'finestre');
+    _popolaTabellaColori();
+
+    // Sotto-tab Aree | Slider del tab Colori
+    document.querySelectorAll('#colori-subtabs .colori-subtab').forEach(function (st) {
+        st.addEventListener('click', function () {
+            var nome = this.dataset.coloriSubtab;
+            document.querySelectorAll('#colori-subtabs .colori-subtab').forEach(function (s) {
+                s.classList.toggle('active', s === st);
+            });
+            document.querySelectorAll('.colori-subpanel[data-colori-subpanel]').forEach(function (p) {
+                p.classList.toggle('active', p.dataset.coloriSubpanel === nome);
+            });
+        });
+    });
 
     // Eventi toolbar
     document.getElementById('icone-btn-refresh').addEventListener('click', _resetIconConfig);
+    document.getElementById('icone-btn-aggiorna').addEventListener('click', _aggiornaIconeLive);
     document.getElementById('icone-btn-salva').addEventListener('click', _salvaIconConfig);
 }
 
@@ -297,7 +690,6 @@ function _popolaTabellaIcone() {
         var cfg = ICON_CONFIG[icon.id] || {};
         var isPng = cfg.type === 'png' || icon.type === 'png';
 
-        // Preview icona: mostra SEMPRE Bootstrap + PNG affiancati
         var bootstrapPreview = '<i class="' + icon.iconClass + '" style="font-size:22px;"></i>';
         var pngPreview = '';
         var pngFile = cfg.file || icon.file || '';
@@ -335,6 +727,7 @@ function _popolaTabellaIcone() {
                             '<i class="bi bi-cloud-arrow-up"></i>' +
                             '<input type="file" class="icone-file-upload" accept="image/png" style="display:none;">' +
                         '</label>' +
+                        '<button type="button" class="icone-del-btn" title="Elimina il file PNG dalla cartella img"><i class="bi bi-trash"></i></button>' +
                     '</div>' +
                 '</td>' +
                 '<td class="icone-col-dims">' +
@@ -355,94 +748,664 @@ function _popolaTabellaIcone() {
 
     tbody.innerHTML = rowsHtml;
 
-    // Eventi toggle
+    // Eventi toggle (con validazione file)
     tbody.querySelectorAll('.icone-toggle-input').forEach(function (input) {
         input.addEventListener('change', function () {
             var row = this.closest('.icone-row');
             var iconId = row.dataset.iconId;
             var icon = _findCatalogIcon(iconId);
             if (!icon) return;
-
             var isPng = this.checked;
+            var fileInput = row.querySelector('.icone-file-input');
+            var fn = fileInput.value.trim() || icon.file || '';
 
-            // Aggiorna badge tipo
-            var badge = row.querySelector('.icone-type-badge');
-            badge.textContent = isPng ? 'PNG' : 'Bootstrap';
-            badge.className = 'icone-type-badge ' + (isPng ? 'icone-type-png' : 'icone-type-bootstrap');
-
-            // Aggiorna solo il lato PNG dell'anteprima
-            var pngSide = row.querySelector('.icone-preview-png');
-            if (pngSide) {
-                var fileInput = row.querySelector('.icone-file-input');
-                var fn = fileInput.value.trim() || icon.file || '';
-                var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
-                var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
-                if (fn) {
-                    pngSide.innerHTML = '<img src="/static/caricamento/img/' + fn + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
-                } else {
-                    pngSide.innerHTML = '<span class="icone-preview-png-empty">—</span>';
-                }
+            if (isPng && !fn) {
+                showToast('Indica il nome del file PNG prima di attivare il toggle.', 'warning');
+                this.checked = false;
+                return;
             }
+
+            var self = this;
+            _verificaFileEsiste(fn).then(function (esiste) {
+                if (isPng && !esiste) {
+                    showToast('File PNG non trovato: ' + fn, 'error');
+                    self.checked = false;
+                    return;
+                }
+                _aggiornaBadgeERigaIcona(row, isPng, fn);
+            });
         });
     });
 
-    // Eventi file upload
+    // Eventi upload
     tbody.querySelectorAll('.icone-file-upload').forEach(function (input) {
         input.addEventListener('change', function () {
             var row = this.closest('.icone-row');
             var file = this.files[0];
             if (!file) return;
-
-            // Mostra nome file nell'input
-            var fileInput = row.querySelector('.icone-file-input');
-            fileInput.value = file.name;
-
-            // Upload sempre, indipendentemente dal toggle
+            row.querySelector('.icone-file-input').value = file.name;
             _uploadIconFile(file, row);
         });
     });
 
-    // Eventi cambio nome file (manuale)
+    // Eventi cambio nome file
     tbody.querySelectorAll('.icone-file-input').forEach(function (input) {
         input.addEventListener('change', function () {
             var row = this.closest('.icone-row');
-            var fn = this.value.trim();
-            var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
-            var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
-            var pngSide = row.querySelector('.icone-preview-png');
-            if (pngSide) {
-                if (fn) {
-                    pngSide.innerHTML = '<img src="/static/caricamento/img/' + fn + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
-                } else {
-                    pngSide.innerHTML = '<span class="icone-preview-png-empty">—</span>';
-                }
-            }
+            _aggiornaAnteprimaPngRigaIcona(row);
         });
     });
 
-    // Eventi cambio dimensioni
+    // Eventi dimensioni
     tbody.querySelectorAll('.icone-dim-w, .icone-dim-h').forEach(function (input) {
         input.addEventListener('change', function () {
             var row = this.closest('.icone-row');
-            var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
-            var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
-            var pngSide = row.querySelector('.icone-preview-png');
-            if (pngSide) {
-                var img = pngSide.querySelector('img');
-                if (img) {
-                    img.style.width = w + 'px';
-                    img.style.height = h + 'px';
-                }
-            }
+            _aggiornaAnteprimaPngRigaIcona(row);
+        });
+    });
+
+    // Eventi eliminazione file
+    tbody.querySelectorAll('.icone-del-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var row = this.closest('.icone-row');
+            var fn = row.querySelector('.icone-file-input').value.trim();
+            _cancellaFileIcona(fn, row, 'icone');
         });
     });
 }
 
+function _aggiornaBadgeERigaIcona(row, isPng, fn) {
+    var badge = row.querySelector('.icone-type-badge');
+    badge.textContent = isPng ? 'PNG' : 'Bootstrap';
+    badge.className = 'icone-type-badge ' + (isPng ? 'icone-type-png' : 'icone-type-bootstrap');
+    var pngSide = row.querySelector('.icone-preview-png');
+    if (pngSide) {
+        var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
+        var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
+        if (isPng && fn) {
+            pngSide.innerHTML = '<img src="/static/caricamento/img/' + fn + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+        } else {
+            pngSide.innerHTML = '<span class="icone-preview-png-empty">—</span>';
+        }
+    }
+}
+
+function _aggiornaAnteprimaPngRigaIcona(row) {
+    var pngSide = row.querySelector('.icone-preview-png');
+    if (!pngSide) return;
+    var fn = row.querySelector('.icone-file-input').value.trim();
+    var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
+    var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
+    if (fn) {
+        pngSide.innerHTML = '<img src="/static/caricamento/img/' + fn + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+    } else {
+        pngSide.innerHTML = '<span class="icone-preview-png-empty">—</span>';
+    }
+}
+
 // =============================================================================
-// UPLOAD FILE PNG
+// POPOLA TABELLA BOTTONI
 // =============================================================================
 
-async function _uploadIconFile(file, row) {
+function _posLabel(pos) {
+    return {
+        'row': 'Icona sx — testo dx',
+        'row-reverse': 'Icona dx — testo sx',
+        'column': 'Icona sopra — testo sotto',
+        'column-reverse': 'Testo sopra — icona sotto'
+    }[pos] || pos;
+}
+
+/** Valida un colore esadecimale #rrggbb. */
+function _isHexColor(v) {
+    return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim());
+}
+
+/** Sceglie il colore del testo (scuro/chiaro) in base alla luminanza dello sfondo. */
+function _textColorFor(hex) {
+    hex = String(hex).trim();
+    var r = parseInt(hex.substr(1, 2), 16);
+    var g = parseInt(hex.substr(3, 2), 16);
+    var b = parseInt(hex.substr(5, 2), 16);
+    var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.6 ? '#1f2937' : '#ffffff';
+}
+
+/** Scurisce un colore esadecimale di una percentuale (0-1) per bordo/ombra 3D. */
+function _darkenColor(hex, amt) {
+    hex = String(hex).trim();
+    var out = '#';
+    for (var i = 1; i <= 5; i += 2) {
+        var v = Math.max(0, Math.round(parseInt(hex.substr(i, 2), 16) * (1 - amt)));
+        out += (v < 16 ? '0' : '') + v.toString(16);
+    }
+    return out;
+}
+
+/**
+ * Converte le vecchie dimensioni percentuali (dims_pct, formato precedente)
+ * in pixel usando la dimensione reale del bottone nel DOM, se disponibile.
+ * Restituisce null se non c'è nulla da convertire.
+ */
+function _legacyDimsPx(btnDef, cfg) {
+    if (!cfg || !cfg.dims_pct) return null;
+    var el = document.querySelector(btnDef.selector);
+    var bw = (el && el.offsetWidth) || 150;
+    var bh = (el && el.offsetHeight) || 50;
+    return [
+        Math.max(8, Math.round((Number(cfg.dims_pct[0]) || 0) / 100 * bw)),
+        Math.max(8, Math.round((Number(cfg.dims_pct[1]) || 0) / 100 * bh))
+    ];
+}
+
+function _popolaTabellaBottoni(tbodyId, tab) {
+    var tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    var rowsHtml = '';
+    BUTTON_CATALOG.forEach(function (btnDef) {
+        if ((btnDef.tab || 'tab') !== tab) return;
+        var cfg = BOTTONI_CONFIG[btnDef.id] || {};
+        var isPng = cfg.type === 'png' && cfg.file;
+        var file = cfg.file || '';
+        var dims = cfg.dims_px || _legacyDimsPx(btnDef, cfg) || btnDef.dims_px || [24, 24];
+        var label = (cfg.label !== undefined && cfg.label !== null) ? cfg.label : btnDef.label_default;
+        var labelSize = cfg.label_size || btnDef.label_size || 12;
+        var pos = cfg.label_pos || btnDef.label_pos || 'row';
+        var color = (cfg.color && _isHexColor(cfg.color)) ? cfg.color : (btnDef.color_default || '#6c757d');
+        var textColor = _textColorFor(color);
+        var btnW = cfg.width_pct || 100;
+        var btnH = cfg.height_px || btnDef.height_default || 52;
+
+        var iconPreview = '';
+        if (isPng) {
+            iconPreview = '<img src="/static/caricamento/img/' + file + '" style="width:' + dims[0] + 'px;height:' + dims[1] + 'px;object-fit:contain;" alt="">';
+        } else if (btnDef.iconClass) {
+            iconPreview = '<i class="' + btnDef.iconClass + '"></i>';
+        } else if (btnDef.emoji_default) {
+            iconPreview = '<span class="manuale-emoji">' + btnDef.emoji_default + '</span>';
+        } else {
+            iconPreview = '<span class="manuale-emoji">🌟</span>';
+        }
+
+        rowsHtml += '' +
+            '<tr class="icone-row" data-button-id="' + btnDef.id + '">' +
+                '<td class="bt-col-preview">' +
+                    '<div class="bt-preview-btn" data-preview-id="' + btnDef.id + '" style="flex-direction:' + pos + ';font-size:' + labelSize + 'px;background-color:' + color + ';color:' + textColor + ';width:' + btnW + '%;height:' + btnH + 'px;">' +
+                        '<span class="bt-preview-icon">' + iconPreview + '</span>' +
+                        '<span class="bt-preview-label">' + escapeHtml(label) + '</span>' +
+                    '</div>' +
+                '</td>' +
+                '<td class="bt-col-desc">' +
+                    '<strong>' + escapeHtml(btnDef.label_default) + '</strong>' +
+                    '<span class="icone-location">' + escapeHtml(btnDef.location) + '</span>' +
+                '</td>' +
+                '<td class="bt-col-file">' +
+                    '<div class="icone-file-row">' +
+                        '<input type="text" class="form-input bt-file-input" value="' + escapeHtml(file) + '" placeholder="es. bottone.png">' +
+                        '<label class="icone-upload-btn" title="Carica PNG">' +
+                            '<i class="bi bi-cloud-arrow-up"></i>' +
+                            '<input type="file" class="bt-file-upload" accept="image/png" style="display:none;">' +
+                        '</label>' +
+                        '<button type="button" class="icone-del-btn" title="Elimina il file PNG dalla cartella img"><i class="bi bi-trash"></i></button>' +
+                    '</div>' +
+                '</td>' +
+                '<td class="bt-col-dims">' +
+                    '<div class="icone-dims-row">' +
+                        '<input type="number" class="form-input bt-dim-w" value="' + dims[0] + '" min="4" max="120" step="1">' +
+                        '<span>px</span>' +
+                        '<input type="number" class="form-input bt-dim-h" value="' + dims[1] + '" min="4" max="120" step="1">' +
+                    '</div>' +
+                '</td>' +
+                '<td class="bt-col-btnsize">' +
+                    '<div class="icone-dims-row">' +
+                        '<input type="number" class="form-input bt-size-w" value="' + btnW + '" min="40" max="100" step="5">' +
+                        '<span>%</span>' +
+                        '<input type="number" class="form-input bt-size-h" value="' + btnH + '" min="20" max="120" step="1">' +
+                        '<span>px</span>' +
+                    '</div>' +
+                '</td>' +
+                '<td class="bt-col-label">' +
+                    '<input type="text" class="form-input bt-label-input" value="' + escapeHtml(label) + '" placeholder="Testo bottone">' +
+                '</td>' +
+                '<td class="bt-col-labelsize">' +
+                    '<input type="number" class="form-input bt-labelsize-input" value="' + labelSize + '" min="6" max="40" step="1" style="width:52px;">' +
+                '</td>' +
+                '<td class="bt-col-pos">' +
+                    '<select class="form-select bt-pos-select">' +
+                        '<option value="row"' + (pos === 'row' ? ' selected' : '') + '>Icona sx — testo dx</option>' +
+                        '<option value="row-reverse"' + (pos === 'row-reverse' ? ' selected' : '') + '>Icona dx — testo sx</option>' +
+                        '<option value="column"' + (pos === 'column' ? ' selected' : '') + '>Icona sopra — testo sotto</option>' +
+                        '<option value="column-reverse"' + (pos === 'column-reverse' ? ' selected' : '') + '>Testo sopra — icona sotto</option>' +
+                    '</select>' +
+                '</td>' +
+                '<td class="bt-col-color">' +
+                    '<div class="icone-color-row">' +
+                        '<input type="color" class="bt-color-input" value="' + color + '" title="Scegli il colore del bottone">' +
+                        '<input type="text" class="form-input bt-color-hex" value="' + escapeHtml(color) + '" maxlength="7" placeholder="#rrggbb" title="Colore esadecimale">' +
+                    '</div>' +
+                '</td>' +
+                '<td class="bt-col-toggle">' +
+                    '<label class="icone-toggle-switch">' +
+                        '<input type="checkbox" class="bt-toggle-input" ' + (isPng ? 'checked' : '') + '>' +
+                        '<span class="icone-toggle-slider"></span>' +
+                    '</label>' +
+                '</td>' +
+            '</tr>';
+    });
+
+    tbody.innerHTML = rowsHtml;
+
+    // Toggle (con validazione file)
+    tbody.querySelectorAll('.bt-toggle-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var row = this.closest('.icone-row');
+            var fileInput = row.querySelector('.bt-file-input');
+            var fn = fileInput.value.trim();
+            var isPng = this.checked;
+
+            if (isPng && !fn) {
+                showToast('Indica il nome del file PNG prima di attivare il toggle.', 'warning');
+                this.checked = false;
+                return;
+            }
+            var self = this;
+            _verificaFileEsiste(fn).then(function (esiste) {
+                if (isPng && !esiste) {
+                    showToast('File PNG non trovato: ' + fn, 'error');
+                    self.checked = false;
+                    return;
+                }
+                _aggiornaAnteprimaBottone(row);
+            });
+        });
+    });
+
+    // Upload
+    tbody.querySelectorAll('.bt-file-upload').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var row = this.closest('.icone-row');
+            var file = this.files[0];
+            if (!file) return;
+            row.querySelector('.bt-file-input').value = file.name;
+            _uploadIconFile(file, row, true);
+        });
+    });
+
+    // Cambi input → aggiorna anteprima
+    tbody.querySelectorAll('.bt-file-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            _aggiornaAnteprimaBottone(this.closest('.icone-row'));
+        });
+    });
+    tbody.querySelectorAll('.bt-dim-w, .bt-dim-h').forEach(function (input) {
+        input.addEventListener('change', function () {
+            _aggiornaAnteprimaBottone(this.closest('.icone-row'));
+        });
+    });
+    tbody.querySelectorAll('.bt-size-w, .bt-size-h').forEach(function (input) {
+        input.addEventListener('change', function () {
+            _aggiornaAnteprimaBottone(this.closest('.icone-row'));
+        });
+    });
+    tbody.querySelectorAll('.bt-label-input').forEach(function (input) {
+        input.addEventListener('input', function () {
+            var row = this.closest('.icone-row');
+            var labelEl = row.querySelector('.bt-preview-label');
+            if (labelEl) labelEl.textContent = this.value || '';
+        });
+    });
+    tbody.querySelectorAll('.bt-labelsize-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var row = this.closest('.icone-row');
+            var prev = row.querySelector('.bt-preview-btn');
+            if (prev) prev.style.fontSize = (this.value || 12) + 'px';
+        });
+    });
+    tbody.querySelectorAll('.bt-pos-select').forEach(function (select) {
+        select.addEventListener('change', function () {
+            var row = this.closest('.icone-row');
+            var prev = row.querySelector('.bt-preview-btn');
+            if (prev) prev.style.flexDirection = this.value;
+        });
+    });
+
+    // Colore: il picker aggiorna l'hex e viceversa (solo valori validi)
+    tbody.querySelectorAll('.bt-color-input, .bt-color-hex').forEach(function (input) {
+        input.addEventListener('input', function () {
+            var row = this.closest('.icone-row');
+            var picker = row.querySelector('.bt-color-input');
+            var hex = row.querySelector('.bt-color-hex');
+            var val = this === picker ? this.value : this.value.trim();
+
+            if (!_isHexColor(val)) {
+                if (this === hex && val.length === 7 && val.charAt(0) === '#') {
+                    showToast('Colore non valido: usa il formato #rrggbb', 'warning');
+                }
+                return;
+            }
+            if (this === picker) hex.value = val;
+            else picker.value = val;
+            _aggiornaAnteprimaBottone(row);
+        });
+    });
+
+    // Eliminazione file
+    tbody.querySelectorAll('.icone-del-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var row = this.closest('.icone-row');
+            var fn = row.querySelector('.bt-file-input').value.trim();
+            _cancellaFileIcona(fn, row, 'bottoni');
+        });
+    });
+}
+
+function _aggiornaAnteprimaBottone(row) {
+    var btnDef = _findCatalogButton(row.dataset.buttonId);
+    if (!btnDef) return;
+    var prev = row.querySelector('.bt-preview-btn');
+    if (!prev) return;
+
+    var isPng = row.querySelector('.bt-toggle-input').checked;
+    var file = row.querySelector('.bt-file-input').value.trim();
+    var defDims = btnDef.dims_px || [24, 24];
+    var w = parseInt(row.querySelector('.bt-dim-w').value) || defDims[0];
+    var h = parseInt(row.querySelector('.bt-dim-h').value) || defDims[1];
+    var label = row.querySelector('.bt-label-input').value.trim();
+    var labelSize = parseInt(row.querySelector('.bt-labelsize-input').value) || 12;
+    var pos = row.querySelector('.bt-pos-select').value;
+    var colorHex = row.querySelector('.bt-color-hex').value.trim();
+    var color = _isHexColor(colorHex) ? colorHex : (btnDef.color_default || '#6c757d');
+    var btnW = parseInt(row.querySelector('.bt-size-w').value) || 100;
+    var btnH = parseInt(row.querySelector('.bt-size-h').value) || (btnDef.height_default || 52);
+
+    var iconHtml;
+    if (isPng && file) {
+        iconHtml = '<img src="/static/caricamento/img/' + file + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+    } else if (btnDef.iconClass) {
+        iconHtml = '<i class="' + btnDef.iconClass + '"></i>';
+    } else if (btnDef.emoji_default) {
+        iconHtml = '<span class="manuale-emoji">' + btnDef.emoji_default + '</span>';
+    } else {
+        iconHtml = '<span class="manuale-emoji">🌟</span>';
+    }
+    prev.querySelector('.bt-preview-icon').innerHTML = iconHtml;
+    prev.querySelector('.bt-preview-label').textContent = label;
+    prev.style.fontSize = labelSize + 'px';
+    prev.style.flexDirection = pos;
+    prev.style.backgroundColor = color;
+    prev.style.color = _textColorFor(color);
+    prev.style.width = btnW + '%';
+    prev.style.height = btnH + 'px';
+}
+
+// =============================================================================
+// TAB COLORI (Aree | Slider) — applicazione live tramite CSS variables
+// =============================================================================
+
+/**
+ * Applica i colori configurati come CSS variables su <html> (documentElement).
+ * I valori validi #rrggbb sovrascrivono i default del CSS; se un colore non
+ * è configurato (o non è valido) la variabile torna al default del :root.
+ */
+function _applyColorConfig() {
+    COLOR_CATALOG.forEach(function (c) {
+        var val = COLOR_CONFIG[c.id];
+        if (val && _isHexColor(val)) {
+            document.documentElement.style.setProperty(c.variable, val);
+        } else {
+            document.documentElement.style.removeProperty(c.variable);
+        }
+    });
+}
+
+function _findCatalogColor(id) {
+    for (var i = 0; i < COLOR_CATALOG.length; i++) {
+        if (COLOR_CATALOG[i].id === id) return COLOR_CATALOG[i];
+    }
+    return null;
+}
+
+/**
+ * Mescola due colori esadecimali: amount 0 → colore1, 1 → colore2.
+ * Usato per derivare tonalità coordinate dalla base.
+ */
+function _mixColor(hex1, hex2, amount) {
+    function norm(h) {
+        h = String(h).trim().replace(/^#/, '');
+        if (h.length === 3) {
+            h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        }
+        return h;
+    }
+    var a = norm(hex1);
+    var b = norm(hex2);
+    var out = '#';
+    for (var i = 0; i < 6; i += 2) {
+        var v1 = parseInt(a.substr(i, 2), 16);
+        var v2 = parseInt(b.substr(i, 2), 16);
+        var v = Math.round(v1 + (v2 - v1) * amount);
+        out += (v < 16 ? '0' : '') + v.toString(16);
+    }
+    return out;
+}
+
+/**
+ * Genera la palette coordinata a partire dal colore di base:
+ * tutte le aree ricevono tonalità della STESSA famiglia cromatica
+ * (es. base gialla → tonalità di giallo; base grigia → tonalità di grigio).
+ *
+ * Se la base è molto chiara, l'accento (usato anche come colore del testo:
+ * tab attivi, link, voci nav) viene scurito per garantire leggibilità,
+ * mantenendo la stessa famiglia cromatica.
+ *
+ * Restituisce un dict { id_colore: '#rrggbb' } per ogni voce del catalogo.
+ */
+function _generaTonalitaDaBase(baseHex) {
+    if (!_isHexColor(baseHex)) return null;
+    var base = baseHex.toLowerCase();
+    var nero = '#000000';
+    var bianco = '#ffffff';
+
+    // Luminanza percepita della base: se alta, scurisci l'accento per il testo
+    function luminanza(h) {
+        h = h.replace(/^#/, '');
+        var r = parseInt(h.substr(0, 2), 16) / 255;
+        var g = parseInt(h.substr(2, 2), 16) / 255;
+        var b = parseInt(h.substr(4, 2), 16) / 255;
+        return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+    var baseLum = luminanza(base);
+
+    // Header: base scurita molto (55% verso il nero)
+    var header = _mixColor(base, nero, 0.55);
+    // Accento: la base; se troppo chiara (luminanza > 0.72) la scurisco del
+    // 35% verso il nero — tonalità identica, ma il testo resta leggibile.
+    var accent = baseLum > 0.72 ? _mixColor(base, nero, 0.35) : base;
+    // Hover: accento schiarito (20% verso il bianco)
+    var accentHover = _mixColor(accent, bianco, 0.20);
+    // Superfici: base schiarita verso il bianco (le aree chiare restano quasi bianche)
+    var sidebar = _mixColor(base, bianco, 0.90);
+    var panelBg = _mixColor(base, bianco, 0.94);
+    var panelBorder = _mixColor(base, bianco, 0.80);
+    var mainBg = _mixColor(base, bianco, 0.88);
+    // Slider
+    var trackStart = _mixColor(base, bianco, 0.70);
+    var trackEnd = accent;
+    var thumb = accent;
+    var strategiaThumb = accent;
+
+    var map = {
+        'header': header,
+        'sidebar': sidebar,
+        'panel-bg': panelBg,
+        'panel-border': panelBorder,
+        'main-bg': mainBg,
+        'accent': accent,
+        'accent-hover': accentHover,
+        'slider-track-start': trackStart,
+        'slider-track': trackEnd,
+        'slider-thumb': thumb,
+        'strategia-thumb': strategiaThumb
+    };
+    var palette = {};
+    COLOR_CATALOG.forEach(function (c) {
+        palette[c.id] = (map[c.id] || c.def).toLowerCase();
+    });
+    return palette;
+}
+
+/**
+ * Applica la palette generata alle righe del tab Colori e la rende live:
+ * aggiorna picker, hex, swatch e COLOR_CONFIG, poi riapplica le variabili.
+ */
+function _applicaTonalitaDaBase(baseHex) {
+    var palette = _generaTonalitaDaBase(baseHex);
+    if (!palette) return;
+    COLOR_CATALOG.forEach(function (c) {
+        var row = document.querySelector('.colori-row[data-color-id="' + c.id + '"]');
+        if (!row) return;
+        var val = palette[c.id];
+        row.querySelector('.colori-input').value = val;
+        row.querySelector('.colori-hex').value = val;
+        row.querySelector('.colori-swatch').style.background = val;
+        COLOR_CONFIG[c.id] = val;
+    });
+    _applyColorConfig();
+}
+
+/**
+ * Popola le liste Aree e Slider del tab Colori e inizializza la riga
+ * "Colore di base" (generazione automatica delle tonalità coordinate).
+ */
+function _popolaTabellaColori() {
+    // --- Riga "Colore di base" ---
+    var baseInput = document.getElementById('colori-base-input');
+    if (baseInput) {
+        var baseVal = (COLOR_CONFIG['base'] && _isHexColor(COLOR_CONFIG['base']))
+            ? COLOR_CONFIG['base'] : COLOR_BASE_DEFAULT;
+        baseInput.value = baseVal;
+        var baseHex = document.getElementById('colori-base-hex');
+        if (baseHex) baseHex.value = baseVal;
+        var baseSwatch = document.getElementById('colori-base-swatch');
+        if (baseSwatch) baseSwatch.style.background = baseVal;
+
+        function sincronizzaBase() {
+            var picker = document.getElementById('colori-base-input');
+            var hex = document.getElementById('colori-base-hex');
+            var val = this === picker ? picker.value : hex.value.trim();
+            if (!_isHexColor(val)) return;
+            if (this === picker) hex.value = val;
+            else picker.value = val;
+            document.getElementById('colori-base-swatch').style.background = val;
+            COLOR_CONFIG['base'] = val;
+            _applicaTonalitaDaBase(val);
+        }
+        baseInput.addEventListener('input', sincronizzaBase);
+        if (baseHex) baseHex.addEventListener('input', sincronizzaBase);
+        var genBtn = document.getElementById('colori-base-gen');
+        if (genBtn) {
+            genBtn.addEventListener('click', function () {
+                var val = (COLOR_CONFIG['base'] && _isHexColor(COLOR_CONFIG['base']))
+                    ? COLOR_CONFIG['base'] : baseInput.value;
+                _applicaTonalitaDaBase(val);
+                showToast('Tonalità coordinate generate dal colore di base!', 'success');
+            });
+        }
+    }
+
+    // --- Liste Aree e Slider ---
+    ['aree', 'slider'].forEach(function (group) {
+        var list = document.getElementById('colori-list-' + group);
+        if (!list) return;
+        var rowsHtml = '';
+        COLOR_CATALOG.forEach(function (c) {
+            if (c.group !== group) return;
+            var val = (COLOR_CONFIG[c.id] && _isHexColor(COLOR_CONFIG[c.id])) ? COLOR_CONFIG[c.id] : c.def;
+            rowsHtml += '' +
+                '<div class="colori-row" data-color-id="' + c.id + '">' +
+                    '<span class="colori-swatch" style="background:' + val + '"></span>' +
+                    '<label class="colori-label">' + escapeHtml(c.label) + '</label>' +
+                    '<input type="color" class="colori-input" value="' + val + '" title="Scegli il colore">' +
+                    '<input type="text" class="form-input colori-hex" value="' + escapeHtml(val) + '" maxlength="7" placeholder="#rrggbb" title="Colore esadecimale">' +
+                    '<button type="button" class="colori-reset" title="Ripristina il colore predefinito"><i class="bi bi-arrow-counterclockwise"></i></button>' +
+                '</div>';
+        });
+        list.innerHTML = rowsHtml;
+
+        // Picker → hex e applica live; hex → picker (solo valori validi)
+        list.querySelectorAll('.colori-input, .colori-hex').forEach(function (input) {
+            input.addEventListener('input', function () {
+                var row = this.closest('.colori-row');
+                var picker = row.querySelector('.colori-input');
+                var hex = row.querySelector('.colori-hex');
+                var val = this === picker ? this.value : this.value.trim();
+                if (!_isHexColor(val)) return;
+                if (this === picker) hex.value = val;
+                else picker.value = val;
+                row.querySelector('.colori-swatch').style.background = val;
+                var c = _findCatalogColor(row.dataset.colorId);
+                if (!c) return;
+                COLOR_CONFIG[c.id] = val;
+                _applyColorConfig();
+            });
+        });
+
+        // Reset al default
+        list.querySelectorAll('.colori-reset').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var row = this.closest('.colori-row');
+                var c = _findCatalogColor(row.dataset.colorId);
+                if (!c) return;
+                row.querySelector('.colori-input').value = c.def;
+                row.querySelector('.colori-hex').value = c.def;
+                row.querySelector('.colori-swatch').style.background = c.def;
+                delete COLOR_CONFIG[c.id];
+                _applyColorConfig();
+            });
+        });
+    });
+}
+
+/**
+ * Raccoglie i colori personalizzati (diversi dal default) dalle liste,
+ * includendo il colore di base se impostato.
+ */
+function _raccogliConfigColoriDallaTabella() {
+    var config = {};
+    COLOR_CATALOG.forEach(function (c) {
+        var row = document.querySelector('.colori-row[data-color-id="' + c.id + '"]');
+        if (!row) return;
+        var val = row.querySelector('.colori-hex').value.trim();
+        if (_isHexColor(val) && val.toLowerCase() !== c.def.toLowerCase()) {
+            config[c.id] = val.toLowerCase();
+        }
+    });
+    var baseHex = document.getElementById('colori-base-hex');
+    if (baseHex && _isHexColor(baseHex.value.trim())) {
+        var bv = baseHex.value.trim().toLowerCase();
+        if (bv !== COLOR_BASE_DEFAULT.toLowerCase()) {
+            config['base'] = bv;
+        }
+    }
+    return config;
+}
+
+// =============================================================================
+// VERIFICA / UPLOAD / CANCELLAZIONE FILE PNG
+// =============================================================================
+
+async function _verificaFileEsiste(filename) {
+    if (!filename) return Promise.resolve(false);
+    try {
+        var resp = await fetch('/static/caricamento/img/' + encodeURIComponent(filename), { method: 'HEAD' });
+        return resp.ok;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function _uploadIconFile(file, row, isButton) {
     try {
         var formData = new FormData();
         formData.append('file', file);
@@ -461,29 +1424,60 @@ async function _uploadIconFile(file, row) {
         var data = await resp.json();
         showToast('File "' + data.filename + '" caricato!', 'success');
 
-        // Aggiorna anteprima PNG
-        var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
-        var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
-        var pngSide = row.querySelector('.icone-preview-png');
-        if (pngSide) {
-            pngSide.innerHTML = '<img src="/static/caricamento/img/' + data.filename + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+        if (isButton) {
+            _aggiornaAnteprimaBottone(row);
+        } else {
+            _aggiornaBadgeERigaIcona(row, row.querySelector('.icone-toggle-input').checked, data.filename);
         }
     } catch (e) {
         showToast('Errore upload: ' + e.message, 'error');
     }
 }
 
+async function _cancellaFileIcona(filename, row, tipo) {
+    if (!filename) {
+        showToast('Nessun file da eliminare.', 'info');
+        return;
+    }
+    if (!confirm("Eliminare il file PNG '" + filename + "' dalla cartella img?")) return;
+
+    try {
+        var resp = await fetch('/api/icone-file/', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify({ filename: filename })
+        });
+        var data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+
+        showToast(data.message || 'File eliminato.', 'success');
+
+        // Svuota la riga e spegni il toggle
+        if (tipo === 'bottoni') {
+            row.querySelector('.bt-file-input').value = '';
+            var tog = row.querySelector('.bt-toggle-input');
+            if (tog) { tog.checked = false; }
+            _aggiornaAnteprimaBottone(row);
+        } else {
+            row.querySelector('.icone-file-input').value = '';
+            var tog2 = row.querySelector('.icone-toggle-input');
+            if (tog2) { tog2.checked = false; }
+            _aggiornaBadgeERigaIcona(row, false, '');
+        }
+    } catch (e) {
+        showToast('Errore: ' + e.message, 'error');
+    }
+}
+
 // =============================================================================
-// SALVATAGGIO / RESET CONFIGURAZIONE
+// SALVATAGGIO / AGGIORNAMENTO LIVE / RESET
 // =============================================================================
 
 function _raccogliConfigDallaTabella() {
     var config = {};
-    var rows = document.querySelectorAll('#icone-table-body .icone-row');
-    rows.forEach(function (row) {
+    document.querySelectorAll('#icone-table-body .icone-row').forEach(function (row) {
         var iconId = row.dataset.iconId;
-        var toggle = row.querySelector('.icone-toggle-input');
-        var isPng = toggle.checked;
+        var isPng = row.querySelector('.icone-toggle-input').checked;
         var file = row.querySelector('.icone-file-input').value.trim();
         var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
         var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
@@ -499,34 +1493,102 @@ function _raccogliConfigDallaTabella() {
     return config;
 }
 
+function _raccogliConfigBottoniDallaTabella() {
+    var config = {};
+    ['#icone-table-body-bottoni', '#icone-table-body-bottoni-finestre'].forEach(function (sel) {
+        document.querySelectorAll(sel + ' .icone-row').forEach(function (row) {
+        var btnId = row.dataset.buttonId;
+        var btnDef = _findCatalogButton(btnId);
+        if (!btnDef) return;
+
+        var isPng = row.querySelector('.bt-toggle-input').checked;
+        var file = row.querySelector('.bt-file-input').value.trim();
+        var w = parseInt(row.querySelector('.bt-dim-w').value) || 0;
+        var h = parseInt(row.querySelector('.bt-dim-h').value) || 0;
+        var label = row.querySelector('.bt-label-input').value.trim();
+        var labelSize = parseInt(row.querySelector('.bt-labelsize-input').value) || 0;
+        var pos = row.querySelector('.bt-pos-select').value;
+        var colorHex = row.querySelector('.bt-color-hex').value.trim();
+        var color = _isHexColor(colorHex) ? colorHex : (btnDef.color_default || '#6c757d');
+        var defaultColor = (btnDef.color_default || '#6c757d').toLowerCase();
+        var btnW = parseInt(row.querySelector('.bt-size-w').value) || 0;
+        var btnH = parseInt(row.querySelector('.bt-size-h').value) || 0;
+        var defaultH = btnDef.height_default || 52;
+
+        // Salva la voce solo se c'è almeno una personalizzazione
+        var defaultDims = (btnDef.dims_px || [24, 24]);
+        var personalizzato = isPng || file || label || labelSize ||
+            (pos !== (btnDef.label_pos || 'row')) ||
+            (color.toLowerCase() !== defaultColor) ||
+            (btnW && btnW !== 100) || (btnH && btnH !== defaultH) ||
+            (w && w !== defaultDims[0]) || (h && h !== defaultDims[1]);
+
+        if (personalizzato) {
+            config[btnId] = {
+                type: isPng ? 'png' : 'bootstrap',
+                file: file,
+                dims_px: [w || defaultDims[0], h || defaultDims[1]],
+                label: label,
+                label_size: labelSize,
+                label_pos: pos,
+                color: color,
+                width_pct: btnW || 100,
+                height_px: btnH || defaultH
+            };
+        }
+    });
+    });
+    return config;
+}
+
 async function _salvaIconConfig() {
     var config = _raccogliConfigDallaTabella();
+    var bottoni = _raccogliConfigBottoniDallaTabella();
+    var colori = _raccogliConfigColoriDallaTabella();
     try {
         var resp = await fetch('/api/icone-config/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ config: config })
+            body: JSON.stringify({ config: config, bottoni: bottoni, colori: colori })
         });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+
         ICON_CONFIG = config;
-        showToast('Configurazione icone salvata! Ricarica la pagina per vedere le modifiche.', 'success');
+        BOTTONI_CONFIG = bottoni;
+        COLOR_CONFIG = colori;
+        // Applica subito: niente reload (punto 1)
+        _applyIconConfig();
+        _applyButtonConfig();
+        _applyColorConfig();
+        showToast('Configurazione salvata e applicata!', 'success');
     } catch (e) {
         showToast('Errore salvataggio: ' + e.message, 'error');
     }
 }
 
-function _resetIconConfig() {
-    if (!confirm('Ripristinare tutte le icone ai valori predefiniti (Bootstrap Icons)?')) return;
+/**
+ * "Aggiorna icone": applica subito alla pagina la configurazione corrente
+ * delle due tabelle, senza salvare su server.
+ */
+function _aggiornaIconeLive() {
+    ICON_CONFIG = _raccogliConfigDallaTabella();
+    BOTTONI_CONFIG = _raccogliConfigBottoniDallaTabella();
+    COLOR_CONFIG = _raccogliConfigColoriDallaTabella();
+    _applyIconConfig();
+    _applyButtonConfig();
+    _applyColorConfig();
+    showToast('Icone, bottoni e colori aggiornati!', 'success');
+}
 
-    // Resetta tutti i toggle a off (Bootstrap)
-    var toggles = document.querySelectorAll('#icone-table-body .icone-toggle-input');
-    toggles.forEach(function (t) {
+function _resetIconConfig() {
+    if (!confirm('Ripristinare tutte le icone, i bottoni e i colori ai valori predefiniti?')) return;
+
+    // Tab Icone
+    document.querySelectorAll('#icone-table-body .icone-toggle-input').forEach(function (t) {
         t.checked = false;
-        // Trigger change per aggiornare preview
         t.dispatchEvent(new Event('change'));
     });
-
-    // Resetta file input e dimensioni
     ICON_CATALOG.forEach(function (icon) {
         var row = document.querySelector('#icone-table-body .icone-row[data-icon-id="' + icon.id + '"]');
         if (!row) return;
@@ -535,7 +1597,48 @@ function _resetIconConfig() {
         row.querySelector('.icone-dim-h').value = (icon.dims || [40, 40])[1];
     });
 
-    showToast('Configurazione ripristinata ai default. Clicca "Salva" per rendere effettivo.', 'info');
+    // Tab Bottoni e Bottoni Finestre
+    ['#icone-table-body-bottoni', '#icone-table-body-bottoni-finestre'].forEach(function (sel) {
+        document.querySelectorAll(sel + ' .bt-toggle-input').forEach(function (t) {
+            t.checked = false;
+        });
+    });
+    BUTTON_CATALOG.forEach(function (btnDef) {
+        var row = document.querySelector('#icone-table-body-bottoni .icone-row[data-button-id="' + btnDef.id + '"]') ||
+                  document.querySelector('#icone-table-body-bottoni-finestre .icone-row[data-button-id="' + btnDef.id + '"]');
+        if (!row) return;
+        row.querySelector('.bt-file-input').value = '';
+        row.querySelector('.bt-dim-w').value = (btnDef.dims_px || [24, 24])[0];
+        row.querySelector('.bt-dim-h').value = (btnDef.dims_px || [24, 24])[1];
+        row.querySelector('.bt-size-w').value = 100;
+        row.querySelector('.bt-size-h').value = btnDef.height_default || 52;
+        row.querySelector('.bt-label-input').value = btnDef.label_default;
+        row.querySelector('.bt-labelsize-input').value = btnDef.label_size || 12;
+        row.querySelector('.bt-pos-select').value = btnDef.label_pos || 'row';
+        var defColor = btnDef.color_default || '#6c757d';
+        row.querySelector('.bt-color-input').value = defColor;
+        row.querySelector('.bt-color-hex').value = defColor;
+        _aggiornaAnteprimaBottone(row);
+    });
+
+    // Tab Colori: ripristina i valori di default e applica subito
+    COLOR_CONFIG = {};
+    COLOR_CATALOG.forEach(function (c) {
+        var row = document.querySelector('.colori-row[data-color-id="' + c.id + '"]');
+        if (!row) return;
+        row.querySelector('.colori-input').value = c.def;
+        row.querySelector('.colori-hex').value = c.def;
+        row.querySelector('.colori-swatch').style.background = c.def;
+    });
+    var baseInput = document.getElementById('colori-base-input');
+    if (baseInput) baseInput.value = COLOR_BASE_DEFAULT;
+    var baseHex = document.getElementById('colori-base-hex');
+    if (baseHex) baseHex.value = COLOR_BASE_DEFAULT;
+    var baseSwatch = document.getElementById('colori-base-swatch');
+    if (baseSwatch) baseSwatch.style.background = COLOR_BASE_DEFAULT;
+    _applyColorConfig();
+
+    showToast('Configurazione ripristinata ai default. Clicca "Salva" o "Aggiorna icone" per renderla effettiva.', 'info');
 }
 
 // =============================================================================
@@ -543,9 +1646,51 @@ function _resetIconConfig() {
 // =============================================================================
 
 /**
- * Inizializza il modulo icone: carica config e applica le sostituzioni.
- * Chiamata da inizializza() in workspace.js.
+ * Inizializza il modulo icone: cattura lo snapshot dei bottoni, carica
+ * config e applica le sostituzioni. Chiamata da inizializza() in workspace.js.
  */
 function initIconManager() {
+    // Snapshot dell'HTML originale dei bottoni (PRIMA di applicare qualsiasi config)
+    _btnSnapshot = {};
+    BUTTON_CATALOG.forEach(function (btnDef) {
+        var el = document.querySelector(btnDef.selector);
+        if (el) _btnSnapshot[btnDef.id] = el.innerHTML;
+    });
     _loadIconConfig();
+
+    // I bottoni delle finestre del main view (Piani di carico, Articoli,
+    // Vincoli, Trasporti) vengono creati dinamicamente all'apertura della
+    // vista. L'osservatore cattura lo snapshot al primo render e applica la
+    // configurazione. Il flag _iconApplying evita loop sulle nostre stesse
+    // modifiche; il debounce raggruppa i render multipli.
+    if (window.MutationObserver && document.body) {
+        var _obsTimer = null;
+        var _obs = new MutationObserver(function () {
+            if (_iconApplying) return;
+            clearTimeout(_obsTimer);
+            _obsTimer = setTimeout(_osservaBottoniFinestre, 80);
+        });
+        _obs.observe(document.body, { childList: true, subtree: true });
+    }
+}
+
+/**
+ * Cattura lo snapshot dei bottoni dinamici appena comparsi nel DOM e, se ce
+ * n'è almeno uno nuovo, applica la configurazione corrente.
+ */
+function _osservaBottoniFinestre() {
+    // I bottoni delle finestre vengono distrutti e ricreati a ogni apertura
+    // della vista (e a ogni dettaglio diverso). Riapplichiamo la config ogni
+    // volta che un bottone del catalogo è presente nel DOM: _applyButtonConfig
+    // è idempotente (ripristina dallo snapshot e riapplica), quindi è sicuro.
+    var trovato = false;
+    BUTTON_CATALOG.forEach(function (btnDef) {
+        var el = document.querySelector(btnDef.selector);
+        if (!el) return;
+        if (_btnSnapshot[btnDef.id] === undefined) {
+            _btnSnapshot[btnDef.id] = el.innerHTML;
+        }
+        trovato = true;
+    });
+    if (trovato) _applyButtonConfig();
 }

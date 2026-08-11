@@ -80,6 +80,8 @@ function cacheDom() {
     DOM.headerVehicleSelect = document.getElementById('header-vehicle-select');
     DOM.headerExportBtn = document.getElementById('header-export-btn');
     DOM.ottimizzaBtn = document.getElementById('btn-ottimizza');
+    DOM.btnSalvaAuto = document.getElementById('btn-salva-auto');
+    DOM.btnElaboraAuto = document.getElementById('btn-elabora-auto');
     DOM.btnSalvaDB = document.getElementById('btn-salva-db');
     DOM.btnExportFile = document.getElementById('btn-export-file');
     DOM.btnImportFile = document.getElementById('btn-import-file');
@@ -197,18 +199,38 @@ function showToast(message, type) {
 // =============================================================================
 // MODAL HELPERS
 // =============================================================================
-function apriModale(titolo, bodyHtml, onConfirm) {
+function apriModale(titolo, bodyHtml, onConfirm, opts) {
+    opts = opts || {};
+    var container = DOM.modalOverlay.querySelector('.modal-container');
     DOM.modalTitle.textContent = titolo;
     DOM.modalBody.innerHTML = bodyHtml;
     DOM.modalConfirm.onclick = onConfirm;
     DOM.modalCancel.onclick = chiudiModale;
     DOM.modalClose.onclick = chiudiModale;
+    // Modali informativi (es. Aiuto) senza footer: resta solo la X per chiudere
+    var footer = DOM.modalOverlay.querySelector('.modal-footer');
+    if (footer) footer.style.display = opts.noFooter ? 'none' : '';
+    // Classe opzionale sul contenitore (es. 'modal-auto' per larghezza adattata al contenuto)
+    if (container) {
+        container.classList.remove('modal-auto');
+        if (opts.modalClass) container.classList.add(opts.modalClass);
+    }
+    // Classe opzionale sull'overlay (es. 'modal-overlay-clean': niente sfondo scuro,
+    // pannello ancorato a fianco della sidebar)
+    DOM.modalOverlay.classList.remove('modal-overlay-clean');
+    if (opts.overlayClass) DOM.modalOverlay.classList.add(opts.overlayClass);
     DOM.modalOverlay.classList.remove('hidden');
 }
 
 function chiudiModale() {
     DOM.modalOverlay.classList.add('hidden');
     DOM.modalConfirm.onclick = null;
+    // Ripristina footer e classi overlay/contenitore per i prossimi modali
+    var footer = DOM.modalOverlay.querySelector('.modal-footer');
+    if (footer) footer.style.display = '';
+    var container = DOM.modalOverlay.querySelector('.modal-container');
+    if (container) container.classList.remove('modal-auto');
+    DOM.modalOverlay.classList.remove('modal-overlay-clean');
 }
 
 // =============================================================================
@@ -239,6 +261,12 @@ function switchSidebarTab(tabName) {
 
     // Attiva/disattiva modalita manuale
     WS.manualMode = (tabName === 'manuale');
+    if (!WS.manualMode) {
+        // Non trasferire la selezione persistente del pannello
+        // nell'automatica o nella navigazione.
+        WS._manualPanelSelectedOggettoId = null;
+        WS._manualPanelSelectedCodice = null;
+    }
 }
 
 // =============================================================================
@@ -374,9 +402,6 @@ function _renderSidebarNavigazione(cat) {
     var strumentiRapidiHtml = '' +
         '<div class="sidebar-nav-bottom">' +
             '<div class="sidebar-nav-separator"></div>' +
-            '<button class="sidebar-nav-item" data-action="nuovo-carico">' +
-                '<i class="bi bi-file-earmark sidebar-icon"></i> Nuovo Carico' +
-            '</button>' +
             '<button class="sidebar-nav-item" data-action="carico">' +
                 '<i class="bi bi-bar-chart sidebar-icon"></i> Vista Carico' +
             '</button>' +

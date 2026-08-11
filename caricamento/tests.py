@@ -8,9 +8,14 @@ Copre:
 - Rotazioni TreDPacker
 """
 
+import copy
+import random
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
+from django.contrib.auth.models import User
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from caricamento.engine.common import (
     ConfigurazioneOttimizzazione,
@@ -22,12 +27,720 @@ from caricamento.models import (
     Oggetto,
     OggettoDaCaricare,
     PianoDiCarico,
+    UserProfile,
     VincoloOggetto,
     VincoloTraOggetti,
 )
 
-from caricamento.engine.tre_d.packer_3d_v2 import Obj, _prova_tutte_orientazioni
-from caricamento.engine.orchestratore_tre_d import esegui_ottimizzazione_tre_d
+from caricamento.engine.tre_d.packer_3d_v2 import (
+    Obj,
+    _prova_tutte_orientazioni,
+    _trova_singoli_interni,
+    _piazza_deferiti_in_coda,
+    load_truck_v2,
+)
+from caricamento.engine.orchestratore_tre_d import (
+    _piano_e_parziale,
+    esegui_ottimizzazione_tre_d,
+)
+from caricamento.engine.tre_d.data_adapter import _carica_vincoli_sopra
+from caricamento.engine.tre_d.geometry import (
+    center_of_mass,
+    compute_overhang,
+    intersection_area,
+    point_inside,
+    rect,
+)
+from caricamento.engine.tre_d.placement_rules import (
+    can_stack,
+    check_z_collision,
+)
+from caricamento.engine.tre_d.postprocessing import (
+    defer_singles,
+    find_internal_singles,
+    has_object_above,
+    has_object_ahead,
+    place_singles_at_end,
+)
+from caricamento.engine.tre_d.constraints import (
+    column_contains,
+    evaluate_relational_constraint,
+)
+from caricamento.engine.tre_d.strategies import (
+    BacktrackingStrategy,
+    DeterministicStrategy,
+    HybridStrategy,
+    MonteCarloStrategy,
+    strategy_for_config,
+)
+from caricamento.engine.tre_d.group_optimizer import (
+    _compactness_key,
+    _score,
+    _group_is_relational,
+    _relational_block_valid,
+    _relational_blocks,
+    candidate_rotation_counts,
+)
+from caricamento.engine.tre_d.tre_d_packer import TreDPacker
+from caricamento.engine.tre_d.random_packer import run_packing_random
+
+
+# =============================================================================
+# TEST: FACTORY STRATEGIE
+# =============================================================================
+
+class TestStrategyFactory(TestCase):
+    def test_seleziona_deterministica(self):
+        config = ConfigurazioneOttimizzazione()
+        self.assertIsInstance(strategy_for_config(config), DeterministicStrategy)
+
+    def test_seleziona_monte_carlo(self):
+        config = ConfigurazioneOttimizzazione(ordinamento_casuale=True)
+        strategia = strategy_for_config(config)
+        self.assertIsInstance(strategia, MonteCarloStrategy)
+        self.assertEqual(strategia.num_restarts, 20)
+
+    def test_seleziona_backtracking(self):
+        config = ConfigurazioneOttimizzazione(backtracking_avanzato=True)
+        self.assertIsInstance(strategy_for_config(config), BacktrackingStrategy)
+
+    def test_seleziona_ibrida(self):
+        config = ConfigurazioneOttimizzazione(
+            ordinamento_casuale=True,
+            backtracking_avanzato=True,
+        )
+        self.assertIsInstance(strategy_for_config(config), HybridStrategy)
+
+    def test_tredpacker_delega_alla_strategy_selezionata(self):
+        oggetto = Oggetto.objects.create(
+            owner=User.objects.create_user(username="strategy-owner"),
+            codice="STRATEGY-TEST",
+            lunghezza_mm=800,
+            larghezza_mm=800,
+            altezza_mm=800,
+            peso_kg=Decimal("10"),
+            quantita_disponibile=1,
+        )
+        config = ConfigurazioneOttimizzazione(
+            ordinamento_casuale=True,
+            backtracking_avanzato=True,
+            compattazione_aggressiva=True,
+        )
+        risultato_obj = Obj(
+            "STRATEGY-TEST-0", 80, 80, 80, oggetto_id=oggetto.pk
+        )
+        risultato_obj._peso_kg = 10.0
+        strategia = Mock()
+        strategia.execute.return_value = [risultato_obj]
+
+        packer = TreDPacker(
+            bin_dimensioni=(2000, 2000, 2000),
+            peso_max_kg=1000,
+            configurazione=config,
+        )
+        packer.aggiungi_oggetto(oggetto)
+
+        with patch(
+            "caricamento.engine.tre_d.tre_d_packer.strategy_for_config",
+            return_value=strategia,
+        ) as factory:
+            packer.esegui()
+
+        factory.assert_called_once_with(config)
+        strategia.execute.assert_called_once()
+        args, kwargs = strategia.execute.call_args
+        self.assertEqual(args[1], {})
+        self.assertEqual(args[2], (200, 200, 200))
+        self.assertIs(kwargs["tracker"], None)
+        self.assertTrue(kwargs["compattazione_aggressiva"])
+        self.assertEqual(len(packer.results), 1)
+
+    def test_adattatori_eseguono_e_non_duplicano_istanze(self):
+        def make_objects():
+            return [
+                Obj("A-0", 80, 80, 80, oggetto_id=1),
+                Obj("B-0", 70, 70, 70, oggetto_id=2),
+            ]
+
+        strategie = [
+            DeterministicStrategy(),
+            MonteCarloStrategy(num_restarts=1),
+            BacktrackingStrategy(iterations=1),
+            HybridStrategy(iterations=1, num_restarts=1),
+        ]
+        for strategia in strategie:
+            with self.subTest(strategy=strategia.name):
+                risultato = strategia.execute(
+                    make_objects(),
+                    {},
+                    (500, 500, 500),
+                )
+                ids = [obj.id for obj in risultato if obj.z >= 0]
+                self.assertIsInstance(risultato, list)
+                self.assertEqual(len(ids), len(set(ids)))
+                self.assertGreaterEqual(len(ids), 1)
+
+
+class TestGroupOptimizer(TestCase):
+    """Verifica le configurazioni locali senza coinvolgere MC o v3."""
+
+    def test_piano_parziale_dipende_solo_dalle_istanze_mancanti(self):
+        self.assertFalse(_piano_e_parziale(10, 10))
+        self.assertTrue(_piano_e_parziale(10, 9))
+
+    def test_vincoli_o_priorita_non_rendono_parziale_un_piano_completo(self):
+        # La validazione dei vincoli/priorità è un report separato: con tutte
+        # le istanze posizionate il piano non è parziale.
+        self.assertFalse(_piano_e_parziale(4, 4))
+
+    def test_configurazioni_dipendono_dalla_capacita_y(self):
+        # I05: 3 pezzi originali per Y, 4 dopo la rotazione.
+        self.assertEqual(
+            candidate_rotation_counts(19, 60, 80, (1360, 248, 270)),
+            [4, 8],
+        )
+        # I02: 2 pezzi originali per Y, 3 dopo la rotazione.
+        self.assertEqual(
+            candidate_rotation_counts(18, 80, 120, (1360, 248, 270)),
+            [3, 6],
+        )
+        # I01: la rotazione non aumenta le righe Y, quindi nessuna variante.
+        self.assertEqual(
+            candidate_rotation_counts(13, 100, 120, (1360, 248, 270)),
+            [],
+        )
+
+    def test_quantita_piccola_non_forza_un_blocco_completo(self):
+        self.assertEqual(
+            candidate_rotation_counts(2, 60, 80, (1360, 248, 270)),
+            [2],
+        )
+
+    def test_auto_vincolo_non_esclude_il_gruppo_ma_vincolo_tra_codici_si(self):
+        self.assertFalse(
+            _group_is_relational((7,), {7: {7: None}})
+        )
+        self.assertTrue(
+            _group_is_relational((7,), {7: {8: None}})
+        )
+        self.assertTrue(
+            _group_is_relational((8,), {7: {8: None}})
+        )
+
+    def test_deterministica_usa_il_modulo_dei_gruppi(self):
+        objects = [
+            Obj("GROUP-0", 60, 80, 100, oggetto_id=1),
+            Obj("GROUP-1", 60, 80, 100, oggetto_id=1),
+        ]
+        with patch(
+            "caricamento.engine.tre_d.strategies.deterministic.optimize_deterministic_groups",
+            return_value=objects,
+        ) as optimizer:
+            result = DeterministicStrategy().execute(
+                objects, {}, (1360, 248, 270)
+            )
+
+        optimizer.assert_called_once()
+        self.assertIs(result, objects)
+
+    def test_auto_vincolo_consente_blocco_ruotato_validato(self):
+        objects = [
+            Obj(
+                f"SELF-{index}",
+                60,
+                80,
+                100,
+                oggetto_id=7,
+                rotazione_su_x=False,
+                rotazione_su_y=False,
+                rotazione_su_z=True,
+            )
+            for index in range(4)
+        ]
+        result = DeterministicStrategy().execute(
+            objects, {7: {7: None}}, (500, 120, 200)
+        )
+        fitted = [obj for obj in result if obj.z >= 0]
+
+        self.assertEqual(len(fitted), 4)
+        self.assertLessEqual(max(obj.x + obj.width for obj in fitted), 160)
+        self.assertTrue(
+            any((obj.width, obj.depth) == (80, 60) for obj in fitted)
+        )
+        self.assertTrue(
+            any(obj.z == 100 for obj in fitted),
+            "L'auto-vincolo deve lasciare almeno una coppia impilata.",
+        )
+
+    def test_colonna_cross_ruotata_mantiene_allineamento_e_vincolo(self):
+        base = Obj(
+            "BASE-0", 100, 120, 100, oggetto_id=1,
+            rotazione_su_x=False, rotazione_su_y=False, rotazione_su_z=True,
+        )
+        top = Obj(
+            "TOP-0", 80, 120, 100, oggetto_id=2,
+            rotazione_su_x=False, rotazione_su_y=False, rotazione_su_z=True,
+        )
+        base.x = top.x = 0
+        base.y = top.y = 0
+        base.z = 0
+        top.z = 100
+        self.assertTrue(
+            _relational_block_valid(
+                [base, top],
+                (base.id, top.id),
+                {2: {1: None}},
+            )
+        )
+
+        top.y = 10
+        self.assertFalse(
+            _relational_block_valid(
+                [base, top],
+                (base.id, top.id),
+                {2: {1: None}},
+            )
+        )
+
+    def test_compattezza_preferisce_fasce_y_regolari(self):
+        ordinato = [
+            Obj(f"O-{index}", 60, 80, 100, oggetto_id=1)
+            for index in range(3)
+        ]
+        frammentato = [
+            Obj(f"F-{index}", 60, 80, 100, oggetto_id=1)
+            for index in range(3)
+        ]
+        for obj, y in zip(ordinato, (0, 80, 160)):
+            obj.x, obj.y, obj.z = 0, y, 0
+        for obj, y in zip(frammentato, (0, 60, 160)):
+            obj.x, obj.y, obj.z = 0, y, 0
+
+        self.assertLess(
+            _compactness_key(ordinato),
+            _compactness_key(frammentato),
+        )
+
+    def test_score_completo_preferisce_layout_compatto(self):
+        ordinato = [
+            Obj(f"S-{index}", 60, 80, 100, oggetto_id=1)
+            for index in range(2)
+        ]
+        frammentato = [
+            Obj("T-0", 80, 60, 100, oggetto_id=1),
+            Obj("T-1", 60, 80, 100, oggetto_id=1),
+        ]
+        for obj, y in zip(ordinato, (0, 80)):
+            obj.x, obj.y, obj.z = 0, y, 0
+        for obj, y in zip(frammentato, (0, 60)):
+            obj.x, obj.y, obj.z = 0, y, 0
+
+        self.assertGreater(
+            _score(ordinato, (500, 200, 200), ordinato),
+            _score(frammentato, (500, 200, 200), frammentato),
+        )
+
+    def test_compattezza_penalizza_orientamenti_misti(self):
+        uniforme = [
+            Obj(f"U-{index}", 60, 80, 100, oggetto_id=1)
+            for index in range(2)
+        ]
+        misto = [
+            Obj("M-0", 80, 60, 100, oggetto_id=1),
+            Obj("M-1", 60, 80, 100, oggetto_id=1),
+        ]
+        for obj, y in zip(uniforme, (0, 80)):
+            obj.x, obj.y, obj.z = 0, y, 0
+        for obj, y in zip(misto, (0, 60)):
+            obj.x, obj.y, obj.z = 0, y, 0
+
+        self.assertLess(
+            _compactness_key(uniforme),
+            _compactness_key(misto),
+        )
+
+    def test_blocco_cross_reale_viene_rilevato_dalla_colonna(self):
+        base = Obj(
+            "BASE-0", 100, 120, 100, oggetto_id=1,
+            rotazione_su_x=False, rotazione_su_y=False, rotazione_su_z=True,
+        )
+        top = Obj(
+            "TOP-0", 80, 120, 100, oggetto_id=2,
+            rotazione_su_x=False, rotazione_su_y=False, rotazione_su_z=True,
+        )
+        base.x = top.x = 0
+        base.y = top.y = 0
+        base.z = 0
+        top.z = 100
+        blocks = _relational_blocks([base, top], {2: {1: None}})
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0][0], ("BASE-0", "TOP-0"))
+
+    def test_blocco_ruotato_viene_accettato_solo_se_migliora_x(self):
+        # Con Y=120 l'orientamento 60x80 crea una sola riga, mentre 80x60
+        # ne crea due: quattro pezzi passano da quattro colonne a due.
+        objects = [
+            Obj(
+                f"BLOCK-{index}",
+                60,
+                80,
+                100,
+                oggetto_id=7,
+                rotazione_su_x=False,
+                rotazione_su_y=False,
+                rotazione_su_z=True,
+            )
+            for index in range(4)
+        ]
+        result = DeterministicStrategy().execute(
+            objects, {}, (500, 120, 100)
+        )
+        fitted = [obj for obj in result if obj.z >= 0]
+
+        self.assertEqual(len(fitted), 4)
+        self.assertLessEqual(max(obj.x + obj.width for obj in fitted), 160)
+        self.assertTrue(
+            all((obj.width, obj.depth) == (80, 60) for obj in fitted)
+        )
+
+
+class TestRiempimentoFasce(TestCase):
+    """Regressione sul riempimento Y/Z prima dell'avanzamento su X."""
+
+    def test_carico_reale_trova_una_disposizione_compatta(self):
+        """Il carico del piano reale non deve terminare con una coda lunga.
+
+        Le dimensioni sono quelle del piano 348, espresse in cm. Con tutti
+        gli oggetti richiesti e 20 restart, la soluzione deve caricare tutto
+        e chiudere la lunghezza entro 12,20 m nel caso deterministico.
+        """
+        dati = [
+            ("CART-I03", 160, 70, 100, 9, 3),
+            ("CART-I01", 120, 100, 100, 13, 1),
+            ("CART-I02", 120, 80, 100, 18, 2),
+            ("cart-i05", 60, 80, 100, 17, 5),
+        ]
+        objects = []
+        for codice, width, depth, height, quantita, oggetto_id in dati:
+            for indice in range(quantita):
+                objects.append(
+                    Obj(
+                        f"{codice}-{indice}",
+                        width,
+                        depth,
+                        height,
+                        oggetto_id=oggetto_id,
+                        orientation_allowed=True,
+                        rotazione_su_x=False,
+                        rotazione_su_y=False,
+                        rotazione_su_z=True,
+                    )
+                )
+
+        # I vincoli auto-referenziali riproducono il coinvolgimento dei codici
+        # nei vincoli relazionali del piano senza imporre coppie tra tipi.
+        vincoli_sopra = {
+            oggetto_id: {oggetto_id: None}
+            for oggetto_id in (1, 2, 3, 5)
+        }
+        stato_random = random.getstate()
+        try:
+            random.seed(0)
+            risultato = run_packing_random(
+                objects,
+                vincoli_sopra=vincoli_sopra,
+                num_restarts=20,
+                container_dim=(1360, 248, 270),
+            )
+        finally:
+            random.setstate(stato_random)
+
+        posizionati = [obj for obj in risultato if obj.z >= 0]
+        self.assertEqual(len(posizionati), 57)
+        self.assertEqual(len([obj for obj in risultato if obj.z < 0]), 0)
+        self.assertLessEqual(
+            max(obj.x + obj.width for obj in posizionati),
+            1220,
+            "Il riempimento Y/Z deve evitare una coda X inutilmente lunga.",
+        )
+
+
+# =============================================================================
+# TEST: GEOMETRIA PURA
+# =============================================================================
+
+class TestGeometry(TestCase):
+    """Regressioni per le primitive geometriche indipendenti dal packer."""
+
+    def test_rettangolo_intersezione_e_centro(self):
+        obj = Obj("A", 80, 120, 100, oggetto_id=1)
+        obj.x, obj.y = 10, 20
+        base = Obj("B", 70, 160, 100, oggetto_id=2)
+        base.x, base.y = 0, 0
+
+        self.assertEqual(
+            rect(obj),
+            {"x1": 10, "x2": 90, "y1": 20, "y2": 140},
+        )
+        self.assertEqual(intersection_area(rect(obj), rect(base)), 60 * 120)
+        self.assertEqual(center_of_mass(obj), (50, 80))
+
+    def test_sbalzo_e_punto_nel_rettangolo(self):
+        obj = Obj("A", 80, 120, 100, oggetto_id=1)
+        obj.x, obj.y = 10, 0
+        base = Obj("B", 70, 160, 100, oggetto_id=2)
+        base.x, base.y = 0, 0
+
+        self.assertEqual(compute_overhang(rect(obj), rect(base)), 20)
+        self.assertTrue(point_inside(50, 60, rect(base)))
+        self.assertFalse(point_inside(80, 60, rect(base)))
+
+
+# =============================================================================
+# TEST: REGOLE DI POSIZIONAMENTO PURE
+# =============================================================================
+
+class TestPlacementRules(TestCase):
+    """Regressioni per stacking e collisione indipendenti dalla strategia."""
+
+    def test_can_stack_rispetta_area_e_supporto(self):
+        base = Obj("BASE", 100, 100, 100, oggetto_id=1)
+        base.x = base.y = base.z = 0
+        sopra = Obj("SOPRA", 80, 80, 100, oggetto_id=2)
+        sopra.x = sopra.y = 0
+        sopra.z = 100
+
+        self.assertTrue(can_stack(sopra, base))
+        self.assertEqual(sopra.support_ratio, 1.0)
+
+        troppo_grande = Obj("GRANDE", 120, 100, 100, oggetto_id=3)
+        troppo_grande.x = troppo_grande.y = 0
+        self.assertFalse(can_stack(troppo_grande, base))
+
+    def test_can_stack_rispetta_fragilita_e_sovrapponibilita(self):
+        base = Obj("BASE", 100, 100, 100, oggetto_id=1, fragile=True)
+        sopra = Obj("SOPRA", 80, 80, 100, oggetto_id=2)
+        self.assertFalse(can_stack(sopra, base))
+
+        base.fragile = False
+        base.sovrapponibile = False
+        self.assertFalse(can_stack(sopra, base))
+
+    def test_collisione_3d_distinta_dal_contatto_sovrapposto(self):
+        base = Obj("BASE", 100, 100, 100, oggetto_id=1)
+        base.x = base.y = base.z = 0
+        sovrapposto = Obj("SOVRAPPOSTO", 50, 50, 50, oggetto_id=2)
+        sovrapposto.x = sovrapposto.y = 10
+        sovrapposto.z = 50
+        self.assertTrue(check_z_collision(sovrapposto, [base]))
+
+        affiancato = Obj("AFFIANCATO", 50, 50, 50, oggetto_id=3)
+        affiancato.x, affiancato.y, affiancato.z = 100, 0, 0
+        self.assertFalse(check_z_collision(affiancato, [base]))
+
+
+# =============================================================================
+# TEST: VINCOLI RELAZIONALI ISOLATI
+# =============================================================================
+
+class TestPostprocessingRules(TestCase):
+    """Regressioni per il rilevamento dei singoli e delle fasce terminali."""
+
+    def test_rileva_singolo_interno_indipendentemente_dai_vincoli(self):
+        interno = Obj("INTERNO", 100, 100, 100, oggetto_id=1)
+        interno.x = interno.y = interno.z = 0
+        terminale = Obj("TERMINALE", 100, 100, 100, oggetto_id=2)
+        terminale.x, terminale.y, terminale.z = 200, 0, 0
+
+        self.assertFalse(has_object_above([interno, terminale], interno, 270))
+        self.assertTrue(has_object_ahead([interno, terminale], interno))
+        self.assertEqual(
+            find_internal_singles([interno, terminale], 270, {1: {1: set()}}),
+            ["INTERNO"],
+        )
+
+    def test_oggetto_nella_fascia_terminale_non_e_interno(self):
+        primo = Obj("PRIMO", 100, 100, 100, oggetto_id=1)
+        primo.x = primo.y = primo.z = 0
+        affiancato = Obj("AFFIANCATO", 100, 100, 100, oggetto_id=2)
+        affiancato.x, affiancato.y, affiancato.z = 200, 100, 0
+
+        self.assertFalse(has_object_ahead([primo, affiancato], affiancato))
+        self.assertEqual(find_internal_singles([primo, affiancato], 270), ["PRIMO"])
+
+    def test_piazzamento_singoli_usa_callback_e_preserva_integrita(self):
+        terminale = Obj("TERMINALE", 100, 100, 100, oggetto_id=1)
+        terminale.x = terminale.y = terminale.z = 200
+        singolo = Obj("SINGOLO", 80, 80, 100, oggetto_id=2)
+        singolo.x = singolo.y = singolo.z = 0
+        for obj in (terminale, singolo):
+            obj._peso_kg = 1
+
+        def try_orientations(obj, x, y, z, placed, container_dim, constraints, **kwargs):
+            obj.x, obj.y, obj.z = x, y, z
+            return True
+
+        placed = [terminale, singolo]
+        place_singles_at_end(
+            placed,
+            (500, 500, 270),
+            {},
+            None,
+            try_orientations,
+        )
+        self.assertEqual({obj.id for obj in placed}, {"TERMINALE", "SINGOLO"})
+        self.assertEqual(len({obj.id for obj in placed}), 2)
+
+    def test_piazzamento_singoli_non_scarta_rotazione_valida(self):
+        terminale = Obj("TERMINALE-ROT", 40, 100, 100, oggetto_id=1)
+        terminale.x, terminale.y, terminale.z = 200, 0, 0
+        singolo = Obj("SINGOLO-ROT", 100, 40, 100, oggetto_id=2)
+        singolo.x = singolo.y = singolo.z = 0
+
+        def try_orientations(obj, x, y, z, placed, container_dim, constraints, **kwargs):
+            # Il callback simula il controllo reale: solo l'orientamento
+            # ruotato 40x100 entra nella fascia terminale disponibile.
+            if x + obj.width > container_dim[0] or y + obj.depth > container_dim[1]:
+                if obj.width == 100 and obj.depth == 40:
+                    obj.width, obj.depth = 40, 100
+                else:
+                    return False
+            if x + obj.width <= container_dim[0] and y + obj.depth <= container_dim[1]:
+                obj.x, obj.y, obj.z = x, y, z
+                return True
+            return False
+
+        placed = [terminale, singolo]
+        self.assertTrue(
+            place_singles_at_end(
+                placed, (280, 100, 270), {}, None, try_orientations
+            )
+        )
+        self.assertEqual({obj.id for obj in placed}, {"TERMINALE-ROT", "SINGOLO-ROT"})
+
+    def test_postprocessing_peggiorativo_viene_ripristinato(self):
+        """Una riparazione che allunga X non deve sostituire il packing base."""
+        oggetti = [
+            Obj("BASE-0", 100, 100, 100, oggetto_id=1),
+            Obj("BASE-1", 100, 100, 100, oggetto_id=2),
+        ]
+        risultato_base = load_truck_v2(
+            copy.deepcopy(oggetti),
+            vincoli_sopra={},
+            container_dim=(500, 500, 270),
+            preserve_order=True,
+            _run_postprocessing=False,
+        )
+        coordinate_base = {
+            obj.id: (obj.x, obj.y, obj.z, obj.width, obj.depth, obj.height)
+            for obj in risultato_base
+        }
+
+        def peggiora_x(placed, *args, **kwargs):
+            placed[0].x += 1000
+
+        with patch(
+            "caricamento.engine.tre_d.packer_3d_v2._deferral_pass",
+            side_effect=peggiora_x,
+        ), patch(
+            "caricamento.engine.tre_d.packer_3d_v2._riempi_buchi_sicuro",
+            return_value=True,
+        ):
+            risultato = load_truck_v2(
+                copy.deepcopy(oggetti),
+                vincoli_sopra={},
+                container_dim=(500, 500, 270),
+                preserve_order=True,
+            )
+
+        self.assertEqual(
+            {
+                obj.id: (obj.x, obj.y, obj.z, obj.width, obj.depth, obj.height)
+                for obj in risultato
+            },
+            coordinate_base,
+        )
+
+
+class TestConstraintRules(TestCase):
+    """Verifica gli stati assente, valido, escluso e in colonna."""
+
+    def _base_pair(self):
+        base = Obj("BASE", 70, 160, 100, oggetto_id=3)
+        base.x = base.y = base.z = 0
+        sopra = Obj("SOPRA", 80, 120, 100, oggetto_id=2)
+        sopra.x = sopra.y = 0
+        sopra.z = 100
+        return sopra, base
+
+    def test_relazione_assente_lascia_regole_standard(self):
+        sopra, base = self._base_pair()
+        self.assertEqual(
+            evaluate_relational_constraint(sopra, base, [base], {}),
+            (True, False, None),
+        )
+
+    def test_configurazione_valida_autorizza_solo_match(self):
+        sopra, base = self._base_pair()
+        validi = {((80, 120, 100), (70, 160, 100))}
+        self.assertEqual(
+            evaluate_relational_constraint(
+                sopra, base, [base], {2: {3: validi}}
+            ),
+            (True, True, validi),
+        )
+
+    def test_configurazione_esclusa_blocca(self):
+        sopra, base = self._base_pair()
+        self.assertEqual(
+            evaluate_relational_constraint(
+                sopra, base, [base], {2: {3: set()}}
+            ),
+            (False, False, None),
+        )
+
+    def test_relazione_valida_trovata_nella_colonna(self):
+        fondo = Obj("FONDO", 100, 100, 100, oggetto_id=1)
+        fondo.x = fondo.y = fondo.z = 0
+        base = Obj("BASE", 100, 100, 100, oggetto_id=3)
+        base.x = base.y = 0
+        base.z = 100
+        sopra = Obj("SOPRA", 80, 80, 100, oggetto_id=2)
+        sopra.x = sopra.y = 0
+        sopra.z = 200
+
+        self.assertTrue(column_contains([fondo, base], base, 1))
+        allowed, relational, _ = evaluate_relational_constraint(
+            sopra, base, [fondo, base], {2: {1: None}}
+        )
+        self.assertTrue(allowed)
+        self.assertTrue(relational)
+
+    def test_configurazione_in_colonna_confronta_la_base_richiesta(self):
+        fondo = Obj("FONDO", 70, 160, 100, oggetto_id=1)
+        fondo.x = fondo.y = fondo.z = 0
+        intermedio = Obj("INTERMEDIO", 100, 100, 100, oggetto_id=3)
+        intermedio.x = intermedio.y = 0
+        intermedio.z = 100
+        sopra = Obj("SOPRA", 80, 120, 100, oggetto_id=2)
+        sopra.x = sopra.y = 0
+        sopra.z = 200
+        validi = {((80, 120, 100), (70, 160, 100))}
+
+        allowed, relational, details = evaluate_relational_constraint(
+            sopra, intermedio, [fondo, intermedio], {2: {1: validi}}
+        )
+        self.assertTrue(allowed)
+        self.assertTrue(relational)
+        self.assertEqual(details, validi)
+
+        vietati = {((80, 120, 100), (80, 120, 100))}
+        self.assertEqual(
+            evaluate_relational_constraint(
+                sopra, intermedio, [fondo, intermedio], {2: {1: vietati}}
+            ),
+            (False, False, None),
+        )
 
 
 # =============================================================================
@@ -37,8 +750,15 @@ from caricamento.engine.orchestratore_tre_d import esegui_ottimizzazione_tre_d
 class TestCaseBase(TestCase):
     """Base con metodi helper per creare dati di test rapidamente."""
 
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="owner-{}".format(self._testMethodName),
+            password="test-password",
+        )
+
     def crea_contenitore(self, nome="Test Box", x=2000, y=2000, z=2000, peso=5000):
         return Contenitore.objects.create(
+            owner=self.user,
             nome=nome,
             lunghezza_mm=x,
             larghezza_mm=y,
@@ -48,6 +768,7 @@ class TestCaseBase(TestCase):
 
     def crea_oggetto(self, codice, x=500, y=400, z=300, peso=20, qta=1):
         return Oggetto.objects.create(
+            owner=self.user,
             codice=codice,
             lunghezza_mm=x,
             larghezza_mm=y,
@@ -80,6 +801,7 @@ class TestCaseBase(TestCase):
     def crea_piano_e_ottimizza(self, contenitore, oggetti_con_quantita, config=None):
         """Crea un PianoDiCarico, aggiunge oggetti e ottimizza."""
         piano = PianoDiCarico.objects.create(
+            owner=self.user,
             nome="Test Piano",
             contenitore=contenitore,
         )
@@ -177,6 +899,240 @@ class TestVincoliOggettoSovrapponibile(TestCaseBase):
 # TEST: ROTAZIONI IN TreDPacker (3D Semplificato)
 # =============================================================================
 
+class TestDeferimentoSingoliInterni(TestCase):
+    """Verifica che un singolo interno liberi lo spazio per il ripacking."""
+
+    def test_singolo_interno_viene_identificato_e_messo_in_coda(self):
+        singolo = Obj("SINGOLO-0", 100, 100, 100, oggetto_id=1)
+        altro = Obj("ALTRO-0", 100, 100, 100, oggetto_id=2)
+        singolo.x, singolo.y, singolo.z = 0, 0, 0
+        altro.x, altro.y, altro.z = 200, 0, 0
+
+        self.assertEqual(
+            _trova_singoli_interni([singolo, altro], 200, {}),
+            ["SINGOLO-0"],
+        )
+
+        deferred = Obj("SINGOLO-0", 100, 100, 100, oggetto_id=1)
+        deferred._peso_kg = 1
+        placed = [copy.deepcopy(altro)]
+        self.assertTrue(
+            _piazza_deferiti_in_coda(
+                placed,
+                [deferred],
+                (1000, 1000, 200),
+                {},
+            )
+        )
+        self.assertEqual(placed[-1].x, 200)
+
+    def test_carico_reale_deferisce_il_singolo_i05_in_coda(self):
+        """Il caso 20/8/13/19 non deve lasciare un singolo I05 interno."""
+        dati = [
+            ("CART-I03", 70, 160, 20, 3),
+            ("CART-I01", 100, 120, 8, 1),
+            ("CART-I02", 80, 120, 13, 2),
+            ("cart-i05", 60, 80, 19, 5),
+        ]
+        objects = []
+        for codice, width, depth, quantita, oggetto_id in dati:
+            for indice in range(quantita):
+                objects.append(
+                    Obj(
+                        f"{codice}-{indice}",
+                        width,
+                        depth,
+                        100,
+                        oggetto_id=oggetto_id,
+                    )
+                )
+
+        risultato = load_truck_v2(
+            objects,
+            vincoli_sopra={},
+            container_dim=(1360, 248, 270),
+            preserve_order=True,
+        )
+        posizionati, non_posizionati = (
+            [obj for obj in risultato if obj.z >= 0],
+            [obj for obj in risultato if obj.z < 0],
+        )
+
+        self.assertEqual(len(posizionati), 60)
+        self.assertEqual(non_posizionati, [])
+        self.assertEqual(_trova_singoli_interni(posizionati, 270, {}), [])
+
+        singolo_i05 = next(obj for obj in posizionati if obj.id == "cart-i05-18")
+        max_x_iniziale = max(obj.x for obj in posizionati)
+        self.assertEqual(
+            singolo_i05.x,
+            max_x_iniziale,
+            "Il singolo I05 deve stare nella fascia X terminale, non nel mezzo.",
+        )
+        # Nel caso reale il singolo viene affiancato in Y alla fascia finale;
+        # quindi non deve essere semplicemente accodato dopo la fine del
+        # rettangolo più largo.
+        self.assertEqual(singolo_i05.y, 0)
+
+    def test_vincoli_tra_tutti_i_tipi_non_bloccano_il_deferimento(self):
+        """Regressione: con vincoli 'sopra' su TUTTI i tipi (caso reale),
+        il singolo interno deve essere comunque rilevato e deferito.
+
+        In precedenza _trova_singoli_interni escludeva ogni oggetto
+        coinvolto in vincoli tra oggetti: nel caso reale tutti i tipi
+        hanno almeno un vincolo 'sopra', quindi il deferimento non
+        partiva mai e il buco restava nel mezzo del carico.
+        """
+        dati = [
+            ("CART-I03", 70, 160, 20, 3),
+            ("CART-I01", 100, 120, 8, 1),
+            ("CART-I02", 80, 120, 13, 2),
+            ("cart-i05", 60, 80, 19, 5),
+        ]
+        objects = []
+        for codice, width, depth, quantita, oggetto_id in dati:
+            for indice in range(quantita):
+                objects.append(
+                    Obj(
+                        f"{codice}-{indice}",
+                        width,
+                        depth,
+                        100,
+                        oggetto_id=oggetto_id,
+                    )
+                )
+
+        # Come nel caso reale: ogni tipo è coinvolto in un vincolo 'sopra'
+        # (auto-riferito con dettagli validi). Tutti gli oggetto_id quindi
+        # finivano in ids_con_vincoli e il vecchio codice non deferiva nulla.
+        # Struttura dettagli: set di coppie ((dimsA), (dimsB)).
+        vincoli_sopra = {}
+        for o_id, dims in [(3, (70, 160, 100)), (1, (100, 120, 100)),
+                           (2, (80, 120, 100)), (5, (60, 80, 100))]:
+            w, d, h = dims
+            vincoli_sopra[o_id] = {
+                o_id: {((w, d, h), (w, d, h)), ((d, w, h), (d, w, h))}
+            }
+
+        # Anche con vincoli non vuoti, il singolo deve essere rilevato
+        singolo_test = Obj("S-0", 60, 80, 100, oggetto_id=5)
+        singolo_test.x, singolo_test.y, singolo_test.z = 0, 0, 0
+        altro_test = Obj("A-0", 100, 120, 100, oggetto_id=1)
+        altro_test.x, altro_test.y, altro_test.z = 200, 0, 0
+        self.assertNotEqual(
+            _trova_singoli_interni(
+                [singolo_test, altro_test],
+                270,
+                vincoli_sopra,
+            ),
+            [],
+        )
+
+        risultato = load_truck_v2(
+            objects,
+            vincoli_sopra=vincoli_sopra,
+            container_dim=(1360, 248, 270),
+            preserve_order=True,
+        )
+        posizionati = [obj for obj in risultato if obj.z >= 0]
+
+        self.assertEqual(len(posizionati), 60)
+        self.assertEqual(
+            _trova_singoli_interni(posizionati, 270, vincoli_sopra),
+            [],
+            "Nessun singolo deve restare interno anche con vincoli su tutti i tipi",
+        )
+
+        singolo_i05 = next(obj for obj in posizionati if obj.id == "cart-i05-18")
+        max_x_iniziale = max(obj.x for obj in posizionati)
+        self.assertEqual(
+            singolo_i05.x,
+            max_x_iniziale,
+            "Il singolo I05 deve stare nella fascia X terminale anche con vincoli.",
+        )
+        # Il deferimento non deve violare il vincolo 'sopra': il singolo
+        # resta a pavimento (z=0) nella coda.
+        self.assertEqual(singolo_i05.z, 0)
+
+    def test_deferimento_sequenziale_isolato_riempie_con_codice_successivo(self):
+        """Un isolato viene accodato dopo aver ricomposto il suffisso."""
+        oggetti = [
+            Obj("A-0", 100, 100, 100, oggetto_id=1, sovrapponibile=False),
+            Obj("B-0", 100, 100, 100, oggetto_id=2),
+            Obj("B-1", 100, 100, 100, oggetto_id=2),
+        ]
+        risultato = load_truck_v2(
+            oggetti,
+            vincoli_sopra={},
+            container_dim=(500, 100, 200),
+            preserve_order=True,
+        )
+        posizionati = [obj for obj in risultato if obj.z >= 0]
+        isolato = next(obj for obj in posizionati if obj.id == "A-0")
+        successivi = [obj for obj in posizionati if obj.oggetto_id == 2]
+
+        self.assertEqual(len(posizionati), 3)
+        self.assertGreaterEqual(
+            isolato.x,
+            max(obj.x for obj in successivi),
+            "L'isolato deve essere rimesso dopo il codice che ha riempito il buco.",
+        )
+        self.assertEqual(max(obj.x + obj.width for obj in posizionati), 200)
+
+    def test_deferimento_fallito_continua_con_il_singolo_successivo(self):
+        """Il rollback di A non deve impedire di tentare B."""
+        a = Obj("A-0", 100, 100, 100, oggetto_id=1)
+        b = Obj("B-0", 100, 100, 100, oggetto_id=2)
+        c = Obj("C-0", 100, 100, 100, oggetto_id=3)
+        a.x, a.y, a.z = 0, 0, 0
+        b.x, b.y, b.z = 200, 0, 0
+        c.x, c.y, c.z = 400, 0, 0
+        placed = [a, b, c]
+
+        def try_orientations(obj, x, y, z, current, container, constraints, **kwargs):
+            if obj.id == "A-0" or z > 0:
+                return False
+            if any(
+                other.z == 0
+                and other.x < x + obj.width
+                and x < other.x + other.width
+                and other.y < y + obj.depth
+                and y < other.y + other.depth
+                for other in current
+            ):
+                return False
+            obj.x, obj.y, obj.z = x, y, z
+            return True
+
+        def columns_info(current):
+            return {
+                (obj.x, obj.y): {
+                    "z_top": obj.z + obj.height,
+                    "top_item": obj,
+                }
+                for obj in current
+            }
+
+        def y_candidates(current, try_x, container_d):
+            return [0]
+
+        defer_singles(
+            placed,
+            [a, b, c],
+            (600, 100, 200),
+            {},
+            None,
+            try_orientations,
+            columns_info,
+            y_candidates,
+            lambda current, obj: True,
+        )
+
+        self.assertEqual({obj.id for obj in placed}, {"A-0", "B-0", "C-0"})
+        self.assertEqual(a.x, 0)
+        self.assertEqual(len({obj.id for obj in placed}), 3)
+
+
 class TestRotazioniTreDPacker(TestCase):
     """Test per verificare che _prova_tutte_orientazioni rispetti
     i flag individuali rotazione_su_x/y/z in TreDPacker."""
@@ -272,16 +1228,194 @@ class TestVincoloTraOggettiSopra(TestCaseBase):
         b_pos = next(p for p in posizionati if p.oggetto_id == b.id)
 
         b_top = b_pos.coordinata_z_mm + b_pos.dimensione_z_mm
-        if a_pos.coordinata_z_mm >= b_top:
-            overlaps_x = not (
-                a_pos.coordinata_x_mm >= b_pos.coordinata_x_mm + b_pos.dimensione_x_mm
-                or b_pos.coordinata_x_mm >= a_pos.coordinata_x_mm + a_pos.dimensione_x_mm
+        self.assertGreaterEqual(a_pos.coordinata_z_mm, b_top)
+        overlaps_x = not (
+            a_pos.coordinata_x_mm >= b_pos.coordinata_x_mm + b_pos.dimensione_x_mm
+            or b_pos.coordinata_x_mm >= a_pos.coordinata_x_mm + a_pos.dimensione_x_mm
+        )
+        overlaps_y = not (
+            a_pos.coordinata_y_mm >= b_pos.coordinata_y_mm + b_pos.dimensione_y_mm
+            or b_pos.coordinata_y_mm >= a_pos.coordinata_y_mm + a_pos.dimensione_y_mm
+        )
+        self.assertTrue(overlaps_x and overlaps_y)
+
+    def test_vincolo_sopra_deroga_area_e_sbalzo(self):
+        """Un vincolo valido consente A sopra B anche se A ha area maggiore."""
+        base = Obj("B-0", 120, 80, 100, oggetto_id=2)
+        sopra = Obj("A-0", 120, 100, 100, oggetto_id=1)
+        base.x, base.y, base.z = 0, 0, 0
+
+        self.assertTrue(
+            _prova_tutte_orientazioni(
+                sopra,
+                0,
+                0,
+                100,
+                [base],
+                (500, 500, 500),
+                {1: {2: None}},
+            ),
+            "Il vincolo A sopra B deve prevalere sulla regola dell'area.",
+        )
+
+    def test_configurazione_esclusa_vieta_stacking_diretto(self):
+        """Una configurazione esclusa non può ricadere nella regola area."""
+        base = Obj("I03-0", 70, 160, 100, oggetto_id=3)
+        sopra = Obj("I02-0", 80, 120, 100, oggetto_id=2)
+        base.x, base.y, base.z = 0, 0, 0
+
+        vincoli = {2: {3: set()}}
+        self.assertFalse(
+            _prova_tutte_orientazioni(
+                sopra,
+                0,
+                0,
+                100,
+                [base],
+                (500, 500, 500),
+                vincoli,
+            ),
+            "Una coppia esplicitamente esclusa deve essere vietata.",
+        )
+        from caricamento.engine.tre_d.priority_policy import valida_vincoli_sopra
+        sopra.x, sopra.y, sopra.z = 0, 0, 100
+        self.assertFalse(
+            valida_vincoli_sopra([sopra, base], [sopra, base], vincoli)["vincoli_completi"]
+        )
+
+    def test_configurazione_valida_e_esclusiva(self):
+        """Con un vincolo dimensionale si accetta solo la combinazione valida."""
+        base = Obj("I03-0", 70, 160, 100, oggetto_id=3)
+        sopra = Obj("I02-0", 80, 120, 100, oggetto_id=2)
+        base.x, base.y, base.z = 0, 0, 0
+        vincoli = {
+            2: {
+                3: {
+                    ((80, 120, 100), (70, 160, 100)),
+                },
+            },
+        }
+
+        self.assertTrue(
+            _prova_tutte_orientazioni(
+                sopra, 0, 0, 100, [base],
+                (500, 500, 500), vincoli,
             )
-            overlaps_y = not (
-                a_pos.coordinata_y_mm >= b_pos.coordinata_y_mm + b_pos.dimensione_y_mm
-                or b_pos.coordinata_y_mm >= a_pos.coordinata_y_mm + a_pos.dimensione_y_mm
+        )
+
+        altra_base = Obj("I03-1", 80, 120, 100, oggetto_id=3)
+        altra_base.x, altra_base.y, altra_base.z = 0, 0, 0
+        altro_sopra = Obj("I02-1", 70, 160, 100, oggetto_id=2)
+        self.assertFalse(
+            _prova_tutte_orientazioni(
+                altro_sopra, 0, 0, 100, [altra_base],
+                (500, 500, 500), vincoli,
+            ),
+            "Una dimensione non elencata nel vincolo non è autorizzata.",
+        )
+        from caricamento.engine.tre_d.priority_policy import valida_vincoli_sopra
+        altro_sopra.x, altro_sopra.y, altro_sopra.z = 0, 0, 100
+        self.assertFalse(
+            valida_vincoli_sopra(
+                [altro_sopra, altra_base],
+                [altro_sopra, altra_base],
+                vincoli,
+            )["vincoli_completi"]
+        )
+
+    def test_assenza_vincolo_usa_regole_standard(self):
+        """Senza relazione tra i codici resta attiva la regola dell'area."""
+        base = Obj("I03-0", 70, 160, 100, oggetto_id=3)
+        sopra = Obj("I02-0", 80, 120, 100, oggetto_id=2)
+        base.x, base.y, base.z = 0, 0, 0
+
+        self.assertTrue(
+            _prova_tutte_orientazioni(
+                sopra, 0, 0, 100, [base],
+                (500, 500, 500), {},
+            ),
+            "In assenza di vincolo devono valere le regole geometriche standard.",
+        )
+
+    def test_z_positiva_senza_supporto_viene_rifiutata(self):
+        """Nessuna modalità può accettare un oggetto volante."""
+        volante = Obj("VOLANTE-0", 100, 100, 100, oggetto_id=1)
+
+        for aggressiva in (False, True):
+            self.assertFalse(
+                _prova_tutte_orientazioni(
+                    volante,
+                    0,
+                    0,
+                    100,
+                    [],
+                    (500, 500, 500),
+                    {},
+                    compattazione_aggressiva=aggressiva,
+                ),
+                f"Un oggetto senza supporto non può essere accettato in modalità aggressiva={aggressiva}",
             )
-            self.assertTrue(overlaps_x and overlaps_y)
+
+    def test_compattazione_aggressiva_consente_stacking_traslato_con_80_percento(self):
+        """Un vincolo A sopra A consente lo scostamento solo in aggressiva.
+
+        Il caso riproduce n.11 sopra n.7: la traslazione lascia l'80% della
+        base di A appoggiata su B e non collide con l'oggetto adiacente.
+        """
+        adiacente = Obj("I01-4", 100, 120, 100, oggetto_id=1)
+        base = Obj("I01-7", 100, 120, 100, oggetto_id=1)
+        sopra = Obj("I01-11", 100, 120, 100, oggetto_id=1)
+        adiacente.x, adiacente.y, adiacente.z = 0, 0, 100
+        base.x, base.y, base.z = 80, 0, 0
+
+        vincoli = {1: {1: None}}
+        self.assertFalse(
+            _prova_tutte_orientazioni(
+                sopra, 100, 0, 100, [adiacente, base],
+                (500, 500, 500), vincoli,
+                compattazione_aggressiva=False,
+            )
+        )
+        self.assertTrue(
+            _prova_tutte_orientazioni(
+                sopra, 100, 0, 100, [adiacente, base],
+                (500, 500, 500), vincoli,
+                compattazione_aggressiva=True,
+            )
+        )
+        self.assertEqual((sopra.x, sopra.y, sopra.z), (100, 0, 100))
+
+    def test_compattazione_aggressiva_rifiuta_contatto_inferiore_al_50_percento(self):
+        """La modalità aggressiva non accetta un appoggio relazionale del 49%."""
+        base = Obj("I01-7", 100, 120, 100, oggetto_id=1)
+        sopra = Obj("I01-11", 100, 120, 100, oggetto_id=1)
+        base.x, base.y, base.z = 49, 0, 0
+
+        self.assertFalse(
+            _prova_tutte_orientazioni(
+                sopra, 100, 0, 100, [base],
+                (500, 500, 500), {1: {1: None}},
+                compattazione_aggressiva=True,
+            )
+        )
+
+    def test_stacking_senza_vincolo_rispetta_area(self):
+        """Senza vincolo, un oggetto con area maggiore non può stare sopra."""
+        base = Obj("B-0", 120, 80, 100, oggetto_id=2)
+        sopra = Obj("A-0", 120, 100, 100, oggetto_id=1)
+        base.x, base.y, base.z = 0, 0, 0
+
+        self.assertFalse(
+            _prova_tutte_orientazioni(
+                sopra,
+                0,
+                0,
+                100,
+                [base],
+                (500, 500, 500),
+                {},
+            )
+        )
 
 
 # =============================================================================
@@ -316,9 +1450,125 @@ class TestConfigurazioneOttimizzazione(TestCaseBase):
         piano, risultato = self.crea_piano_e_ottimizza(contenitore, [(oggetto, 1)], config=config)
         self.assertTrue(risultato.successo)
 
+    def test_quantita_richiesta_superiore_alle_istanze_posizionate_rende_parziale(self):
+        """Con quantita=2, una sola istanza salvata è un piano parziale."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("REPORT-PARZIALE", 500, 400, 300, peso=10)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Quantita parziale",
+            contenitore=contenitore,
+        )
+        OggettoDaCaricare.objects.create(
+            piano_di_carico=piano,
+            oggetto=oggetto,
+            quantita=2,
+        )
+
+        item = ItemPacked(
+            oggetto_id=oggetto.id,
+            codice=oggetto.codice,
+            coordinata_x_mm=0,
+            coordinata_y_mm=0,
+            coordinata_z_mm=0,
+            dimensione_x_mm=500,
+            dimensione_y_mm=400,
+            dimensione_z_mm=300,
+            rotazione_applicata="XYZ",
+            peso_kg=Decimal("10"),
+            colore="#4488ff",
+        )
+        packer = Mock()
+        packer.results = [item]
+        packer.unfitted_codes = [f"{oggetto.codice}-1"]
+        packer.priority_report = {
+            "priorita_completa": True,
+            "vincoli": {"vincoli_completi": True},
+        }
+        packer.genera_metriche.return_value = {}
+
+        with patch(
+            "caricamento.engine.orchestratore_tre_d.TreDPacker",
+            return_value=packer,
+        ):
+            risultato = esegui_ottimizzazione_tre_d(piano.id)
+
+        piano.refresh_from_db()
+        self.assertFalse(risultato.successo)
+        self.assertEqual(piano.stato, "parziale")
+        self.assertEqual(
+            risultato.messaggio,
+            "Piano parziale: 1 di 2 oggetti posizionati.",
+        )
+
+    def test_report_incompleto_non_rende_parziale_un_piano_completo(self):
+        """Lo stato dipende dalle istanze, non dai report diagnostici."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("REPORT-COMPLETO", 500, 400, 300, peso=10)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Report completo",
+            contenitore=contenitore,
+        )
+        OggettoDaCaricare.objects.create(
+            piano_di_carico=piano,
+            oggetto=oggetto,
+            quantita=1,
+        )
+
+        item = ItemPacked(
+            oggetto_id=oggetto.id,
+            codice=oggetto.codice,
+            coordinata_x_mm=0,
+            coordinata_y_mm=0,
+            coordinata_z_mm=0,
+            dimensione_x_mm=500,
+            dimensione_y_mm=400,
+            dimensione_z_mm=300,
+            rotazione_applicata="XYZ",
+            peso_kg=Decimal("10"),
+            colore="#4488ff",
+        )
+        packer = Mock()
+        packer.results = [item]
+        packer.unfitted_codes = []
+        packer.priority_report = {
+            "priorita_completa": False,
+            "vincoli": {"vincoli_completi": False},
+        }
+        packer.genera_metriche.return_value = {}
+
+        with patch(
+            "caricamento.engine.orchestratore_tre_d.TreDPacker",
+            return_value=packer,
+        ):
+            risultato = esegui_ottimizzazione_tre_d(piano.id)
+
+        piano.refresh_from_db()
+        self.assertTrue(risultato.successo)
+        self.assertEqual(piano.stato, "completato")
+        self.assertEqual(
+            risultato.messaggio,
+            "Completato: 1 oggetti posizionati.",
+        )
+
 
 class TestBuildLookupVincoliTra(TestCaseBase):
     """Test per _build_lookup_vincoli_tra."""
+
+    def test_lookup_filtra_entrambi_gli_estremi_presenti(self):
+        a = self.crea_oggetto("L-F-A")
+        b = self.crea_oggetto("L-F-B")
+        c = self.crea_oggetto("L-F-C")
+        vincolo_valido = self.crea_vincolo_tra(a, b, "sopra")
+        vincolo_esterno = self.crea_vincolo_tra(a, c, "sopra")
+
+        queryset = VincoloTraOggetti.objects.filter(
+            id__in=[vincolo_valido.id, vincolo_esterno.id]
+        )
+        lookup = _build_lookup_vincoli_tra(queryset, oggetto_ids={a.id, b.id})
+
+        self.assertEqual([entry[0] for entry in lookup[a.id]], [b.id])
 
     def test_lookup_direzionale_per_sopra(self):
         a = self.crea_oggetto("L-A")
@@ -331,6 +1581,25 @@ class TestBuildLookupVincoliTra(TestCaseBase):
         self.assertIn(b.id, targets_a)
         self.assertNotIn(a.id, [t[0] for t in lookup.get(b.id, [])])
 
+    def test_carica_vincoli_sopra_filtra_oggetti_fuori_piano(self):
+        contenitore = self.crea_contenitore()
+        a = self.crea_oggetto("L-PIANO-A")
+        b = self.crea_oggetto("L-PIANO-B")
+        c = self.crea_oggetto("L-FUORI")
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano filtro vincoli",
+            contenitore=contenitore,
+        )
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=a)
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=b)
+        self.crea_vincolo_tra(a, b, "sopra")
+        self.crea_vincolo_tra(a, c, "sopra")
+
+        lookup = _carica_vincoli_sopra(piano)
+
+        self.assertEqual(list(lookup[a.id]), [b.id])
+
     def test_lookup_solo_vincoli_attivi(self):
         a = self.crea_oggetto("L-C")
         b = self.crea_oggetto("L-D")
@@ -338,6 +1607,152 @@ class TestBuildLookupVincoliTra(TestCaseBase):
 
         lookup = _build_lookup_vincoli_tra(VincoloTraOggetti.objects.filter(attivo=True))
         self.assertEqual(len(lookup), 0)
+
+
+class TestOrigineSalvataggioPosizioni(TestCaseBase):
+    """La sincronizzazione della lista non deve falsare l'origine del piano."""
+
+    def _salva_posizioni(self, piano, origine):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        return client.post(
+            "/api/piani/{}/salva_posizioni_manuali/".format(piano.id),
+            {
+                "origine": origine,
+                "oggetti": [{
+                    "codice": piano.oggetti_da_caricare.first().oggetto.codice,
+                    "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                    "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                    "colore": "#4488ff",
+                    "rotazione": "XYZ",
+                }],
+            },
+            format="json",
+        )
+
+    def test_sincronizzazione_non_sovrascrive_algoritmo_automatico(self):
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("ORIG-A", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano automatico",
+            contenitore=contenitore,
+            algoritmo="Algoritmo 3D Semplificato",
+        )
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=oggetto)
+
+        response = self._salva_posizioni(piano, "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        piano.refresh_from_db()
+        self.assertEqual(piano.algoritmo, "Algoritmo 3D Semplificato")
+
+    def test_sincronizzazione_preserva_piano_parziale(self):
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("ORIG-P", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano parziale",
+            contenitore=contenitore,
+            stato="parziale",
+            algoritmo="Algoritmo 3D Semplificato",
+        )
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=oggetto)
+
+        response = self._salva_posizioni(piano, "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        piano.refresh_from_db()
+        self.assertEqual(piano.stato, "parziale")
+        self.assertEqual(piano.algoritmo, "Algoritmo 3D Semplificato")
+
+    def test_salvataggio_manuale_marca_piano_manuale(self):
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("ORIG-M", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano da modificare",
+            contenitore=contenitore,
+            algoritmo="Algoritmo 3D Semplificato",
+        )
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=oggetto)
+
+        response = self._salva_posizioni(piano, "manuale")
+
+        self.assertEqual(response.status_code, 200)
+        piano.refresh_from_db()
+        self.assertEqual(piano.algoritmo, "manuale")
+
+
+class TestImpostazioniOttimizzatoreAPI(TestCase):
+    """Le preferenze dell'ottimizzatore sono persistenti e isolate per utente."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="settings-user",
+            password="test-password",
+        )
+        self.altro_user = User.objects.create_user(
+            username="settings-other-user",
+            password="test-password",
+        )
+        self.client = APIClient()
+
+    def test_get_autenticato_restituisce_configurazione_vuota(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/api/impostazioni_ottimizzatore/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"impostazioni": {}})
+
+    def test_put_persist_get_e_isola_per_utente(self):
+        payload = {
+            "strategia_ottimizzazione": {
+                "ordinamento_casuale": True,
+                "compattazione_aggressiva": True,
+            },
+            "output_ottimizzazione": {
+                "modalita_rotazione": "eccentrica",
+            },
+            "manuale": {
+                "strategia_piazzamento": "colonne",
+                "massima_sporgenza_pct": 50,
+            },
+        }
+        self.client.force_authenticate(user=self.user)
+
+        put_response = self.client.put(
+            "/api/impostazioni_ottimizzatore/",
+            payload,
+            format="json",
+        )
+        get_response = self.client.get("/api/impostazioni_ottimizzatore/")
+
+        self.assertEqual(put_response.status_code, 200)
+        self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(get_response.data["impostazioni"], payload)
+        self.assertEqual(
+            UserProfile.objects.get(user=self.user).impostazioni_ottimizzatore,
+            payload,
+        )
+
+        self.client.force_authenticate(user=self.altro_user)
+        altro_response = self.client.get("/api/impostazioni_ottimizzatore/")
+        self.assertEqual(altro_response.status_code, 200)
+        self.assertEqual(altro_response.data, {"impostazioni": {}})
+
+    def test_put_rifiuta_sezioni_non_previste(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.put(
+            "/api/impostazioni_ottimizzatore/",
+            {"impostazioni_sistema": {"debug": True}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("sezioni", response.data)
 
 
 class TestVincoliCombinati(TestCaseBase):
@@ -391,3 +1806,265 @@ class TestVincoliCombinati(TestCaseBase):
                     _sopra_di(a_item, b_item),
                     "A non deve essere sopra B quando tutte le configurazioni sono escluse",
                 )
+
+
+class TestPrioritaContenitoreVariabile(TestCase):
+    """La priorità resta esplicita e il limite Z dipende dal contenitore."""
+
+    def test_vincolo_non_promuove_la_base_e_prioritario_viene_prima(self):
+        """I02 p1 deve essere processato prima di I01 p0 anche con
+        il vincolo I02 sopra I01; il vincolo non promuove tutte le basi.
+        """
+        from caricamento.engine.tre_d.priority_policy import (
+            priorita_effettive,
+            riordina_per_fasi,
+        )
+
+        oggetti = [
+            *(
+                Obj(
+                    f"I01-{indice}",
+                    120,
+                    100,
+                    100,
+                    oggetto_id=1,
+                    priorita=0,
+                )
+                for indice in range(15)
+            ),
+            *(
+                Obj(
+                    f"I02-{indice}",
+                    120,
+                    80,
+                    100,
+                    oggetto_id=2,
+                    priorita=1,
+                )
+                for indice in range(5)
+            ),
+        ]
+        vincoli = {2: {1: None}}
+
+        self.assertEqual(priorita_effettive(oggetti, vincoli), {1: 0, 2: 1})
+        riordina_per_fasi(oggetti, vincoli, preserve_inner_order=False)
+        self.assertTrue(all(obj.oggetto_id == 2 for obj in oggetti[:5]))
+        self.assertTrue(all(obj.oggetto_id == 1 for obj in oggetti[5:]))
+
+        posizionati = load_truck_v2(
+            oggetti,
+            vincoli_sopra=vincoli,
+            container_dim=(1360, 248, 270),
+        )
+        self.assertEqual(len(posizionati), 20)
+        self.assertEqual(sum(obj.oggetto_id == 2 for obj in posizionati), 5)
+        self.assertEqual(sum(obj.oggetto_id == 1 for obj in posizionati), 15)
+        i02 = [obj for obj in posizionati if obj.oggetto_id == 2]
+        i01 = [obj for obj in posizionati if obj.oggetto_id == 1]
+        self.assertLessEqual(
+            max(obj.x for obj in i02),
+            min(obj.x for obj in i01),
+            "Il singolo I02 deve restare nella fase I02, prima degli I01.",
+        )
+
+    def test_altezza_del_contenitore_e_dinamica(self):
+        """Lo stesso carico usa il limite Z del camion/cassa selezionato."""
+        for altezza, secondo_deve_entrare in ((270, False), (370, True)):
+            oggetti = [
+                Obj("PRIORITARIO-0", 100, 100, 200, oggetto_id=1, priorita=1),
+                Obj("SUCCESSIVO-0", 100, 100, 100, oggetto_id=2, priorita=0),
+            ]
+            posizionati = load_truck_v2(
+                oggetti,
+                container_dim=(100, 100, altezza),
+                preserve_order=True,
+            )
+            self.assertEqual(len(posizionati), 2 if secondo_deve_entrare else 1)
+            if secondo_deve_entrare:
+                secondo = next(obj for obj in posizionati if obj.oggetto_id == 2)
+                self.assertEqual(secondo.z, 200)
+            else:
+                self.assertEqual(oggetti[1].z, -1)
+
+
+class TestStrategieEndToEnd(TestCase):
+    """Matrice comune per le quattro strategie automatiche."""
+
+    def _make_objects(self):
+        return [
+            *(
+                Obj(
+                    f"I01-{index}",
+                    120,
+                    100,
+                    100,
+                    oggetto_id=1,
+                    priorita=0,
+                )
+                for index in range(15)
+            ),
+            *(
+                Obj(
+                    f"I02-{index}",
+                    120,
+                    80,
+                    100,
+                    oggetto_id=2,
+                    priorita=1,
+                )
+                for index in range(5)
+            ),
+        ]
+
+    def _run(self, config, container_dim=(1360, 248, 270)):
+        objects = self._make_objects()
+        result = strategy_for_config(config).execute(
+            objects,
+            {2: {1: None}},
+            container_dim,
+        )
+        fitted = [obj for obj in result if obj.z >= 0]
+        return objects, result, fitted
+
+    def test_tutte_le_strategie_rispettano_priorita_e_integrita(self):
+        configs = {
+            "deterministica": ConfigurazioneOttimizzazione(),
+            "monte_carlo": ConfigurazioneOttimizzazione(
+                ordinamento_casuale=True,
+            ),
+            "backtracking": ConfigurazioneOttimizzazione(
+                backtracking_avanzato=True,
+            ),
+            "ibrida": ConfigurazioneOttimizzazione(
+                ordinamento_casuale=True,
+                backtracking_avanzato=True,
+            ),
+        }
+
+        for name, config in configs.items():
+            with self.subTest(strategy=name):
+                objects, result, fitted = self._run(config)
+                i02 = [obj for obj in fitted if obj.oggetto_id == 2]
+                i01 = [obj for obj in fitted if obj.oggetto_id == 1]
+
+                requested_ids = {obj.id for obj in objects}
+                fitted_ids = {obj.id for obj in fitted}
+                self.assertEqual(len(result), 20)
+                self.assertEqual(len(fitted), 20)
+                self.assertEqual(len(fitted_ids), len(fitted))
+                self.assertEqual(fitted_ids, requested_ids)
+                self.assertEqual(len(i02), 5)
+                self.assertEqual(len(i01), 15)
+                self.assertLessEqual(
+                    max(obj.x for obj in i02),
+                    min(obj.x for obj in i01),
+                )
+                self.assertTrue(all(obj.z >= 0 for obj in fitted))
+
+    def test_tutte_le_strategie_rispettano_limiti_e_collisioni(self):
+        configs = (
+            ConfigurazioneOttimizzazione(),
+            ConfigurazioneOttimizzazione(ordinamento_casuale=True),
+            ConfigurazioneOttimizzazione(backtracking_avanzato=True),
+            ConfigurazioneOttimizzazione(
+                ordinamento_casuale=True,
+                backtracking_avanzato=True,
+            ),
+        )
+        containers = {
+            "camion": (1360, 248, 270),
+            "cassa": (1360, 248, 370),
+        }
+
+        for container_name, container in containers.items():
+            for config in configs:
+                with self.subTest(
+                    container=container_name,
+                    strategy=type(strategy_for_config(config)).__name__,
+                ):
+                    objects, _, fitted = self._run(config, container)
+                    requested_ids = {obj.id for obj in objects}
+                    fitted_ids = {obj.id for obj in fitted}
+                    i02 = [obj for obj in fitted if obj.oggetto_id == 2]
+                    i01 = [obj for obj in fitted if obj.oggetto_id == 1]
+                    self.assertEqual(fitted_ids, requested_ids)
+                    self.assertEqual(len(fitted_ids), len(fitted))
+                    self.assertTrue(i02 and i01)
+                    self.assertLessEqual(
+                        max(obj.x for obj in i02),
+                        min(obj.x for obj in i01),
+                    )
+                    for obj in fitted:
+                        self.assertGreaterEqual(obj.x, 0)
+                        self.assertGreaterEqual(obj.y, 0)
+                        self.assertGreaterEqual(obj.z, 0)
+                        self.assertLessEqual(obj.x + obj.width, container[0])
+                        self.assertLessEqual(obj.y + obj.depth, container[1])
+                        self.assertLessEqual(obj.z + obj.height, container[2])
+
+                    for index, first in enumerate(fitted):
+                        for second in fitted[index + 1:]:
+                            overlap_xy = (
+                                first.x < second.x + second.width
+                                and first.x + first.width > second.x
+                                and first.y < second.y + second.depth
+                                and first.y + first.depth > second.y
+                            )
+                            overlap_z = (
+                                first.z < second.z + second.height
+                                and first.z + first.height > second.z
+                            )
+                            self.assertFalse(
+                                overlap_xy and overlap_z,
+                                f"Collisione tra {first.id} e {second.id}",
+                            )
+
+
+class TestOwnershipIsolation(TestCase):
+    """Gli endpoint REST non devono esporre i dati di un altro utente."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="isolation-a", password="test-password")
+        self.other = User.objects.create_user(username="isolation-b", password="test-password")
+        self.client = APIClient()
+        self.container = Contenitore.objects.create(
+            owner=self.other,
+            nome="Other container",
+            lunghezza_mm=2000,
+            larghezza_mm=2000,
+            altezza_mm=2000,
+            carico_massimo_kg=Decimal("1000"),
+        )
+        self.item = Oggetto.objects.create(
+            owner=self.other,
+            codice="OTHER-ITEM",
+            lunghezza_mm=500,
+            larghezza_mm=400,
+            altezza_mm=300,
+            peso_kg=Decimal("10"),
+            quantita_disponibile=1,
+        )
+        self.plan = PianoDiCarico.objects.create(
+            owner=self.other,
+            nome="Other plan",
+            contenitore=self.container,
+        )
+
+    def test_other_user_resources_are_not_listed_or_retrievable(self):
+        self.client.force_authenticate(user=self.user)
+
+        self.assertEqual(self.client.get("/api/contenitori/").status_code, 200)
+        self.assertEqual(self.client.get("/api/contenitori/").data["count"], 0)
+        self.assertEqual(self.client.get(f"/api/contenitori/{self.container.id}/").status_code, 404)
+        self.assertEqual(self.client.get(f"/api/oggetti/{self.item.id}/").status_code, 404)
+        self.assertEqual(self.client.get(f"/api/piani/{self.plan.id}/").status_code, 404)
+
+    def test_other_user_resources_cannot_be_used_in_nested_actions(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            f"/api/piani/{self.plan.id}/oggetti_da_caricare/",
+            {"oggetto_id": self.item.id, "quantita": 1},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)

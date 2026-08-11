@@ -7,9 +7,41 @@
  * Load order: LAST — all other workspace_*.js files must load before this.
  */
 
+/**
+ * Apre il modale di aiuto contestuale del Mouse (Modifica Manuale).
+ * Stesso pattern dell'help della toolbar Vista: modale chiudibile
+ * con la X (footer nascosto) e larghezza adattata al contenuto.
+ */
+function apriModaleAiutoMouse() {
+    var html =
+        '<div class="vp-help-section">' +
+            '<div class="vp-help-section-title"><i class="bi bi-mouse"></i> Mouse</div>' +
+            '<div class="vp-help-row"><kbd>Sx</kbd> + trascina &rarr; muovi <b>(XY)</b></div>' +
+            '<div class="vp-help-row"><kbd>Sx</kbd> + <kbd>Ctrl</kbd> &rarr; alza/abbassa <b>(Z)</b></div>' +
+            '<div class="vp-help-row"><kbd>Sx</kbd>/<kbd>Dx</kbd> + <kbd>Shift</kbd> &rarr; ruota 90&deg; ↺↻</div>' +
+        '</div>';
+    apriModale('Aiuto — Mouse', html, null, { noFooter: true, modalClass: 'modal-auto', overlayClass: 'modal-overlay-clean' });
+}
+
+/**
+ * Apre il modale di aiuto contestuale della Tastiera (Modifica Manuale).
+ */
+function apriModaleAiutoTastiera() {
+    var html =
+        '<div class="vp-help-section">' +
+            '<div class="vp-help-section-title"><i class="bi bi-keyboard"></i> Tastiera</div>' +
+            '<div class="vp-help-row"><kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd> &rarr; sposta <b>(XY)</b></div>' +
+            '<div class="vp-help-row"><kbd>Ctrl</kbd> + <kbd>&larr;</kbd><kbd>&rarr;</kbd> &rarr; ruota 90&deg; ↺↻</div>' +
+            '<div class="vp-help-row"><kbd>Ctrl</kbd> + <kbd>&uarr;</kbd><kbd>&darr;</kbd> &rarr; alza/abbassa <b>(Z)</b></div>' +
+            '<div class="vp-help-row"><kbd>Invio</kbd> &rarr; conferma posizione</div>' +
+        '</div>';
+    apriModale('Aiuto — Tastiera', html, null, { noFooter: true, modalClass: 'modal-auto', overlayClass: 'modal-overlay-clean' });
+}
+
 function inizializza() {
     cacheDom();
     caricaImpostazioni(); // Carica impostazioni ottimizzatore da localStorage
+    _inizializzaIndicatoreStrategia();
 
     // Chiudi modale cliccando fuori
     DOM.modalOverlay.addEventListener('click', function (e) {
@@ -87,8 +119,22 @@ function inizializza() {
         setActiveView('carico');
     });
 
-    // --- Ottimizza ---
-    DOM.ottimizzaBtn.addEventListener('click', elaboraOttimizzazione);
+    // --- Azioni ottimizzazione automatica ---
+    if (DOM.ottimizzaBtn) {
+        DOM.ottimizzaBtn.addEventListener('click', function () {
+            elaboraOttimizzazione(true);
+        });
+    }
+    if (DOM.btnSalvaAuto) {
+        DOM.btnSalvaAuto.addEventListener('click', function () {
+            if (typeof salvaPianoDB === 'function') salvaPianoDB();
+        });
+    }
+    if (DOM.btnElaboraAuto) {
+        DOM.btnElaboraAuto.addEventListener('click', function () {
+            elaboraOttimizzazione(false);
+        });
+    }
 
     // --- Snap step manuale ---
     var snapSelect = document.getElementById('manuale-snap-step');
@@ -97,6 +143,10 @@ function inizializza() {
             if (typeof STATE !== 'undefined') {
                 STATE.snapStepCm = parseInt(this.value) || 10;
             }
+            // Il cambio dello snap non deve lasciare il focus sulla combo:
+            // subito dopo la scelta le frecce devono muovere l'oggetto
+            // selezionato, non cambiare nuovamente l'opzione del select.
+            this.blur();
         });
     }
 
@@ -112,6 +162,28 @@ function inizializza() {
         autoBtnPesi.addEventListener('click', function () {
             _eseguiAzioneRapida('grafico-pesi');
         });
+    }
+
+    // --- Bottone Salva (tab Manuale) ---
+    var manualeBtnSalva = document.getElementById('manuale-btn-salva');
+    if (manualeBtnSalva) {
+        manualeBtnSalva.addEventListener('click', function () {
+            if (typeof salvaPianoDB === 'function') {
+                salvaPianoDB();
+            } else {
+                showToast('Modulo salvataggio non caricato.', 'error');
+            }
+        });
+    }
+
+    // --- Help contestuale: Mouse / Tastiera → 2 modali (tab Manuale) ---
+    var manualeBtnHelpMouse = document.getElementById('manuale-btn-help-mouse');
+    var manualeBtnHelpTastiera = document.getElementById('manuale-btn-help-tastiera');
+    if (manualeBtnHelpMouse) {
+        manualeBtnHelpMouse.addEventListener('click', apriModaleAiutoMouse);
+    }
+    if (manualeBtnHelpTastiera) {
+        manualeBtnHelpTastiera.addEventListener('click', apriModaleAiutoTastiera);
     }
 
     // --- Camera controls ---

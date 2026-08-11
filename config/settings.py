@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
+
+BASE_LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
 # Carica variabili d'ambiente dal file .env (solo in sviluppo)
 try:
     from dotenv import load_dotenv
@@ -34,7 +37,9 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+# Default a False: in produzione DEBUG va impostato esplicitamente a True
+# solo se necessario. In sviluppo locale il .env lo mette a True.
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else []
 
@@ -120,17 +125,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
+# Le PK sono AutoField (int) come da migrazioni esistenti: senza questo
+# Django 5.x (default BigAutoField) proporrebbe continuamente una migrazione
+# "Alter field id" su ogni modello. Per un DB già popolato l'auto-increment
+# int32 è perfettamente adeguato e non richiede ALTER.
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# PostgreSQL è l'unico database supportato (sviluppo e produzione).
+# Le variabili DB_* sono OBBLIGATORIE: se mancano l'app NON parte
+# (KeyError all'avvio), niente fallback silenzioso su SQLite.
+# Valori in .env (sviluppo) o nelle env del container (produzione).
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': os.environ.get('DB_NAME', str(BASE_DIR / 'db.sqlite3')),
-        'USER': os.environ.get('DB_USER', ''),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', ''),
-        'PORT': os.environ.get('DB_PORT', ''),
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['DB_USER'],
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
@@ -170,6 +186,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# Raccolta dei file statici per la produzione (collectstatic).
+# In Docker: volume condiviso con nginx; .gitignore esclude la cartella.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
 # ---------------------------------------------------------------------------
@@ -241,10 +260,17 @@ REST_FRAMEWORK = {
 
 
 # ---------------------------------------------------------------------------
-# CORS Headers (per sviluppo frontend)
+# CORS Headers — configurabili via env (default sicuri: niente allow-all)
 # ---------------------------------------------------------------------------
 
-CORS_ALLOW_ALL_ORIGINS = True  # Solo in sviluppo
+CORS_ALLOW_ALL_ORIGINS = (
+    os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('true', '1', 'yes')
+)
+CORS_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
+    if o.strip()
+]
 
 CORS_ALLOW_METHODS = [
     "DELETE",
@@ -254,3 +280,78 @@ CORS_ALLOW_METHODS = [
     "POST",
     "PUT",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Sicurezza HTTPS (consigliata in produzione, dietro nginx)
+# Tutte configurabili via env: i default lasciano invariato lo sviluppo locale.
+# ---------------------------------------------------------------------------
+
+# Origini HTTPS autorizzate per il CSRF (es. "https://tuodominio.com")
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if o.strip()
+]
+
+# Redirect automatico a HTTPS (in produzione; altrimenti gestito da nginx)
+SECURE_SSL_REDIRECT = (
+    os.environ.get('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1', 'yes')
+)
+
+# Dietro nginx: Django deve sapere che la richiesta originale era HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cookie sicuri (solo HTTPS)
+SESSION_COOKIE_SECURE = (
+    os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+)
+CSRF_COOKIE_SECURE = (
+    os.environ.get('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+)
+
+# Logging esplicito su stdout: Docker/Gunicorn possono raccogliere i log
+# senza scrivere file locali non persistenti nel container.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": BASE_LOG_LEVEL,
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": BASE_LOG_LEVEL,
+            "propagate": False,
+        },
+        "caricamento": {
+            "handlers": ["console"],
+            "level": BASE_LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+}
+
+# HSTS: abilitarlo solo quando il dominio è definitivamente servito in HTTPS.
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = (
+    os.environ.get('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'False').lower()
+    in ('true', '1', 'yes')
+)
+SECURE_HSTS_PRELOAD = (
+    os.environ.get('SECURE_HSTS_PRELOAD', 'False').lower()
+    in ('true', '1', 'yes')
+)
