@@ -322,6 +322,7 @@ function apriModalePiani() {
             card.addEventListener('click', async function () {
                 var pid = parseInt(card.dataset.pianoId);
                 WS.activePianoId = pid;
+                if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
                 if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = false;
                 // Invalida i dati del grafico in modo che vengano scaricati per il piano appena caricato
                 _ultimaDistribuzionePesi = null;
@@ -359,5 +360,5 @@ function apriModalePiani() {
 // Valori di default per le impostazioni dell'ottimizzatore
 // Versione impostazioni: incrementa quando i default cambiano
 // per forzare l'aggiornamento della cache localStorage
-var IMPOSTAZIONI_VERSION = 7;
+var IMPOSTAZIONI_VERSION = 8;
 

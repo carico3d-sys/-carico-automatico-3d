@@ -31,10 +31,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-ta)6m@5)@%wjv61r!*rs%#q#upvj*t301eo@ub5s967!q*sa-k'
-)
+# Fail fast: un secret di fallback potrebbe firmare sessioni e token con un
+# valore noto. Il valore deve arrivare dal secret store o dal file .env locale.
+SECRET_KEY = os.environ['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Default a False: in produzione DEBUG va impostato esplicitamente a True

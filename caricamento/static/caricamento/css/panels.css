@@ -1,46 +1,7 @@
 /* panels.css — pannello destro, oggetti, autocomplete, panel view */
 /* =============================================================================
-   POPOVER AIUTO COMANDI (viewport toolbar)
+   STILI CONDIVISI DEL POPOVER AIUTO
    ============================================================================= */
-
-.vp-help-popover {
-    position: absolute;
-    top: 40px;
-    right: 10px;
-    z-index: 100;
-    background: #fff;
-    border: 1px solid #d0d5dc;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-    padding: 16px 18px 12px;
-    min-width: 280px;
-    animation: helpPopoverIn 0.15s ease;
-}
-
-@keyframes helpPopoverIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.vp-help-close {
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 13px;
-    color: #999;
-    transition: all var(--transition);
-}
-.vp-help-close:hover {
-    background: #fce4e4;
-    color: var(--color-danger);
-}
 
 .vp-help-section {
     margin-bottom: 10px;
@@ -175,7 +136,7 @@
     height: 4px;
     -webkit-appearance: none;
     appearance: none;
-    background: rgba(255,255,255,0.12);
+    background: var(--color-slider-sequence-bg);
     border-radius: 2px;
     outline: none;
     cursor: pointer;

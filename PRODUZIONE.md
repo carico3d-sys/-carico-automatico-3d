@@ -40,11 +40,14 @@
 - [x] `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_PROXY_SSL_HEADER` tutti configurabili via env (default sicuri per lo sviluppo).
 - [x] `python manage.py check` e `makemigrations --check` puliti.
 - [x] `check --deploy` esaminato: i warning W004/W008/W009/W012/W016/W018 sono **attesi in locale** (DEBUG=True, no HTTPS) e si risolvono in produzione con le env del compose.
+- [x] `SECRET_KEY` senza fallback: se manca dall'ambiente, l'applicazione fallisce all'avvio invece di usare un valore noto.
+- [x] Guide Docker ripulite: nessuna password PostgreSQL in chiaro e PostgreSQL non viene più esposto direttamente dall'esempio di avvio.
 
 ---
 
 ## 🔴 DA FARE PRIMA DEL DEPLOY (manuale)
 
+- [ ] **0. ROTAZIONE CREDENZIALI** (bloccante): la password PostgreSQL precedentemente presente nella guida va revocata/rigenerata. Se il repository è stato pubblicato, valutare anche la bonifica della storia Git e dei cloni/cache.
 - [ ] **1. COMMIT E PUSH DI TUTTO** (bloccante): `git add -A && git commit && git push`.
   Verificare che il checkout contenga tutti i moduli `engine/tre_d/`, le migrazioni `0017_*.py` e `0018_aggiunto_owner_dati.py`, oltre alle immagini nuove.
   - Eliminare `packer_prima_della_modifica.py` (residuo legacy).

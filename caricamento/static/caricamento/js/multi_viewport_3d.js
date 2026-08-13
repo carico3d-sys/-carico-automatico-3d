@@ -273,7 +273,7 @@ function disattivaMultiViewport() {
     STATE.animating = false;
 
     // Rimuovi stato attivo dal pulsante griglia
-    var gridBtn = document.getElementById('vp-btn-grid');
+    var gridBtn = document.getElementById('vpf-btn-grid');
     if (gridBtn) gridBtn.classList.remove('active');
 
     if (MVP._overlayEl) {

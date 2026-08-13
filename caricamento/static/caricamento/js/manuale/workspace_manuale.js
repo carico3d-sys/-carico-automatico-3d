@@ -29,26 +29,346 @@ var _fallbackOffsetCounter = 0;  // contatore per fallback incrementale
 var _ghostIntersectVec = new THREE.Vector3();  // riutilizzabile per ghost pointermove
 var _ghostModeEnabled = false;  // toggle Ghost ON/OFF nel pannello manuale
 
+// =============================================================================
+// CRONOLOGIA UNDO — MODALITÀ MANUALE
+// =============================================================================
+
+function _manualeSnapshotCorrente() {
+    if (typeof STATE === 'undefined' || !STATE.scene || !Array.isArray(STATE.oggettiMesh)) return null;
+
+    var oggetti = STATE.oggettiMesh.filter(function (group) {
+        return group && group.parent && group.userData && group.position;
+    }).map(function (group) {
+        var ud = group.userData || {};
+        var dim = typeof _getTjsDimensions === 'function'
+            ? _getTjsDimensions(group)
+            : (ud._tjsDimCm || { x: 0, y: 0, z: 0 });
+        var anagrafica = typeof trovaOggettoPerCodice === 'function'
+            ? trovaOggettoPerCodice(ud.codice)
+            : null;
+        return {
+            oggetto_id: anagrafica ? anagrafica.id : null,
+            codice: String(ud.codice || ''),
+            descrizione: ud.descrizione || (anagrafica && anagrafica.descrizione) || '',
+            peso: Number(ud.peso || (anagrafica && anagrafica.peso_kg) || 0),
+            colore: ud.colore || (anagrafica && coloreOggetto(anagrafica)) || '#447e9b',
+            posizione: {
+                x: Number(group.position.x),
+                y: Number(group.position.y),
+                z: Number(group.position.z),
+            },
+            dimensioni: {
+                x: Number(dim.x),
+                y: Number(dim.y),
+                z: Number(dim.z),
+            },
+            orientamento: ud._orientamento || ud.rotazione || 'LxPxH',
+            eccentricStep: Number(ud._eccentricStep || 0),
+        };
+    });
+
+    var pannello = [];
+    if (typeof DOM !== 'undefined' && DOM.panelItemsList) {
+        DOM.panelItemsList.querySelectorAll('.panel-item').forEach(function (item) {
+            pannello.push({
+                oggetto_id: item.dataset.oggettoId || '',
+                codice: item.dataset.codice || '',
+                quantita: parseInt(item.querySelector('.panel-qty-input')?.value, 10) || 0,
+                qtyOriginale: item.dataset.qtyOriginale || '',
+                priorita: item.dataset.priorita || '0',
+            });
+        });
+    }
+    // Una riga a quantità zero è in fase di rimozione e non rappresenta più
+    // un oggetto richiesto nel carico manuale.
+    pannello = pannello.filter(function (item) { return item.quantita > 0; });
+    return { oggetti: oggetti, pannello: pannello };
+}
+
+function _aggiornaUndoManualeUI() {
+    var btn = document.getElementById('manuale-btn-annulla-ghost');
+    if (!btn || typeof WS === 'undefined') return;
+    var ghostAttivo = typeof _ghostState !== 'undefined' && _ghostState.active;
+    var disponibile = ghostAttivo || (Array.isArray(WS._manualUndoStack) && WS._manualUndoStack.length > 1);
+    // Il bottone può essere configurato con layout colonna (icona sopra,
+    // testo sotto). `block` annullerebbe il flex-direction impostato da
+    // Gestione Icone; quando è visibile deve restare un flex container.
+    btn.style.display = WS.manualMode ? 'flex' : 'none';
+    btn.disabled = !disponibile;
+    btn.title = ghostAttivo
+        ? 'Annulla il piazzamento corrente'
+        : 'Annulla ultima modifica manuale';
+    btn.setAttribute('aria-label', btn.title);
+    // La Gestione Icone può personalizzare la scritta di questo bottone.
+    // Mantieni il testo configurato anche quando cambia lo stato runtime;
+    // prima questa funzione lo sostituiva sempre con il valore predefinito.
+    var cfgAnnulla = (typeof BOTTONI_CONFIG !== 'undefined' && BOTTONI_CONFIG)
+        ? BOTTONI_CONFIG['man-annulla'] : null;
+    var testoConfigurato = cfgAnnulla && cfgAnnulla.label
+        ? String(cfgAnnulla.label).trim()
+        : '';
+    var testo = ' ' + (testoConfigurato ||
+        (ghostAttivo ? 'Annulla piazzamento' : 'Annulla ultima modifica'));
+    var nodiTesto = Array.prototype.slice.call(btn.childNodes).filter(function (node) {
+        return node.nodeType === 3;
+    });
+    if (nodiTesto.length > 0) {
+        nodiTesto[nodiTesto.length - 1].nodeValue = testo;
+    } else {
+        btn.appendChild(document.createTextNode(testo));
+    }
+}
+
+function _reimpostaCronologiaManuale() {
+    if (typeof WS === 'undefined' || typeof STATE === 'undefined' || !STATE.scene) return;
+    var snapshot = _manualeSnapshotCorrente();
+    WS._manualUndoScene = STATE.scene;
+    WS._manualUndoStack = snapshot ? [snapshot] : [];
+    WS._manualUndoRestoring = false;
+    _aggiornaUndoManualeUI();
+}
+
+function _inizializzaCronologiaManuale() {
+    if (typeof WS === 'undefined' || typeof STATE === 'undefined' || !STATE.scene) return;
+    if (WS._manualUndoScene === STATE.scene && Array.isArray(WS._manualUndoStack) && WS._manualUndoStack.length > 0) {
+        _aggiornaUndoManualeUI();
+        return;
+    }
+    var snapshot = _manualeSnapshotCorrente();
+    WS._manualUndoScene = STATE.scene;
+    WS._manualUndoStack = snapshot ? [snapshot] : [];
+    WS._manualUndoRestoring = false;
+    _aggiornaUndoManualeUI();
+}
+
+function _registraModificaManuale() {
+    if (typeof WS === 'undefined' || !WS.manualMode || WS._manualUndoRestoring) return;
+    _inizializzaCronologiaManuale();
+    var snapshot = _manualeSnapshotCorrente();
+    if (!snapshot) return;
+    var stack = WS._manualUndoStack;
+    if (stack.length > 0 && JSON.stringify(stack[stack.length - 1]) === JSON.stringify(snapshot)) return;
+    stack.push(snapshot);
+    // Evita una crescita illimitata mantenendo comunque una cronologia ampia.
+    if (stack.length > 51) stack.splice(1, stack.length - 51);
+    _aggiornaUndoManualeUI();
+}
+
+function _disposeGruppoManuale(group) {
+    if (!group || typeof group.traverse !== 'function') return;
+    group.traverse(function (child) {
+        if (child.geometry && typeof child.geometry.dispose === 'function') child.geometry.dispose();
+        if (child.material) {
+            var materiali = Array.isArray(child.material) ? child.material : [child.material];
+            materiali.forEach(function (materiale) {
+                if (materiale.map && typeof materiale.map.dispose === 'function') materiale.map.dispose();
+                if (typeof materiale.dispose === 'function') materiale.dispose();
+            });
+        }
+    });
+}
+
+function _ripristinaPannelloDaSnapshot(snapshot) {
+    if (typeof DOM === 'undefined' || !DOM.panelItemsList) return;
+    var desiderati = snapshot.pannello || [];
+    var desideratiKey = {};
+
+    DOM.panelItemsList.querySelectorAll('.panel-item').forEach(function (item) {
+        if (item._panelRemovalTimer) {
+            clearTimeout(item._panelRemovalTimer);
+            item._panelRemovalTimer = null;
+            item.style.opacity = '';
+            item.style.transition = '';
+        }
+        var key = item.dataset.oggettoId || item.dataset.codice || '';
+        if (!desiderati.some(function (d) { return String(d.oggetto_id) === String(key) || d.codice === key; })) {
+            item.remove();
+        }
+    });
+
+    desiderati.forEach(function (dati) {
+        var item = Array.prototype.slice.call(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
+            return (dati.oggetto_id && row.dataset.oggettoId === String(dati.oggetto_id)) ||
+                (dati.codice && row.dataset.codice === dati.codice);
+        });
+        if (!item && typeof trovaOggetto === 'function') {
+            var oggetto = dati.oggetto_id ? trovaOggetto(parseInt(dati.oggetto_id, 10)) : trovaOggettoPerCodice(dati.codice);
+            if (oggetto && typeof aggiungiAlCarico === 'function') {
+                item = aggiungiAlCarico(oggetto.id, dati.quantita, true, dati.qtyOriginale || undefined);
+            }
+        }
+        if (!item) return;
+        desideratiKey[item.dataset.oggettoId || item.dataset.codice] = true;
+        var qty = item.querySelector('.panel-qty-input');
+        if (qty) {
+            qty.value = dati.quantita;
+            qty.min = dati.qtyOriginale ? '0' : '1';
+        }
+        item.dataset.priorita = dati.priorita || '0';
+        if (dati.qtyOriginale) item.dataset.qtyOriginale = dati.qtyOriginale;
+        else delete item.dataset.qtyOriginale;
+        var badge = item.querySelector('.panel-qty-originale');
+        if (badge) {
+            badge.textContent = dati.qtyOriginale || '';
+            badge.title = dati.qtyOriginale ? 'Quantità richiesta: ' + dati.qtyOriginale : 'Quantità richiesta: —';
+        }
+        var prio = item.querySelector('.panel-prio-input');
+        if (prio) prio.value = dati.priorita || '0';
+    });
+
+    var vuoto = DOM.panelItemsList.children.length === 0;
+    var panelHeader = document.getElementById('panel-items-header');
+    if (panelHeader) panelHeader.style.display = vuoto ? 'none' : 'flex';
+    if (DOM.panelEmpty) DOM.panelEmpty.style.display = vuoto ? 'flex' : 'none';
+    if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
+    if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
+}
+
+function _ripristinaSnapshotManuale(snapshot) {
+    if (!snapshot || typeof STATE === 'undefined' || !STATE.scene) return;
+    WS._manualUndoRestoring = true;
+    try {
+        if (typeof _deselectObject === 'function') _deselectObject(true);
+        STATE.selectedObject = null;
+        var infoEl = document.getElementById('manuale-oggetto-info');
+        if (infoEl) infoEl.style.display = 'none';
+        var btnRimuovi = document.getElementById('manuale-btn-rimuovi');
+        if (btnRimuovi) btnRimuovi.disabled = true;
+        if (STATE.dragState) {
+            STATE.dragState.active = false;
+            STATE.dragState.object = null;
+        }
+        STATE.oggettiMesh.forEach(function (group) {
+            if (group.parent) group.parent.remove(group);
+            _disposeGruppoManuale(group);
+        });
+        STATE.oggettiMesh = [];
+
+        (snapshot.oggetti || []).forEach(function (dati) {
+            var item = typeof trovaOggettoPerCodice === 'function' ? trovaOggettoPerCodice(dati.codice) : null;
+            var colore = dati.colore || (item ? coloreOggetto(item) : '#447e9b');
+            var nuovo = _creaMeshSingolo(
+                dati.dimensioni,
+                new THREE.Vector3(dati.posizione.x, dati.posizione.y, dati.posizione.z),
+                dati.codice,
+                colore,
+                dati.descrizione || (item && item.descrizione) || '',
+                dati.peso || (item && item.peso_kg) || 0
+            );
+            nuovo.userData._orientamento = dati.orientamento || 'LxPxH';
+            nuovo.userData.rotazione = dati.orientamento || 'LxPxH';
+            nuovo.userData._eccentricStep = dati.eccentricStep || 0;
+            nuovo.userData.oggetto_id = dati.oggetto_id || (item && item.id) || null;
+            STATE.scene.add(nuovo);
+            STATE.oggettiMesh.push(nuovo);
+        });
+
+        _ripristinaPannelloDaSnapshot(snapshot);
+        if (typeof _aggiornaSliderCarico === 'function') _aggiornaSliderCarico();
+        if (typeof aggiornaGraficoPesiInTempoReale === 'function') aggiornaGraficoPesiInTempoReale();
+        if (typeof _refreshSidebarLineari === 'function') _refreshSidebarLineari();
+        if (STATE.dati) {
+            STATE.dati.oggetti = (snapshot.oggetti || []).map(function (dati) {
+                return {
+                    codice: dati.codice,
+                    descrizione: dati.descrizione || '',
+                    posizione_cm: {
+                        x: Math.max(0, dati.posizione.x - dati.dimensioni.x / 2),
+                        y: Math.max(0, dati.posizione.z - dati.dimensioni.z / 2),
+                        z: Math.max(0, dati.posizione.y - dati.dimensioni.y / 2),
+                    },
+                    dimensioni_cm: {
+                        x: dati.dimensioni.x,
+                        y: dati.dimensioni.z,
+                        z: dati.dimensioni.y,
+                    },
+                    peso_kg: dati.peso || 0,
+                    peso_sopra_kg: 0,
+                    colore: dati.colore || '#447e9b',
+                    rotazione: typeof _normalizzaRotazionePerApi === 'function'
+                        ? _normalizzaRotazionePerApi(dati.orientamento || 'XYZ')
+                        : (dati.orientamento || 'XYZ'),
+                };
+            });
+        }
+        if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
+    } finally {
+        WS._manualUndoRestoring = false;
+        _aggiornaUndoManualeUI();
+    }
+}
+
+function _annullaUltimaModificaManuale() {
+    if (typeof WS === 'undefined') return;
+    if (typeof _ghostState !== 'undefined' && _ghostState.active) {
+        _annullaGhost(false);
+        return;
+    }
+    _inizializzaCronologiaManuale();
+    if (!WS._manualUndoStack || WS._manualUndoStack.length <= 1) return;
+    // Lo stato corrente è l'ultimo elemento: rimuovilo e ripristina il precedente.
+    WS._manualUndoStack.pop();
+    var precedente = WS._manualUndoStack[WS._manualUndoStack.length - 1];
+    _ripristinaSnapshotManuale(precedente);
+    showToast('↩️ Ultima modifica manuale annullata.', 'info');
+}
 
 
 // =============================================================================
 // GHOST MODE TOGGLE
 // =============================================================================
 
-function _setGhostMode(enabled) {
-    _ghostModeEnabled = enabled;
+/**
+ * Aggiorna solo la rappresentazione del toggle, senza confondere la modalità
+ * Ghost (_ghostModeEnabled) con un piazzamento momentaneamente attivo
+ * (_ghostState.active). Questo evita che la configurazione icone, che può
+ * ricostruire il contenuto del bottone, lasci ON/OFF e colore desincronizzati.
+ */
+function _aggiornaGhostToggleUI() {
     var btn = document.getElementById('manuale-btn-ghost-toggle');
     if (!btn) return;
+
+    var enabled = !!_ghostModeEnabled;
+    var icon = btn.querySelector('.manuale-emoji, img, i');
+    var testoBase = btn.dataset.ghostLabel || 'Ghost';
+    var textNodes = Array.prototype.slice.call(btn.childNodes).filter(function (node) {
+        return node.nodeType === 3;
+    });
+    if (textNodes.length > 0) {
+        var testoConfigurato = textNodes.map(function (node) {
+            return node.nodeValue || '';
+        }).join(' ').trim();
+        testoConfigurato = testoConfigurato.replace(/\s*:\s*(ON|OFF)\s*$/i, '').trim();
+        if (testoConfigurato && !btn.dataset.ghostLabel) testoBase = testoConfigurato;
+    }
+
+    Array.prototype.slice.call(btn.childNodes).forEach(function (node) {
+        if (node.nodeType === 3 || (node !== icon && node.nodeType === 1)) {
+            btn.removeChild(node);
+        }
+    });
+    btn.appendChild(document.createTextNode(' ' + testoBase + ': ' + (enabled ? 'ON' : 'OFF')));
+    btn.classList.toggle('btn-success', enabled);
+    btn.dataset.ghostMode = enabled ? 'on' : 'off';
+
+    // Un eventuale colore inline della Gestione Icone prevale su btn-success.
+    // Per ON lo rimuoviamo: così il colore di stato torna visibile.
     if (enabled) {
-        btn.innerHTML = '<span class="manuale-emoji">👻</span> Ghost: ON';
-        btn.className = 'btn btn-sm btn-success';
-    } else {
-        btn.innerHTML = '<span class="manuale-emoji">👻</span> Ghost: OFF';
-        btn.className = 'btn btn-sm';
-        // Se il ghost era attivo, annullalo
-        if (_ghostState.active) _annullaGhost(true);
+        btn.style.backgroundColor = '';
+        btn.style.borderColor = '';
+        btn.style.boxShadow = '';
     }
 }
+
+function _setGhostMode(enabled) {
+    _ghostModeEnabled = !!enabled;
+    _aggiornaGhostToggleUI();
+    if (!_ghostModeEnabled && _ghostState.active) {
+        // Se il ghost era attivo, annullalo dopo aver aggiornato il toggle.
+        _annullaGhost(true);
+    }
+}
+
 var _ghostState = {
     active: false,
     group: null,          // THREE.Group del ghost
@@ -179,9 +499,18 @@ function setupDragInteraction(container) {
     if (btnAnnullaGhost && !btnAnnullaGhost._listenerAttached) {
         btnAnnullaGhost._listenerAttached = true;
         btnAnnullaGhost.addEventListener('click', function () {
-            if (_ghostState.active) _annullaGhost(false);
+            _annullaUltimaModificaManuale();
         });
     }
+
+    // La scena può essere stata appena caricata/ricostruita: il primo stato
+    // della cronologia è sempre quello realmente visibile all'utente.
+    _inizializzaCronologiaManuale();
+
+    // Riallinea anche un bottone eventualmente ricostruito dalla gestione
+    // icone o da un rebuild della scena.
+    _aggiornaGhostToggleUI();
+    _aggiornaUndoManualeUI();
 
     STATE._dragListeners = {
         canvas: canvas,

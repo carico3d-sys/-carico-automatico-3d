@@ -38,7 +38,8 @@ var ICON_CATALOG = [
     { id: 'header-logo',        type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [20, 20], desc: 'Header: logo Carico 3D',                   location: 'Header',  selector: '#header-logo > i' },
 
     // --- Sidebar Tabs ---
-    { id: 'sidebar-nav',        type: 'bootstrap', iconClass: 'bi bi-compass',           file: '', dims: [18, 18], desc: 'Sidebar: tab Navigazione',                 location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="navigazione"] .sidebar-tab-icon' },
+    { id: 'sidebar-nav',        type: 'bootstrap', iconClass: 'bi bi-compass',           file: '', dims: [18, 18], desc: 'Sidebar: tab Documenti',                   location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="documenti"] .sidebar-tab-icon' },
+    { id: 'sidebar-anagrafica', type: 'bootstrap', iconClass: 'bi bi-journal-text',      file: '', dims: [18, 18], desc: 'Sidebar: tab Anagrafica',                  location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="anagrafica"] .sidebar-tab-icon' },
     { id: 'sidebar-manuale',    type: 'bootstrap', iconClass: 'bi bi-hand-index-thumb',  file: '', dims: [18, 18], desc: 'Sidebar: tab Manuale',                     location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="manuale"] .sidebar-tab-icon' },
     { id: 'sidebar-auto',       type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [18, 18], desc: 'Sidebar: tab Automatica',                  location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="automatica"] .sidebar-tab-icon' },
 
@@ -61,20 +62,38 @@ var ICON_CATALOG = [
     { id: 'nav-report-3d',      type: 'bootstrap', iconClass: 'bi bi-file-earmark',      file: '', dims: [18, 18], desc: 'Sidebar Nav: Report 3D (categoria Report)',  location: 'Sidebar', selector: '.sidebar-nav-item[data-action="report-3d"] > i' },
     { id: 'nav-quadranti',      type: 'bootstrap', iconClass: 'bi bi-grid-3x3-gap',      file: '', dims: [18, 18], desc: 'Sidebar Nav: Quadranti 2x2',               location: 'Sidebar', selector: '.sidebar-nav-item[data-action="report-quadranti"] > i' },
 
-    // --- Sidebar Riepilogo ---
-    { id: 'sidebar-mezzo',      type: 'bootstrap', iconClass: 'bi bi-truck',             file: '', dims: [18, 18], desc: 'Sidebar Riepilogo: icona mezzo',            location: 'Sidebar', selector: '#sidebar-mezzo-icon' },
+    // --- Pannello Impostazioni (renderizzato dinamicamente) ---
+    { id: 'settings-title',              type: 'bootstrap', iconClass: 'bi bi-gear',              file: '', dims: [18, 18], desc: 'Impostazioni: titolo pannello',                    location: 'Impostazioni', selector: '.settings-impostazioni-icon' },
+    { id: 'settings-strategia',          type: 'bootstrap', iconClass: 'bi bi-bullseye',          file: '', dims: [16, 16], desc: 'Impostazioni: Strategia di Ottimizzazione',       location: 'Impostazioni', selector: '.settings-strategia-icon' },
+    { id: 'settings-output',             type: 'bootstrap', iconClass: 'bi bi-bar-chart',         file: '', dims: [16, 16], desc: 'Impostazioni: Output',                            location: 'Impostazioni', selector: '.settings-output-icon' },
+    { id: 'settings-manuale',            type: 'bootstrap', iconClass: 'bi bi-hand-index-thumb',  file: '', dims: [16, 16], desc: 'Impostazioni: Parametri Modalità Manuale',        location: 'Impostazioni', selector: '.settings-manuale-icon' },
+    { id: 'settings-algoritmo',          type: 'bootstrap', iconClass: 'bi bi-tools',             file: '', dims: [15, 15], desc: 'Impostazioni: Algoritmo 3D',                      location: 'Impostazioni', selector: '.settings-algoritmo-icon' },
+    { id: 'settings-compattazione',      type: 'bootstrap', iconClass: 'bi bi-boxes',             file: '', dims: [15, 15], desc: 'Impostazioni: Compattazione aggressiva',          location: 'Impostazioni', selector: '.settings-compattazione-icon' },
+    { id: 'settings-backtracking',       type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [15, 15], desc: 'Impostazioni: Backtracking avanzato',             location: 'Impostazioni', selector: '.settings-backtracking-icon' },
+    { id: 'settings-distribuzione',      type: 'bootstrap', iconClass: 'bi bi-speedometer2',      file: '', dims: [15, 15], desc: 'Impostazioni: Distribuzione pesi',                location: 'Impostazioni', selector: '.settings-distribuzione-icon' },
+    { id: 'settings-output-etichette',   type: 'bootstrap', iconClass: 'bi bi-tags',              file: '', dims: [15, 15], desc: 'Impostazioni Output: Etichette oggetti',          location: 'Impostazioni', selector: '.settings-output-etichette-icon' },
+    { id: 'settings-output-contenitore', type: 'bootstrap', iconClass: 'bi bi-box',               file: '', dims: [15, 15], desc: 'Impostazioni Output: Etichetta contenitore',      location: 'Impostazioni', selector: '.settings-output-contenitore-icon' },
+    { id: 'settings-output-vuoti',       type: 'bootstrap', iconClass: 'bi bi-graph-down',        file: '', dims: [15, 15], desc: 'Impostazioni Output: Grafico pesi nei vuoti',     location: 'Impostazioni', selector: '.settings-output-vuoti-icon' },
+    { id: 'settings-output-rotazione',   type: 'bootstrap', iconClass: 'bi bi-arrow-repeat',      file: '', dims: [15, 15], desc: 'Impostazioni Output: Modalità rotazione',         location: 'Impostazioni', selector: '.settings-output-rotazione-icon' },
+    { id: 'settings-manuale-strategia',  type: 'bootstrap', iconClass: 'bi bi-box-arrow-in-down', file: '', dims: [15, 15], desc: 'Impostazioni Manuale: Strategia piazzamento',   location: 'Impostazioni', selector: '.settings-manuale-strategia-icon' },
+    { id: 'settings-manuale-snap',       type: 'bootstrap', iconClass: 'bi bi-magnet',             file: '', dims: [15, 15], desc: 'Impostazioni Manuale: Snap griglia',             location: 'Impostazioni', selector: '.settings-manuale-snap-icon' },
+    { id: 'settings-manuale-sporgenza', type: 'bootstrap', iconClass: 'bi bi-arrows-expand-vertical', file: '', dims: [15, 15], desc: 'Impostazioni Manuale: Sporgenza massima',       location: 'Impostazioni', selector: '.settings-manuale-sporgenza-icon' },
 
-    // --- Viewport Toolbar (quella orizzontale, ora nascosta ma presente nel DOM) ---
-    { id: 'vp-top',             type: 'bootstrap', iconClass: 'bi bi-arrow-up-square',   file: '', dims: [18, 18], desc: 'Viewport Toolbar: vista dall\'alto',        location: 'Viewport', selector: '#vp-btn-top > i' },
-    { id: 'vp-front',           type: 'bootstrap', iconClass: 'bi bi-square',            file: '', dims: [18, 18], desc: 'Viewport Toolbar: vista frontale',          location: 'Viewport', selector: '#vp-btn-front > i' },
-    { id: 'vp-side',            type: 'bootstrap', iconClass: 'bi bi-arrow-right-square',file: '', dims: [18, 18], desc: 'Viewport Toolbar: vista laterale',          location: 'Viewport', selector: '#vp-btn-side > i' },
-    { id: 'vp-grid',            type: 'bootstrap', iconClass: 'bi bi-grid-3x3-gap',      file: '', dims: [18, 18], desc: 'Viewport Toolbar: vista 2x2',               location: 'Viewport', selector: '#vp-btn-grid > i' },
-    { id: 'vp-zoom-out',        type: 'bootstrap', iconClass: 'bi bi-zoom-out',          file: '', dims: [18, 18], desc: 'Viewport Toolbar: zoom out',                location: 'Viewport', selector: '#vp-btn-zoom-out > i' },
-    { id: 'vp-zoom-in',         type: 'bootstrap', iconClass: 'bi bi-zoom-in',           file: '', dims: [18, 18], desc: 'Viewport Toolbar: zoom in',                 location: 'Viewport', selector: '#vp-btn-zoom-in > i' },
-    { id: 'vp-reset',           type: 'bootstrap', iconClass: 'bi bi-house',             file: '', dims: [18, 18], desc: 'Viewport Toolbar: reset camera',            location: 'Viewport', selector: '#vp-btn-reset > i' },
-    { id: 'vp-fullscreen',      type: 'bootstrap', iconClass: 'bi bi-arrows-fullscreen', file: '', dims: [18, 18], desc: 'Viewport Toolbar: fullscreen',              location: 'Viewport', selector: '#vp-btn-fullscreen > i' },
-    { id: 'vp-help',            type: 'bootstrap', iconClass: 'bi bi-question-circle',   file: '', dims: [18, 18], desc: 'Viewport Toolbar: aiuto comandi',           location: 'Viewport', selector: '#vp-btn-help > i' },
-    { id: 'vp-rulers',          type: 'bootstrap', iconClass: 'bi bi-rulers',            file: '', dims: [18, 18], desc: 'Viewport Toolbar: spaziatura',              location: 'Viewport', selector: '#vp-spaziatura-indicator > i' },
+    // --- Sidebar Riepilogo ---
+    { id: 'sidebar-mezzo',      type: 'bootstrap', iconClass: 'bi bi-truck',             file: '', dims: [18, 18], desc: 'Sidebar Riepilogo: icona mezzo',            location: 'Sidebar', selector: '#sidebar-mezzo-icon' },    // --- Palette flottante Vista (unica toolbar Vista) ---
+    // Gli ID di configurazione vp-* restano stabili per non perdere le
+    // configurazioni già salvate; i selettori puntano esclusivamente alla
+    // palette visibile vpf-*.
+    { id: 'vp-top',             type: 'bootstrap', iconClass: 'bi bi-arrow-up-square',   file: '', dims: [18, 18], desc: 'Palette Vista: vista dall\'alto',           location: 'Viewport', selector: '#vpf-btn-top > i' },
+    { id: 'vp-front',           type: 'bootstrap', iconClass: 'bi bi-square',            file: '', dims: [18, 18], desc: 'Palette Vista: vista frontale',             location: 'Viewport', selector: '#vpf-btn-front > i' },
+    { id: 'vp-side',            type: 'bootstrap', iconClass: 'bi bi-arrow-right-square',file: '', dims: [18, 18], desc: 'Palette Vista: vista laterale',             location: 'Viewport', selector: '#vpf-btn-side > i' },
+    { id: 'vp-grid',            type: 'bootstrap', iconClass: 'bi bi-grid-3x3-gap',      file: '', dims: [18, 18], desc: 'Palette Vista: vista 2x2',                  location: 'Viewport', selector: '#vpf-btn-grid > i' },
+    { id: 'vp-zoom-out',        type: 'bootstrap', iconClass: 'bi bi-zoom-out',          file: '', dims: [18, 18], desc: 'Palette Vista: zoom out',                  location: 'Viewport', selector: '#vpf-btn-zoom-out > i' },
+    { id: 'vp-zoom-in',         type: 'bootstrap', iconClass: 'bi bi-zoom-in',           file: '', dims: [18, 18], desc: 'Palette Vista: zoom in',                   location: 'Viewport', selector: '#vpf-btn-zoom-in > i' },
+    { id: 'vp-reset',           type: 'bootstrap', iconClass: 'bi bi-house',             file: '', dims: [18, 18], desc: 'Palette Vista: reset camera',              location: 'Viewport', selector: '#vpf-btn-reset > i' },
+    { id: 'vp-fullscreen',      type: 'bootstrap', iconClass: 'bi bi-arrows-fullscreen', file: '', dims: [18, 18], desc: 'Palette Vista: fullscreen',               location: 'Viewport', selector: '#vpf-btn-fullscreen > i' },
+    { id: 'vp-help',            type: 'bootstrap', iconClass: 'bi bi-question-circle',   file: '', dims: [18, 18], desc: 'Palette Vista: aiuto comandi',             location: 'Viewport', selector: '#vpf-btn-help > i' },
+    { id: 'vp-rulers',          type: 'bootstrap', iconClass: 'bi bi-rulers',            file: '', dims: [18, 18], desc: 'Palette Vista: spaziatura',                location: 'Viewport', selector: '#vpf-btn-spaziatura > i' },
 
     // --- Palette Flottante ---
     { id: 'palette-close',      type: 'bootstrap', iconClass: 'bi bi-x',                 file: '', dims: [16, 16], desc: 'Palette Vista: chiudi',                    location: 'Viewport', selector: '#vp-palette-close > i' },
@@ -97,6 +116,7 @@ var ICON_CATALOG = [
     // --- Manuale Help (dentro sidebar tab Manuale) ---
     { id: 'manuale-help-mouse', type: 'bootstrap', iconClass: 'bi bi-mouse',             file: '', dims: [16, 16], desc: 'Manuale: pulsante Aiuto Mouse (modale)',    location: 'Sidebar', selector: '#manuale-btn-help-mouse > .bi' },
     { id: 'manuale-help-tastiera', type: 'bootstrap', iconClass: 'bi bi-keyboard',       file: '', dims: [16, 16], desc: 'Manuale: pulsante Aiuto Tastiera (modale)', location: 'Sidebar', selector: '#manuale-btn-help-tastiera > .bi' },
+    { id: 'manuale-impostazioni', type: 'bootstrap', iconClass: 'bi bi-gear',             file: '', dims: [16, 16], desc: 'Manuale: pulsante Impostazioni',             location: 'Sidebar', selector: '#manuale-btn-impostazioni > .bi' },
 
     // --- D-Pad ---
     { id: 'dpad-up',            type: 'bootstrap', iconClass: 'bi bi-chevron-up',        file: '', dims: [14, 14], desc: 'D-Pad: freccia su',                        location: 'Sidebar', selector: '#manuale-dpad-up > i' },
@@ -105,8 +125,10 @@ var ICON_CATALOG = [
     { id: 'dpad-right',         type: 'bootstrap', iconClass: 'bi bi-chevron-right',     file: '', dims: [14, 14], desc: 'D-Pad: freccia destra',                    location: 'Sidebar', selector: '#manuale-dpad-right > i' },
     { id: 'dpad-confirm',       type: 'bootstrap', iconClass: 'bi bi-check-lg',          file: '', dims: [18, 18], desc: 'D-Pad: conferma posizione',                location: 'Sidebar', selector: '#manuale-dpad-confirm > i' },
 
-    // --- Bottoni Manuale (emoji colorate: non configurabili come icone, solo Annulla resta Bootstrap) ---
-    { id: 'manuale-cancel',     type: 'bootstrap', iconClass: 'bi bi-x-circle',          file: '', dims: [14, 14], desc: 'Manuale: annulla piazzamento',             location: 'Sidebar', selector: '#manuale-btn-annulla-ghost > i' },
+    // I bottoni d'azione del tab Manuale, incluso Annulla ultima modifica,
+    // sono configurabili esclusivamente in BUTTON_CATALOG (tab Bottoni).
+    // Non duplicare il selettore qui: una doppia configurazione può
+    // trasformare il PNG in Bootstrap durante ogni aggiornamento live.
 
     // --- Altro ---
     { id: 'sezioni-pesi-icon',  type: 'bootstrap', iconClass: 'bi bi-bar-chart',         file: '', dims: [16, 16], desc: 'Sezioni Pesi: icona titolo',               location: 'Viewport', selector: '#sezioni-pesi-panel .sezioni-pesi-title > i' },
@@ -137,7 +159,11 @@ var BUTTON_CATALOG = [
     { id: 'man-pesi',       selector: '#manuale-btn-pesi',      iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Pesi',                location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'man-salva',      selector: '#manuale-btn-salva',     iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Salva',               location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
     { id: 'man-ghost',      selector: '#manuale-btn-ghost-toggle', iconSelRelative: '.manuale-emoji', iconClass: '',               extraClass: 'manuale-emoji', label_default: 'Ghost: OFF',          location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-x-circle',          extraClass: '',            label_default: 'Annulla piazzamento', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-arrow-counterclockwise', extraClass: '',            label_default: 'Annulla ultima modifica', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+
+    // --- Tab Impostazioni (renderizzati dinamicamente) ---
+    { id: 'settings-salva',  selector: '#btn-save-impostazioni',  iconSelRelative: 'i', iconClass: 'bi bi-save',                  extraClass: '', label_default: 'Salva impostazioni',  location: 'Tab Impostazioni', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'settings-reset',  selector: '#btn-reset-impostazioni', iconSelRelative: 'i', iconClass: 'bi bi-arrow-counterclockwise', extraClass: '', label_default: 'Ripristina default', location: 'Tab Impostazioni', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
 
     // --- Finestre Main View: Piani di carico ---
     // (bottoni generati dinamicamente all'apertura della vista: iconSelRelative
@@ -194,10 +220,11 @@ var COLOR_CATALOG = [
     { id: 'accent-hover',  variable: '--color-accent-hover', label: 'Accento hover',      group: 'aree',  def: '#5095b5' },
 
     // --- Slider ---
-    { id: 'slider-track-start', variable: '--color-slider-track-start', label: 'Traccia inizio',      group: 'slider', def: '#e8ecf2' },
-    { id: 'slider-track',       variable: '--color-slider-track-end',   label: 'Traccia spaziatura',  group: 'slider', def: '#447e9b' },
-    { id: 'slider-thumb',       variable: '--color-slider-thumb',       label: 'Manopola spaziatura',  group: 'slider', def: '#447e9b' },
-    { id: 'strategia-thumb',    variable: '--color-strategia-thumb',    label: 'Manopola strategia',   group: 'slider', def: '#447e9b' }
+    { id: 'slider-track-start',  variable: '--color-slider-track-start',  label: 'Traccia inizio',             group: 'slider', def: '#e8ecf2' },
+    { id: 'slider-track',        variable: '--color-slider-track-end',    label: 'Traccia spaziatura',         group: 'slider', def: '#447e9b' },
+    { id: 'slider-thumb',        variable: '--color-slider-thumb',        label: 'Manopola spaziatura',        group: 'slider', def: '#447e9b' },
+    { id: 'strategia-thumb',     variable: '--color-strategia-thumb',     label: 'Manopola strategia',         group: 'slider', def: '#447e9b' },
+    { id: 'slider-sequence-bg',  variable: '--color-slider-sequence-bg', label: 'Sfondo slider sequenza oggetti', group: 'slider', def: '#1f3946' }
 ];
 
 // =============================================================================
@@ -323,7 +350,7 @@ function _trovaElementiIcona(icon) {
         } catch (e) { /* selettore non valido */ }
         // Se non trova nulla, prova la versione senza tag (per elementi già <img>)
         // Sostituisce il tag <i> con * sia quando è seguito da . # [ sia quando
-        // è l'ultimo token del selettore (es. #vp-btn-top > i → #vp-btn-top *).
+        // è l'ultimo token del selettore (es. #vpf-btn-top > i → #vpf-btn-top *).
         if (els.length === 0) {
             var tagless = icon.selector
                 .replace(/(^|[\s>])i(?=[.#\[]|$)/g, '$1*')
@@ -352,40 +379,69 @@ function _trovaElementiIcona(icon) {
  * i PNG configurati: così funziona anche live, senza reload.
  */
 var _applyIconConfig = function _applyIconConfig() {
+    var applicate = 0;
+    var configurateNonTrovate = [];
+
     ICON_CATALOG.forEach(function (icon) {
-        // 1. Ripristina il default Bootstrap per ogni icona del catalogo
-        var elements = _trovaElementiIcona(icon);
-        elements.forEach(function (el) {
-            if (el.tagName === 'IMG') {
-                var i = document.createElement('i');
-                i.className = el.className;   // l'<img> mantiene le classi originali
-                el.parentNode.replaceChild(i, el);
-            }
-        });
-
-        // 2. Se configurata come PNG, sostituisci con <img>
         var cfg = ICON_CONFIG[icon.id];
-        if (!cfg || cfg.type !== 'png' || !cfg.file) return;
+        var elements = _trovaElementiIcona(icon);
 
-        var elements2 = _trovaElementiIcona(icon);
+        // Quando la configurazione torna a Bootstrap, ripristina l'<i>.
+        if (!cfg || cfg.type !== 'png' || !cfg.file) {
+            elements.forEach(function (el) {
+                if (el.tagName === 'IMG') {
+                    var i = document.createElement('i');
+                    i.className = el.className;
+                    i.id = el.id;
+                    el.parentNode.replaceChild(i, el);
+                }
+            });
+            return;
+        }
+
+        // La configurazione è PNG: se l'elemento è già un'immagine lo
+        // aggiorniamo in-place. Questo rende l'applicazione idempotente e
+        // consente al MutationObserver di gestire anche icone dinamiche
+        // senza creare un ciclo infinito di sostituzioni DOM.
+        if (elements.length === 0) {
+            configurateNonTrovate.push({ id: icon.id, selector: icon.selector });
+            return;
+        }
+
         var dims = cfg.dims || icon.dims || [40, 40];
-        var imgUrl = '/static/caricamento/img/' + cfg.file;
+        var imgUrl = _urlPng(cfg.file);
 
-        elements2.forEach(function (el) {
+        elements.forEach(function (el) {
             if (el.closest && el.closest('#icone-manager-overlay')) return;
-            var img = document.createElement('img');
+            var img = el;
+            if (el.tagName !== 'IMG') {
+                img = document.createElement('img');
+                el.parentNode.replaceChild(img, el);
+            }
             img.src = imgUrl;
-            img.className = el.className;   // mantiene le classi per il CSS
+            img.className = el.className;
+            img.id = el.id;
             img.style.width = dims[0] + 'px';
             img.style.height = dims[1] + 'px';
             img.style.objectFit = 'contain';
+            img.style.flexShrink = '0';
+            // L'immagine è solo l'icona: il click deve sempre raggiungere
+            // il bottone padre, anche quando il PNG copre tutta l'area visiva.
+            img.style.pointerEvents = 'none';
             img.alt = '';
+            img.dataset.iconConfigFile = cfg.file;
             if (el.classList.contains('header-cat-icon')) {
                 img.classList.add('header-cat-icon');
             }
-            el.parentNode.replaceChild(img, el);
+            applicate += 1;
         });
     });
+
+    if (configurateNonTrovate.length > 0) {
+        console.warn('[Gestione Icone] PNG configurati ma non trovati nel DOM:', configurateNonTrovate);
+    }
+    console.info('[Gestione Icone] Icone PNG applicate:', applicate,
+        '| configurate non trovate:', configurateNonTrovate.length);
 };
 
 /**
@@ -393,24 +449,67 @@ var _applyIconConfig = function _applyIconConfig() {
  * Per ogni bottone: ripristina il default, poi applica icona PNG (con
  * dimensioni in %), testo personalizzato, dimensione testo e posizione.
  */
-var _applyButtonConfig = function _applyButtonConfig() {
+var _applyButtonConfig = function _applyButtonConfig(force) {
     if (_iconApplying) return;
     _iconApplying = true;
     try {
-        _applyButtonConfigInner();
+        _applyButtonConfigInner(!!force);
     } finally {
         _iconApplying = false;
     }
 };
 
-var _applyButtonConfigInner = function _applyButtonConfigInner() {
+var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
+    var bottoniApplicati = 0;
+    var bottoniNonTrovati = [];
+    var bottoniStaticiNonTrovati = [];
+    var bottoniDinamiciNonPresenti = [];
+
     BUTTON_CATALOG.forEach(function (btnDef) {
         var el = document.querySelector(btnDef.selector);
-        if (!el) return;
         var cfg = BOTTONI_CONFIG[btnDef.id] || {};
+        var configurato = Object.keys(cfg).length > 0;
+        if (!el) {
+            if (configurato) {
+                var dettaglioMancante = {
+                    id: btnDef.id,
+                    selector: btnDef.selector,
+                };
+                bottoniNonTrovati.push(dettaglioMancante);
+                if (btnDef.tab === 'finestre') {
+                    bottoniDinamiciNonPresenti.push(dettaglioMancante);
+                } else {
+                    bottoniStaticiNonTrovati.push(dettaglioMancante);
+                }
+            }
+            return;
+        }
+        // Ghost è un toggle con stato runtime: la Gestione Icone può
+        // configurarne icona, dimensioni e stile, ma non deve ripristinare
+        // ogni volta la scritta statica "Ghost: OFF".
+        var isGhostToggle = btnDef.id === 'man-ghost' &&
+            typeof _ghostModeEnabled !== 'undefined';
+        // L'osservatore dei bottoni dinamici può rilevare anche le modifiche
+        // effettuate da questa stessa funzione. Evita di ricreare il bottone
+        // quando la configurazione è già stata applicata: senza questo stato
+        // il ripristino dell'innerHTML innesca un ciclo e fa lampeggiare i PNG.
+        var appliedState = JSON.stringify(cfg) + '|' +
+            (isGhostToggle ? String(_ghostModeEnabled) : '');
+        // Aggiorna icone/Salva possono passare una mappa degli ID modificati:
+        // bypassa la cache solo per quei bottoni. Il MutationObserver e i
+        // bottoni invariati restano idempotenti, evitando nuovi lampeggi.
+        var forzaApplicazione = force === true || !!(force && force[btnDef.id]);
+        if (!forzaApplicazione && el.dataset.appliedIconState === appliedState) return;
+        if (isGhostToggle) {
+            var ghostLabel = (cfg.label || '').replace(/\s*:\s*(ON|OFF)\s*$/i, '').trim();
+            if (ghostLabel) el.dataset.ghostLabel = ghostLabel;
+            else delete el.dataset.ghostLabel;
+        }
 
-        // Ripristina il default prima di riapplicare
-        if (_btnSnapshot[btnDef.id] !== undefined) {
+        // Ripristina il default prima di riapplicare. Per Ghost lasciamo
+        // intatto il contenuto dinamico, altrimenti il MutationObserver
+        // annulla immediatamente ogni cambio ON/OFF.
+        if (!isGhostToggle && _btnSnapshot[btnDef.id] !== undefined) {
             el.innerHTML = _btnSnapshot[btnDef.id];
         }
         el.style.fontSize = '';
@@ -432,7 +531,10 @@ var _applyButtonConfigInner = function _applyButtonConfigInner() {
         for (var k in cfg) {
             if (cfg.hasOwnProperty(k)) { hasConfig = true; break; }
         }
-        if (!hasConfig) return;
+        if (!hasConfig) {
+            el.dataset.appliedIconState = appliedState;
+            return;
+        }
 
         // L'elemento icona va catturato PRIMA di ogni sostituzione: dopo il
         // passaggio <i> → <img> il selettore tag-based (es. 'i') non matcha più.
@@ -443,19 +545,22 @@ var _applyButtonConfigInner = function _applyButtonConfigInner() {
         // Icona PNG (dimensione in px)
         if (cfg.type === 'png' && cfg.file) {
             var dims = cfg.dims_px || _legacyDimsPx(btnDef, cfg) || btnDef.dims_px || [24, 24];
+            // Mantiene un vero <img> per garantire che il PNG sia sempre
+            // visibile. Il click passa comunque al bottone padre.
             var img = document.createElement('img');
-            img.src = '/static/caricamento/img/' + cfg.file;
+            img.src = _urlPng(cfg.file);
             img.className = iconEl ? iconEl.className : (btnDef.extraClass || '');
             img.style.width = dims[0] + 'px';
             img.style.height = dims[1] + 'px';
             img.style.objectFit = 'contain';
             img.style.flexShrink = '0';
+            img.style.pointerEvents = 'none';
             img.alt = '';
             if (iconEl) {
                 iconEl.parentNode.replaceChild(img, iconEl);
             } else {
                 // Nessun elemento icona: il contenuto è testo/emoji, lo
-                // sostituiamo interamente con l'immagine.
+                // sostituiamo interamente con l'immagine PNG.
                 el.textContent = '';
                 el.appendChild(img);
             }
@@ -463,7 +568,7 @@ var _applyButtonConfigInner = function _applyButtonConfigInner() {
         }
 
         // Testo personalizzato (mantiene l'elemento icona)
-        if (cfg.label) {
+        if (cfg.label && !isGhostToggle) {
             if (iconEl) {
                 var nodes = Array.prototype.slice.call(el.childNodes);
                 nodes.forEach(function (n) {
@@ -486,7 +591,8 @@ var _applyButtonConfigInner = function _applyButtonConfigInner() {
 
         // Colore del bottone: sfondo + testo a contrasto + bordo/ombra scuriti.
         // Il data-icon-color attiva gli hover/active via filter nel CSS.
-        if (cfg.color && _isHexColor(cfg.color)) {
+        if (cfg.color && _isHexColor(cfg.color) &&
+            (!isGhostToggle || !_ghostModeEnabled)) {
             var dark = _darkenColor(cfg.color, 0.25);
             el.style.backgroundColor = cfg.color;
             el.style.color = _textColorFor(cfg.color);
@@ -505,7 +611,24 @@ var _applyButtonConfigInner = function _applyButtonConfigInner() {
         if (cfg.height_px) {
             el.style.height = cfg.height_px + 'px';
         }
+        el.dataset.appliedIconState = appliedState;
+        bottoniApplicati += 1;
     });
+
+    if (bottoniStaticiNonTrovati.length > 0) {
+        console.warn('[Gestione Icone] Bottoni statici configurati ma non trovati nel DOM:', bottoniStaticiNonTrovati);
+    }
+    if (bottoniDinamiciNonPresenti.length > 0) {
+        // Le finestre vengono create solo quando l'utente le apre: il
+        // MutationObserver li catturerà e applicherà la configurazione.
+        console.info('[Gestione Icone] Bottoni finestra in attesa di apertura:', bottoniDinamiciNonPresenti);
+    }
+    console.info('[Gestione Icone] Bottoni configurati applicati:', bottoniApplicati,
+        '| non presenti ora:', bottoniNonTrovati.length);
+
+    // Il bottone Undo ha uno stato runtime (tab Manuale, Ghost e cronologia):
+    // la configurazione icone può ridisegnarlo, ma non deve perderne lo stato.
+    if (typeof _aggiornaUndoManualeUI === 'function') _aggiornaUndoManualeUI();
 };
 
 // =============================================================================
@@ -628,7 +751,9 @@ function apriModaleIcone() {
     DOM.modalClose.onclick = chiudiModaleIcone;
     DOM.modalOverlay.classList.remove('hidden');
 
-    document.querySelector('.modal-container').classList.add('modal-icon-manager');
+    var iconModal = document.querySelector('.modal-container');
+    iconModal.classList.add('modal-icon-manager');
+    _inizializzaDragModaleIcone(iconModal);
 
     // Tab switching
     document.querySelectorAll('#icone-tabs .icone-tab').forEach(function (tab) {
@@ -668,13 +793,78 @@ function apriModaleIcone() {
     document.getElementById('icone-btn-salva').addEventListener('click', _salvaIconConfig);
 }
 
+function _inizializzaDragModaleIcone(container) {
+    if (!container || container.dataset.dragInitialized === '1') return;
+
+    var header = container.querySelector('.modal-header');
+    if (!header) return;
+
+    var dragging = false;
+    var pointerOffsetX = 0;
+    var pointerOffsetY = 0;
+
+    function limita(valore, minimo, massimo) {
+        return Math.min(Math.max(valore, minimo), massimo);
+    }
+
+    function iniziaDrag(e) {
+        if (!container.classList.contains('modal-icon-manager')) return;
+        // Il pulsante X deve chiudere la modale, non avviare il trascinamento.
+        if (e.target.closest && e.target.closest('.modal-close')) return;
+        if (e.button !== undefined && e.button !== 0) return;
+
+        var rect = container.getBoundingClientRect();
+        // Passa da flex-centering a coordinate esplicite solo al primo drag.
+        container.style.left = rect.left + 'px';
+        container.style.top = rect.top + 'px';
+        container.style.transform = 'none';
+        pointerOffsetX = e.clientX - rect.left;
+        pointerOffsetY = e.clientY - rect.top;
+        dragging = true;
+        container.classList.add('modal-dragging');
+        if (e.pointerId !== undefined && container.setPointerCapture) {
+            container.setPointerCapture(e.pointerId);
+        }
+        e.preventDefault();
+    }
+
+    function spostaDrag(e) {
+        if (!dragging) return;
+
+        var maxLeft = Math.max(0, window.innerWidth - container.offsetWidth);
+        var maxTop = Math.max(0, window.innerHeight - container.offsetHeight);
+        container.style.left = limita(e.clientX - pointerOffsetX, 0, maxLeft) + 'px';
+        container.style.top = limita(e.clientY - pointerOffsetY, 0, maxTop) + 'px';
+    }
+
+    function terminaDrag(e) {
+        if (!dragging) return;
+        dragging = false;
+        container.classList.remove('modal-dragging');
+        if (e && e.pointerId !== undefined && container.releasePointerCapture) {
+            try { container.releasePointerCapture(e.pointerId); } catch (ignore) { /* già rilasciato */ }
+        }
+    }
+
+    header.addEventListener('pointerdown', iniziaDrag);
+    container.addEventListener('pointermove', spostaDrag);
+    container.addEventListener('pointerup', terminaDrag);
+    container.addEventListener('pointercancel', terminaDrag);
+    container.dataset.dragInitialized = '1';
+}
+
 function chiudiModaleIcone() {
     DOM.modalOverlay.classList.add('hidden');
     DOM.modalConfirm.onclick = null;
     DOM.modalConfirm.textContent = 'Conferma';
     DOM.modalCancel.style.display = '';
     var container = document.querySelector('.modal-container');
-    if (container) container.classList.remove('modal-icon-manager');
+    if (container) {
+        container.classList.remove('modal-icon-manager', 'modal-dragging');
+        container.style.removeProperty('left');
+        container.style.removeProperty('top');
+        container.style.removeProperty('transform');
+    }
 }
 
 // =============================================================================
@@ -695,7 +885,7 @@ function _popolaTabellaIcone() {
         var pngFile = cfg.file || icon.file || '';
         if (pngFile) {
             var pd = cfg.dims || icon.dims || [40, 40];
-            pngPreview = '<img src="/static/caricamento/img/' + pngFile + '" style="width:' + pd[0] + 'px;height:' + pd[1] + 'px;object-fit:contain;" alt="">';
+            pngPreview = '<img src="' + _urlPng(pngFile) + '" style="width:' + pd[0] + 'px;height:' + pd[1] + 'px;object-fit:contain;" alt="">';
         } else {
             pngPreview = '<span class="icone-preview-png-empty">—</span>';
         }
@@ -823,7 +1013,7 @@ function _aggiornaBadgeERigaIcona(row, isPng, fn) {
         var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
         var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
         if (isPng && fn) {
-            pngSide.innerHTML = '<img src="/static/caricamento/img/' + fn + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+            pngSide.innerHTML = '<img src="' + _urlPng(fn) + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
         } else {
             pngSide.innerHTML = '<span class="icone-preview-png-empty">—</span>';
         }
@@ -837,7 +1027,7 @@ function _aggiornaAnteprimaPngRigaIcona(row) {
     var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
     var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
     if (fn) {
-        pngSide.innerHTML = '<img src="/static/caricamento/img/' + fn + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+        pngSide.innerHTML = '<img src="' + _urlPng(fn) + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
     } else {
         pngSide.innerHTML = '<span class="icone-preview-png-empty">—</span>';
     }
@@ -859,6 +1049,22 @@ function _posLabel(pos) {
 /** Valida un colore esadecimale #rrggbb. */
 function _isHexColor(v) {
     return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim());
+}
+
+/**
+ * Allinea i nomi ai file prodotti dall'endpoint di upload:
+ * minuscolo, spazi trasformati in underscore e nessun percorso.
+ */
+function _normalizzaNomeFilePng(nome) {
+    var file = String(nome || '').trim();
+    try { file = decodeURIComponent(file); } catch (e) { /* nome già decodificato */ }
+    file = file.split(/[\\/]/).pop();
+    return file.toLowerCase().replace(/\\s+/g, '_').replace(/\\.\\.+/g, '');
+}
+
+function _urlPng(nome) {
+    var file = _normalizzaNomeFilePng(nome);
+    return file ? '/static/caricamento/img/' + encodeURIComponent(file) : '';
 }
 
 /** Sceglie il colore del testo (scuro/chiaro) in base alla luminanza dello sfondo. */
@@ -919,7 +1125,7 @@ function _popolaTabellaBottoni(tbodyId, tab) {
 
         var iconPreview = '';
         if (isPng) {
-            iconPreview = '<img src="/static/caricamento/img/' + file + '" style="width:' + dims[0] + 'px;height:' + dims[1] + 'px;object-fit:contain;" alt="">';
+            iconPreview = '<img src="' + _urlPng(file) + '" style="width:' + dims[0] + 'px;height:' + dims[1] + 'px;object-fit:contain;" alt="">';
         } else if (btnDef.iconClass) {
             iconPreview = '<i class="' + btnDef.iconClass + '"></i>';
         } else if (btnDef.emoji_default) {
@@ -1121,7 +1327,7 @@ function _aggiornaAnteprimaBottone(row) {
 
     var iconHtml;
     if (isPng && file) {
-        iconHtml = '<img src="/static/caricamento/img/' + file + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
+        iconHtml = '<img src="' + _urlPng(file) + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain;" alt="">';
     } else if (btnDef.iconClass) {
         iconHtml = '<i class="' + btnDef.iconClass + '"></i>';
     } else if (btnDef.emoji_default) {
@@ -1234,6 +1440,7 @@ function _generaTonalitaDaBase(baseHex) {
     var trackEnd = accent;
     var thumb = accent;
     var strategiaThumb = accent;
+    var sequenceBg = _mixColor(base, nero, 0.55);
 
     var map = {
         'header': header,
@@ -1246,7 +1453,8 @@ function _generaTonalitaDaBase(baseHex) {
         'slider-track-start': trackStart,
         'slider-track': trackEnd,
         'slider-thumb': thumb,
-        'strategia-thumb': strategiaThumb
+        'strategia-thumb': strategiaThumb,
+        'slider-sequence-bg': sequenceBg
     };
     var palette = {};
     COLOR_CATALOG.forEach(function (c) {
@@ -1398,7 +1606,7 @@ function _raccogliConfigColoriDallaTabella() {
 async function _verificaFileEsiste(filename) {
     if (!filename) return Promise.resolve(false);
     try {
-        var resp = await fetch('/static/caricamento/img/' + encodeURIComponent(filename), { method: 'HEAD' });
+        var resp = await fetch(_urlPng(filename), { method: 'HEAD' });
         return resp.ok;
     } catch (e) {
         return false;
@@ -1445,7 +1653,7 @@ async function _cancellaFileIcona(filename, row, tipo) {
         var resp = await fetch('/api/icone-file/', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ filename: filename })
+            body: JSON.stringify({ filename: _normalizzaNomeFilePng(filename) })
         });
         var data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
@@ -1478,7 +1686,7 @@ function _raccogliConfigDallaTabella() {
     document.querySelectorAll('#icone-table-body .icone-row').forEach(function (row) {
         var iconId = row.dataset.iconId;
         var isPng = row.querySelector('.icone-toggle-input').checked;
-        var file = row.querySelector('.icone-file-input').value.trim();
+        var file = _normalizzaNomeFilePng(row.querySelector('.icone-file-input').value);
         var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
         var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
 
@@ -1502,7 +1710,7 @@ function _raccogliConfigBottoniDallaTabella() {
         if (!btnDef) return;
 
         var isPng = row.querySelector('.bt-toggle-input').checked;
-        var file = row.querySelector('.bt-file-input').value.trim();
+        var file = _normalizzaNomeFilePng(row.querySelector('.bt-file-input').value);
         var w = parseInt(row.querySelector('.bt-dim-w').value) || 0;
         var h = parseInt(row.querySelector('.bt-dim-h').value) || 0;
         var label = row.querySelector('.bt-label-input').value.trim();
@@ -1541,6 +1749,20 @@ function _raccogliConfigBottoniDallaTabella() {
     return config;
 }
 
+function _bottoniConfigurazioneModificati(precedente, successiva) {
+    var modificati = {};
+    precedente = precedente || {};
+    successiva = successiva || {};
+    BUTTON_CATALOG.forEach(function (btnDef) {
+        var prima = precedente[btnDef.id] || {};
+        var dopo = successiva[btnDef.id] || {};
+        if (JSON.stringify(prima) !== JSON.stringify(dopo)) {
+            modificati[btnDef.id] = true;
+        }
+    });
+    return modificati;
+}
+
 async function _salvaIconConfig() {
     var config = _raccogliConfigDallaTabella();
     var bottoni = _raccogliConfigBottoniDallaTabella();
@@ -1552,16 +1774,16 @@ async function _salvaIconConfig() {
             body: JSON.stringify({ config: config, bottoni: bottoni, colori: colori })
         });
         var data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
-
+        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);        var bottoniDaForzare = _bottoniConfigurazioneModificati(BOTTONI_CONFIG, bottoni);
         ICON_CONFIG = config;
         BOTTONI_CONFIG = bottoni;
         COLOR_CONFIG = colori;
-        // Applica subito: niente reload (punto 1)
+        // Applica subito: niente reload (punto 1). Forza solo i bottoni
+        // realmente cambiati, così un PNG già visibile non viene ricreato.
         _applyIconConfig();
-        _applyButtonConfig();
-        _applyColorConfig();
-        showToast('Configurazione salvata e applicata!', 'success');
+        _applyButtonConfig(bottoniDaForzare);
+    _applyColorConfig();
+    showToast('Configurazione salvata e applicata!', 'success');
     } catch (e) {
         showToast('Errore salvataggio: ' + e.message, 'error');
     }
@@ -1572,11 +1794,17 @@ async function _salvaIconConfig() {
  * delle due tabelle, senza salvare su server.
  */
 function _aggiornaIconeLive() {
-    ICON_CONFIG = _raccogliConfigDallaTabella();
-    BOTTONI_CONFIG = _raccogliConfigBottoniDallaTabella();
-    COLOR_CONFIG = _raccogliConfigColoriDallaTabella();
+    var config = _raccogliConfigDallaTabella();
+    var bottoni = _raccogliConfigBottoniDallaTabella();
+    var colori = _raccogliConfigColoriDallaTabella();
+    var bottoniDaForzare = _bottoniConfigurazioneModificati(BOTTONI_CONFIG, bottoni);
+    ICON_CONFIG = config;
+    BOTTONI_CONFIG = bottoni;
+    COLOR_CONFIG = colori;
     _applyIconConfig();
-    _applyButtonConfig();
+    // È un aggiornamento richiesto dall'utente: forza solo i bottoni cambiati,
+    // compreso man-annulla, senza ricreare gli altri PNG già visibili.
+    _applyButtonConfig(bottoniDaForzare);
     _applyColorConfig();
     showToast('Icone, bottoni e colori aggiornati!', 'success');
 }
@@ -1692,5 +1920,10 @@ function _osservaBottoniFinestre() {
         }
         trovato = true;
     });
+    // Anche le icone presenti in blocchi dinamici (sidebar, popup,
+    // finestre) vengono riallineate quando il DOM viene ricostruito.
+    // _applyIconConfig è idempotente: sugli elementi già applicati aggiorna
+    // solo gli attributi, senza ricreare nodi né innescare loop.
+    _applyIconConfig();
     if (trovato) _applyButtonConfig();
 }

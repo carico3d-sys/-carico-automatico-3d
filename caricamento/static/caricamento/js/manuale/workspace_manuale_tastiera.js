@@ -70,6 +70,7 @@ function _muoviOggettoTastiera(dx, dy, dz) {
     group.position.set(snapped.x, snapped.y, snapped.z);
     _aggiornaInfoOggettoManuale(group);
     if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
+    if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
     _refreshSidebarLineari();
 }
 
@@ -123,6 +124,7 @@ function _ruotaOggettoTastiera(isCW) {
         } else {
             _flashOggetto(group, 0x00ff00);
             if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
+            if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
             _refreshSidebarLineari();
         }
         _aggiornaInfoOggettoManuale(group);

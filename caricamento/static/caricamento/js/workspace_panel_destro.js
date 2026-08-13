@@ -29,7 +29,7 @@ function selezionaMezzo(mezzoId, skipResetPianoAttivo) {
             mostraViewport();
             WS.treSceneLoaded = false;
             showToast('🔄 Veicolo cambiato, riottimizzazione in corso...', 'info');
-            setTimeout(function() { elaboraOttimizzazione(); }, 100);
+            setTimeout(function() { elaboraOttimizzazione(false); }, 100);
             return;
         }
 
@@ -143,7 +143,9 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         if (qtyInput) {
             qtyInput.value = (parseInt(qtyInput.value) || 1) + qtyIniziale;
         }
-        // Modifica manuale: pulisci qty originale
+        // Modifica manuale: invalida l'eventuale preview automatica, perché
+        // la quantità del pannello non coincide più con il risultato elaborato.
+        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         delete esistente.dataset.qtyOriginale;
         var badgeOrig = esistente.querySelector('.panel-qty-originale');
         if (badgeOrig) { badgeOrig.textContent = ''; badgeOrig.title = 'Quantità richiesta: —'; }
@@ -157,7 +159,9 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         return;
     }
 
-    // Nuovo oggetto inserito dall'utente: i dati dell'ottimizzazione precedente non sono più validi
+    // Nuovo oggetto inserito dall'utente: i dati dell'ottimizzazione precedente
+    // e lo snapshot della preview non sono più validi.
+    if (!skipInvalida && typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
     if (!skipInvalida && WS.activePianoId) invalidaDistribuzionePesi();
 
     var oggetto = trovaOggetto(oggettoId);
@@ -198,8 +202,12 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         _aggiornaColoreQtyOriginale(div);
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
+        if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+            _registraModificaManuale();
+        }
     });
     qtyInput.addEventListener('input', function () {
+        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         // Modifica manuale: pulisci qty originale
         if (div.dataset.qtyOriginale) {
             var badge = div.querySelector('.panel-qty-originale');
@@ -210,13 +218,19 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         }
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
+        if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+            _registraModificaManuale();
+        }
     });
 
-    // Event listener per priorita
+    // Event listener per priorità
     var prioInput = div.querySelector('.panel-prio-input');
     if (prioInput) {
         prioInput.addEventListener('change', function () {
             div.dataset.priorita = this.value || '0';
+            if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+                _registraModificaManuale();
+            }
         });
         prioInput.addEventListener('input', function () {
             div.dataset.priorita = this.value || '0';
@@ -272,6 +286,7 @@ function rimuoviOggettoPanel(itemDiv) {
     itemDiv.style.opacity = '0';
     itemDiv.style.transition = 'opacity 0.15s';
     setTimeout(function () {
+        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         itemDiv.remove();
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
@@ -302,6 +317,7 @@ function aggiornaRiepilogoPanel() {
 function _aggiornaStatoAzioniAuto() {
     var abilitato = !!(
         WS.activeMezzoId &&
+        !WS.salvataggioInCorso &&
         DOM.panelItemsList &&
         DOM.panelItemsList.querySelectorAll('.panel-item').length > 0
     );
@@ -664,7 +680,7 @@ function apriEditorOggetto(itemDiv) {
         if (!risultato) return;
 
         // Le modifiche sono state salvate, ora esegui l'ottimizzazione con i nuovi valori
-        elaboraOttimizzazione();
+        elaboraOttimizzazione(false);
     });
 
     // Previeni la propagazione dei click interni
@@ -690,7 +706,13 @@ function chiudiEditorOggetto(itemDiv) {
         // Riattacca gli event listeners
         var qtyInput = itemDiv.querySelector('.panel-qty-input');
         if (qtyInput) {
-            qtyInput.addEventListener('change', function () { aggiornaRiepilogoPanel(); aggiornaStatoPulsante(); });
+            qtyInput.addEventListener('change', function () {
+                aggiornaRiepilogoPanel();
+                aggiornaStatoPulsante();
+                if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+                    _registraModificaManuale();
+                }
+            });
             qtyInput.addEventListener('input', function () {
                 if (itemDiv.dataset.qtyOriginale) {
                     var badge = itemDiv.querySelector('.panel-qty-originale');
@@ -700,6 +722,15 @@ function chiudiEditorOggetto(itemDiv) {
                 }
                 aggiornaRiepilogoPanel();
                 aggiornaStatoPulsante();
+            });
+        }
+        var prioInputCh = itemDiv.querySelector('.panel-prio-input');
+        if (prioInputCh) {
+            prioInputCh.addEventListener('change', function () {
+                itemDiv.dataset.priorita = this.value || '0';
+                if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+                    _registraModificaManuale();
+                }
             });
         }
         var btnModifyCh = itemDiv.querySelector('.btn-modify');
@@ -760,6 +791,9 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
         _aggiornaColoreQtyOriginale(itemDiv);
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
+        if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+            _registraModificaManuale();
+        }
     });
     qtyInput.addEventListener('input', function () {
         if (itemDiv.dataset.qtyOriginale) {
@@ -770,6 +804,9 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
         }
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
+        if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+            _registraModificaManuale();
+        }
     });
 
     // Event listener per priorità
@@ -777,6 +814,9 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
     if (prioInput2) {
         prioInput2.addEventListener('change', function () {
             itemDiv.dataset.priorita = this.value || '0';
+            if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
+                _registraModificaManuale();
+            }
         });
         prioInput2.addEventListener('input', function () {
             itemDiv.dataset.priorita = this.value || '0';
@@ -830,7 +870,6 @@ function mostraPlaceholder(titolo, messaggio) {
     DOM.viewportPlaceholder.style.display = 'flex';
     DOM.viewportPlaceholder.querySelector('h3').textContent = titolo || 'Visualizzazione 3D';
     DOM.viewportPlaceholder.querySelector('p').textContent = messaggio || '';
-   if (DOM.viewportToolbarLabel) DOM.viewportToolbarLabel.textContent = 'Carico 3D';
    _setHeaderCaricoLabel('');
    WS.treSceneLoaded = false;
 }
@@ -841,6 +880,10 @@ function nascondiPlaceholder() {
 
 async function caricaScena3D(pianoId) {
     try {
+        // Il caricamento di un piano persistito sostituisce completamente la
+        // preview automatica: impedisci che uno snapshot precedente venga
+        // riutilizzato da un successivo salvataggio.
+        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         if (typeof avviaVisualizzatore !== 'function') {
             showToast('Modulo 3D non caricato.', 'error');
             return;
@@ -859,7 +902,6 @@ async function caricaScena3D(pianoId) {
         // Aggiorna label toolbar e header
         var piano = WS.piani.find(function (p) { return p.id == pianoId; });
         var nomePiano = piano ? piano.nome : 'Piano #' + pianoId;
-        if (DOM.viewportToolbarLabel) DOM.viewportToolbarLabel.textContent = nomePiano;
         _setHeaderCaricoLabel(nomePiano);
         // Popola il pannello destro con gli oggetti del piano
         await popolaPanelDaPiano(pianoId);
@@ -921,6 +963,7 @@ async function popolaPanelDaPiano(pianoId) {
             WS._manualPanelSelectedCodice = null;
         }
         DOM.panelItemsList.innerHTML = '';
+    if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
 
         // Unisci i codici: piazzati + salvati + richiesti
         var tuttiCodici = Object.keys(conteggio);
@@ -966,6 +1009,7 @@ async function popolaPanelDaPiano(pianoId) {
         }
 
         DOM.panelEmpty.style.display = DOM.panelItemsList.children.length > 0 ? 'none' : 'flex';
+        if (typeof _reimpostaCronologiaManuale === 'function') _reimpostaCronologiaManuale();
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
     } catch (e) {
@@ -1008,6 +1052,7 @@ function nuovoCarico() {
 
     // Svuota pannello destro
     DOM.panelItemsList.innerHTML = '';
+    if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
     _pulisciPanelMultiSel();
     DOM.panelEmpty.style.display = 'flex';
 

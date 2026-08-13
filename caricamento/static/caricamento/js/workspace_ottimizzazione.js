@@ -15,119 +15,17 @@
 function _esciDaMultiViewportSeAttivo() {
     if (typeof MVP !== 'undefined' && MVP.attivo) {
         disattivaMultiViewport();
-        var gBtn = document.getElementById('vp-btn-grid');
+        var gBtn = document.getElementById('vpf-btn-grid');
         if (gBtn) gBtn.classList.remove('active');
-        var gBtn2 = document.getElementById('vpf-btn-grid');
-        if (gBtn2) gBtn2.classList.remove('active');
     }
 }
 
 function setupCameraControls() {
-
-    document.getElementById('vp-btn-top').addEventListener('click', function () {
-        _esciDaMultiViewportSeAttivo();
-        impostaVistaCamera('top');
-    });
-    document.getElementById('vp-btn-front').addEventListener('click', function () {
-        _esciDaMultiViewportSeAttivo();
-        impostaVistaCamera('front');
-    });
-    document.getElementById('vp-btn-side').addEventListener('click', function () {
-        _esciDaMultiViewportSeAttivo();
-        impostaVistaCamera('side');
-    });
-    // Vista 2×2 (4 quadranti)
-    var gridBtn = document.getElementById('vp-btn-grid');
-    if (gridBtn) {
-        gridBtn.addEventListener('click', function () {
-            if (typeof MVP !== 'undefined' && MVP.attivo) {
-                disattivaMultiViewport();
-                gridBtn.classList.remove('active');
-            } else if (typeof initMultiViewport === 'function') {
-                initMultiViewport();
-                gridBtn.classList.add('active');
-            }
-        });
-    }
-    var fitBtn = document.getElementById('vp-btn-fit');
-    if (fitBtn) {
-        fitBtn.addEventListener('click', function () {
-            _esciDaMultiViewportSeAttivo();
-            impostaVistaCamera('reset');
-        });
-    }
-    document.getElementById('vp-btn-reset').addEventListener('click', function () {
-        _esciDaMultiViewportSeAttivo();
-        impostaVistaCamera('reset');
-    });
-    document.getElementById('vp-btn-fullscreen').addEventListener('click', function () {
-        var c = DOM.viewport3d;
-        if (!document.fullscreenElement) {
-            c.requestFullscreen().catch(function () {});
-        } else {
-            document.exitFullscreen();
-        }
-    });
-
-    // Zoom buttons
-    if (DOM.vpBtnZoomIn) {
-        DOM.vpBtnZoomIn.addEventListener('click', function () { cameraZoom(-1); });
-    }
-    if (DOM.vpBtnZoomOut) {
-        DOM.vpBtnZoomOut.addEventListener('click', function () { cameraZoom(1); });
-    }
-
-    // Help popover
-    if (DOM.vpBtnHelp) {
-        DOM.vpBtnHelp.addEventListener('click', function () {
-            if (!DOM.vpHelpPopover) return;
-            var isVisible = DOM.vpHelpPopover.style.display === 'block';
-            DOM.vpHelpPopover.style.display = isVisible ? 'none' : 'block';
-            this.classList.toggle('active', !isVisible);
-        });
-        // Close popover clicking the X
-        var helpClose = document.getElementById('vp-help-close');
-        if (helpClose) {
-            helpClose.addEventListener('click', function () {
-                DOM.vpHelpPopover.style.display = 'none';
-                DOM.vpBtnHelp.classList.remove('active');
-            });
-        }
-    }
-
-    // Inizializza palette flottante Vista (draggabile)
+    // La palette flottante è l'unica toolbar Vista: i suoi comandi vengono
+    // collegati in _initFloatingPalette(). Non esistono più listener duplicati
+    // per la vecchia toolbar orizzontale.
     _initFloatingPalette();
 
-    var chartBtn = document.getElementById('vp-btn-chart');
-    if (chartBtn) {
-    chartBtn.addEventListener('click', function () {
-        var panel = document.getElementById('sezioni-pesi-panel');
-        var list = document.getElementById('sezioni-pesi-list');
-        var btn = this;
-        if (!panel) return;
-        if (panel.style.display === 'none' || panel.style.display === '') {
-            // Mostra il pannello SUBITO per dare al browser il tempo di calcolare il layout
-            panel.style.display = 'block';
-            btn.classList.add('active');
-
-            // Calcola SEMPRE localmente da STATE.oggettiMesh (tempo reale, nessuna chiamata server)
-            if (typeof Chart === 'undefined') {
-                caricaChartJS().then(function () {
-                    _disegnaDistribuzionePesiLocale();
-                });
-            } else {
-                _disegnaDistribuzionePesiLocale();
-            }
-        } else {
-            if (typeof nascondiDistribuzionePesi === 'function') {
-                nascondiDistribuzionePesi();
-            } else {
-                panel.style.display = 'none';
-            }
-            btn.classList.remove('active');
-        }
-    });
-    }
 }
 
 // =============================================================================
@@ -421,6 +319,7 @@ function mostraTaskStatus(state, label) {
 // Cache dei dati di distribuzione per ricreare il grafico dopo averlo nascosto
 var _ultimaDistribuzionePesi = null;
 var _distribuzionePesiPianoId = null;
+var _distribuzionePesiAperturaToken = 0;
 
 /**
  * Inserisce punti a Y=0 nei vuoti tra le sezioni e all'inizio/fine del camion,
@@ -523,12 +422,17 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
 
     if ((!sezioni || sezioni.length === 0) && (!oggetti || oggetti.length === 0)) {
         container.style.display = 'none';
-        var chartBtn = document.getElementById('vp-btn-chart');
-        if (chartBtn) chartBtn.classList.remove('active');
+        ['vp-btn-chart', 'auto-btn-pesi', 'manuale-btn-pesi'].forEach(function (id) {
+            var button = document.getElementById(id);
+            if (button) button.classList.remove('active');
+        });
         return;
     }
 
-    // Ordina le sezioni per posizione X crescente per grafico e lista
+    // Ordina le sezioni per posizione X crescente per grafico e lista.
+    // L'endpoint può omettere la lista quando restituisce solo gli oggetti.
+    sezioni = Array.isArray(sezioni) ? sezioni : [];
+    oggetti = Array.isArray(oggetti) ? oggetti : [];
     var sezioniOrdinate = sezioni.slice().sort(function (a, b) {
         return parseFloat(a.inizio_x_mm) - parseFloat(b.inizio_x_mm);
     });
@@ -559,8 +463,10 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
 
     list.innerHTML = html;
     container.style.display = 'block';
-    var chartBtn = document.getElementById('vp-btn-chart');
-    if (chartBtn) chartBtn.classList.add('active');
+    ['vp-btn-chart', 'auto-btn-pesi', 'manuale-btn-pesi'].forEach(function (id) {
+        var button = document.getElementById(id);
+        if (button) button.classList.add('active');
+    });
 
     // Grafico a linee: asse X = lunghezza camion, asse Y = peso
     var canvas = document.getElementById('sezioni-peso-chart');
@@ -698,10 +604,14 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
 }
 
 function nascondiDistribuzionePesi() {
+    // Invalida eventuali aperture/render asincroni ancora in corso.
+    _distribuzionePesiAperturaToken += 1;
     var container = document.getElementById('sezioni-pesi-panel');
     if (container) container.style.display = 'none';
-    var btn = document.getElementById('vp-btn-chart');
-    if (btn) btn.classList.remove('active');
+    ['vp-btn-chart', 'auto-btn-pesi', 'manuale-btn-pesi'].forEach(function (id) {
+        var button = document.getElementById(id);
+        if (button) button.classList.remove('active');
+    });
     if (window.distribuzionePesoChart) {
         window.distribuzionePesoChart.destroy();
         window.distribuzionePesoChart = null;
@@ -709,6 +619,7 @@ function nascondiDistribuzionePesi() {
 }
 
 function invalidaDistribuzionePesi() {
+    if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
     nascondiDistribuzionePesi();
     // Pulisce anche il contenuto della lista per evitare che rimangano dati visuali obsoleti
     var listEl = document.getElementById('sezioni-pesi-list');
@@ -859,10 +770,76 @@ function _ricalcolaDistribuzionePesiLocale() {
  * Versione sincrona (senza fetch) da usare per aggiornamenti in tempo reale.
  */
 function _disegnaDistribuzionePesiLocale() {
-    if (typeof Chart === 'undefined') return;
+    if (typeof Chart === 'undefined') return false;
     var dati = _ricalcolaDistribuzionePesiLocale();
-    if (!dati) return;
+    if (!dati) return false;
+    if ((!dati.sezioni || dati.sezioni.length === 0) &&
+        (!dati.oggetti || dati.oggetti.length === 0)) {
+        return false;
+    }
     renderizzaDistribuzionePesi(dati.sezioni, dati.oggetti);
+    return true;
+}
+
+/**
+ * Apre e disegna la distribuzione pesi dopo un click.
+ * Il frame successivo è necessario perché il canvas deve avere già
+ * le dimensioni del pannello appena reso visibile. Se la scena locale
+ * non contiene dati, usa la distribuzione persistita del piano.
+ */
+function _apriDistribuzionePesi() {
+    var aperturaToken = ++_distribuzionePesiAperturaToken;
+
+    function disegnaLocaleOPersistito() {
+        if (_disegnaDistribuzionePesiLocale()) return Promise.resolve(true);
+        if (!WS.activePianoId) return Promise.resolve(false);
+
+        // Fallback server controllato da questo token: la funzione generale
+        // caricaEDisegnaDistribuzionePesi potrebbe renderizzare dati obsoleti
+        // mentre l'utente ha già chiuso il pannello.
+        return fetch('/api/piani/' + WS.activePianoId + '/distribuzione_pesi/')
+            .then(function (resp) {
+                if (!resp.ok) return null;
+                return resp.json();
+            })
+            .then(function (data) {
+                if (aperturaToken !== _distribuzionePesiAperturaToken || !data) return false;
+                var sezioni = Array.isArray(data.distribuzione_pesi) ? data.distribuzione_pesi : [];
+                var oggetti = Array.isArray(data.oggetti) ? data.oggetti : [];
+                if (sezioni.length === 0 && oggetti.length === 0) return false;
+                renderizzaDistribuzionePesi(sezioni, oggetti);
+                return true;
+            });
+    }
+
+    function gestisciEsito(ok) {
+        // Un'apertura precedente non deve sovrascrivere una chiusura o
+        // un'apertura successiva avvenuta nel frattempo.
+        if (aperturaToken !== _distribuzionePesiAperturaToken) return false;
+        if (!ok) {
+            nascondiDistribuzionePesi();
+            showToast('Nessuna distribuzione pesi disponibile: esegui prima l\'ottimizzazione.', 'warning');
+        }
+        return ok;
+    }
+
+    function dopoLayout() {
+        if (typeof Chart === 'undefined') {
+            return caricaChartJS().then(disegnaLocaleOPersistito);
+        }
+        return disegnaLocaleOPersistito();
+    }
+
+    return new Promise(function (resolve) {
+        requestAnimationFrame(function () {
+            dopoLayout().then(function (ok) {
+                resolve(gestisciEsito(ok));
+            }).catch(function (err) {
+                console.warn('Errore apertura distribuzione pesi:', err);
+                resolve(gestisciEsito(false));
+            });
+        });
+    });
 }
 
 /**
@@ -887,12 +864,16 @@ function _costruisciDatiPreviewOttimizzazione(risultato, pianoId) {
     }) || {};
     var posizione = risultato.posizioni_preview || [];
     var oggetti = posizione.map(function (item) {
+        // L'ID anagrafico è la chiave stabile: il codice dell'istanza
+        // interna può ancora essere CODICE-0 su server/workers non aggiornati.
         var oggetto = (WS.oggettiDisponibili || []).find(function (o) {
-            return String(o.codice) === String(item.codice);
+            return (item.oggetto_id && String(o.id) === String(item.oggetto_id)) ||
+                String(o.codice) === String(item.codice);
         }) || {};
         return {
-            id: item.oggetto_id,
-            codice: item.codice,
+            id: item.oggetto_id || oggetto.id,
+            oggetto_id: item.oggetto_id || oggetto.id,
+            codice: oggetto.codice || item.codice,
             descrizione: oggetto.descrizione || item.codice,
             posizione_mm: item.posizione_mm,
             dimensioni_mm: item.dimensioni_mm,
@@ -936,6 +917,36 @@ function _costruisciDatiPreviewOttimizzazione(risultato, pianoId) {
     };
 }
 
+/**
+ * Conserva una copia indipendente delle coordinate restituite da "Elabora".
+ * La preview usa un piano tecnico temporaneo che viene eliminato nel finally;
+ * per il successivo click su Salva non dobbiamo dipendere né da quel piano né
+ * dal grafo Three.js, che può essere ricostruito nel frattempo.
+ */
+function _salvaSnapshotPreviewOttimizzazione(datiPreview) {
+    if (typeof WS === 'undefined') return;
+    WS._autoPreviewPosizioni = datiPreview && Array.isArray(datiPreview.oggetti)
+        ? datiPreview.oggetti.map(function (oggetto) {
+            return {
+                oggetto_id: oggetto.oggetto_id || oggetto.id || null,
+                codice: oggetto.codice,
+                posizione_cm: {
+                    x: Number(oggetto.posizione_cm && oggetto.posizione_cm.x),
+                    y: Number(oggetto.posizione_cm && oggetto.posizione_cm.y),
+                    z: Number(oggetto.posizione_cm && oggetto.posizione_cm.z),
+                },
+                dimensioni_cm: {
+                    x: Number(oggetto.dimensioni_cm && oggetto.dimensioni_cm.x),
+                    y: Number(oggetto.dimensioni_cm && oggetto.dimensioni_cm.y),
+                    z: Number(oggetto.dimensioni_cm && oggetto.dimensioni_cm.z),
+                },
+                colore: oggetto.colore || '#447e9b',
+                rotazione: oggetto.rotazione || 'XYZ',
+            };
+        })
+        : null;
+}
+
 async function _rimuoviPianoPreview(pianoId) {
     if (!pianoId) return false;
     try {
@@ -955,9 +966,43 @@ async function _rimuoviPianoPreview(pianoId) {
     }
 }
 
+function _svuotaViewportPrimaDiElaborare() {
+    // Elabora deve mostrare subito che la scena precedente è stata rimossa.
+    // Il piano persistito non viene cancellato: si lavora su un piano tecnico
+    // temporaneo e il risultato resta in WS._autoPreviewPosizioni fino a Salva.
+    if (typeof mostraContenitoreVuoto !== 'function') return;
+
+    var mezzo = WS.contenitori.find(function (c) {
+        return c.id == WS.activeMezzoId;
+    });
+    var dimensioni = mezzo ? {
+        x: Number(mezzo.lunghezza_mm || 0) / 10,
+        y: Number(mezzo.larghezza_mm || 0) / 10,
+        z: Number(mezzo.altezza_mm || 0) / 10,
+    } : null;
+    if (!dimensioni || !dimensioni.x || !dimensioni.y || !dimensioni.z) {
+        var datiCorrenti = typeof STATE !== 'undefined' && STATE.dati ? STATE.dati : null;
+        dimensioni = datiCorrenti && datiCorrenti.contenitore
+            ? datiCorrenti.contenitore.dimensioni_cm
+            : null;
+    }
+    if (dimensioni && dimensioni.x && dimensioni.y && dimensioni.z) {
+        mostraContenitoreVuoto(dimensioni, 'Elaborazione in corso');
+    }
+}
+
 async function elaboraOttimizzazione(salvaRisultato) {
     if (WS.ottimizzazioneInCorso) return;
-    salvaRisultato = salvaRisultato !== false;
+    // "Elabora" è sempre una preview; il salvataggio definitivo è esplicito
+    // tramite Ottimizza e Salva oppure tramite il pulsante Salva.
+    salvaRisultato = salvaRisultato === true;
+
+    // Elabora è una nuova ottimizzazione, non un aggiornamento incrementale
+    // della scena precedente. Svuota subito il viewport come fa il caricamento
+    // di un piano, ma senza toccare il piano definitivo nel database.
+    if (!salvaRisultato) {
+        _svuotaViewportPrimaDiElaborare();
+    }
 
     // Protezione: avvisa se ci sono modifiche manuali non salvate
     if (salvaRisultato && WS._manualDragOccurred && WS.activePianoId) {
@@ -1110,12 +1155,16 @@ async function elaboraOttimizzazione(salvaRisultato) {
             var nomePiano = salvaRisultato
                 ? (risultato.piano_nome || ('Piano #' + pianoId))
                 : 'Anteprima ottimizzazione';
-            if (DOM.viewportToolbarLabel) DOM.viewportToolbarLabel.textContent = nomePiano;
             _setHeaderCaricoLabel(nomePiano);
             if (salvaRisultato) {
                 await caricaScena3D(pianoId);
             } else {
-                renderizzaDati3D(_costruisciDatiPreviewOttimizzazione(risultato, pianoId));
+                var datiPreview = _costruisciDatiPreviewOttimizzazione(risultato, pianoId);
+                _salvaSnapshotPreviewOttimizzazione(datiPreview);
+                // renderizzaDati3D ricostruisce completamente il viewport:
+                // qui il risultato ottimizzato sostituisce la scena vuota e
+                // diventa la sola fonte per il successivo Salva.
+                renderizzaDati3D(datiPreview);
                 WS.treSceneLoaded = true;
                 pianoPreviewId = pianoId;
             }
@@ -1137,9 +1186,10 @@ async function elaboraOttimizzazione(salvaRisultato) {
             mostraTaskStatus('fail', risultato.messaggio || 'Fallita');
             if (risultato.oggetti_posizionati > 0) {
                 if (salvaRisultato) {
-                    await caricaScena3D(pianoId);
-                } else {
-                    renderizzaDati3D(_costruisciDatiPreviewOttimizzazione(risultato, pianoId));
+                    await caricaScena3D(pianoId);                    } else {
+                    var datiPreviewParziale = _costruisciDatiPreviewOttimizzazione(risultato, pianoId);
+                    _salvaSnapshotPreviewOttimizzazione(datiPreviewParziale);
+                    renderizzaDati3D(datiPreviewParziale);
                     WS.treSceneLoaded = true;
                     pianoPreviewId = pianoId;
                 }

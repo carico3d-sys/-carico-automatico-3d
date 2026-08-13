@@ -2,7 +2,7 @@
   "config": {
     "header-documenti": {
       "type": "png",
-      "file": "folder.png",
+      "file": "icons8-file-96.png",
       "dims": [
         40,
         40
@@ -18,7 +18,7 @@
     },
     "header-auto": {
       "type": "png",
-      "file": "automatico.png",
+      "file": "icons8-run-command-48.png",
       "dims": [
         40,
         40
@@ -26,7 +26,7 @@
     },
     "header-manuale": {
       "type": "png",
-      "file": "manuale.png",
+      "file": "icons8-manual-handling-96.png",
       "dims": [
         40,
         40
@@ -55,50 +55,370 @@
         40,
         40
       ]
+    },
+    "header-logout": {
+      "type": "png",
+      "file": "icons8-exit-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-logout-full": {
+      "type": "png",
+      "file": "icons8-log-out-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "header-logo": {
+      "type": "png",
+      "file": "icons8-3d-64.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "sidebar-nav": {
+      "type": "png",
+      "file": "icons8-file-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "sidebar-anagrafica": {
+      "type": "png",
+      "file": "archivio.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "sidebar-manuale": {
+      "type": "png",
+      "file": "icons8-manual-handling-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "sidebar-auto": {
+      "type": "png",
+      "file": "icons8-run-command-48.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-nuovo-carico": {
+      "type": "png",
+      "file": "icons8-new-file-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-apri-piano": {
+      "type": "png",
+      "file": "icons8-open-file-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-salva": {
+      "type": "png",
+      "file": "icons8-save-64.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-esporta": {
+      "type": "png",
+      "file": "icons8-export-100.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-importa": {
+      "type": "png",
+      "file": "icons8-import-100.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-svuota": {
+      "type": "png",
+      "file": "icons8-trash-48.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-articoli": {
+      "type": "png",
+      "file": "icons8-object-94.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-vincoli": {
+      "type": "png",
+      "file": "icons8-link-50.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-trasporti": {
+      "type": "png",
+      "file": "icons8-semi-truck-side-view-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-impostazioni": {
+      "type": "png",
+      "file": "impostazioni.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-admin": {
+      "type": "png",
+      "file": "icons8-admin-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-pesi": {
+      "type": "png",
+      "file": "icons8-weight-station-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-vista-carico": {
+      "type": "png",
+      "file": "icons8-restart-80.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-report-3d": {
+      "type": "png",
+      "file": "icons8-report-graph-48.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "nav-quadranti": {
+      "type": "png",
+      "file": "icons8-blockchain-technology-94.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "sidebar-mezzo": {
+      "type": "png",
+      "file": "icons8-semi-truck-side-view-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-top": {
+      "type": "png",
+      "file": "icons8-top-view-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-front": {
+      "type": "png",
+      "file": "icons8-front-view-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-side": {
+      "type": "png",
+      "file": "icons8-side-pane-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-grid": {
+      "type": "png",
+      "file": "icons8-view-all-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-zoom-out": {
+      "type": "png",
+      "file": "icons8-zoom-out-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-zoom-in": {
+      "type": "png",
+      "file": "icons8-zoom-in-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-reset": {
+      "type": "png",
+      "file": "icons8-home-120.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-fullscreen": {
+      "type": "png",
+      "file": "icons8-fit-to-width-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-help": {
+      "type": "png",
+      "file": "icons8-help-96.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-rulers": {
+      "type": "png",
+      "file": "icons8-expand-50.png",
+      "dims": [
+        1840,
+        40
+      ]
+    },
+    "vp-placeholder": {
+      "type": "bootstrap",
+      "file": "icons8-object-94.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "vp-slider-icon": {
+      "type": "png",
+      "file": "icons8-object-94.png",
+      "dims": [
+        20,
+        20
+      ]
+    },
+    "panel-header-icon": {
+      "type": "png",
+      "file": "icons8-object-94.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
+    "panel-trash": {
+      "type": "png",
+      "file": "icons8-trash-48.png",
+      "dims": [
+        1640,
+        40
+      ]
+    },
+    "manuale-help-mouse": {
+      "type": "png",
+      "file": "icons8-mouse-94.png",
+      "dims": [
+        30,
+        30
+      ]
+    },
+    "manuale-help-tastiera": {
+      "type": "png",
+      "file": "icons8-keyboard-96.png",
+      "dims": [
+        30,
+        30
+      ]
+    },
+    "spaziatura-label": {
+      "type": "png",
+      "file": "icons8-expand-50.png",
+      "dims": [
+        40,
+        40
+      ]
     }
   },
   "bottoni": {
     "auto-ottimizza": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-arrow-right-50.png",
       "dims_px": [
-        39,
-        28
+        40,
+        40
       ],
       "label": "Ottimizza e Salva",
       "label_size": 12,
       "label_pos": "column",
-      "color": "#447e9b",
+      "color": "#94d1ff",
       "width_pct": 100,
-      "height_px": 52
+      "height_px": 66
     },
     "auto-salva": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-save-64.png",
       "dims_px": [
-        33,
-        25
+        40,
+        40
       ],
       "label": "Salva",
       "label_size": 12,
       "label_pos": "column",
       "color": "#27ae60",
       "width_pct": 100,
-      "height_px": 52
+      "height_px": 70
     },
     "auto-elabora": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-arrow-right-50.png",
       "dims_px": [
-        33,
-        25
+        40,
+        40
       ],
       "label": "Elabora",
       "label_size": 12,
       "label_pos": "column",
-      "color": "#6f42c1",
+      "color": "#94d1ff",
       "width_pct": 100,
-      "height_px": 52
+      "height_px": 70
     },
     "auto-pesi": {
       "type": "png",
@@ -115,83 +435,111 @@
       "height_px": 52
     },
     "man-aggiungi": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-add-product-96.png",
       "dims_px": [
-        30,
-        31
+        40,
+        40
       ],
-      "label": "Aggiun",
+      "label": "Aggiungi",
       "label_size": 12,
-      "label_pos": "row",
-      "color": "#447e9b",
+      "label_pos": "column",
+      "color": "#94d1ff",
       "width_pct": 100,
-      "height_px": 33
+      "height_px": 70
     },
     "man-rimuovi": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-trash-100.png",
       "dims_px": [
-        30,
-        30
+        40,
+        40
       ],
       "label": "Rimuovi",
       "label_size": 12,
-      "label_pos": "row",
-      "color": "#e74c3c",
+      "label_pos": "column",
+      "color": "#f00000",
       "width_pct": 100,
-      "height_px": 33
+      "height_px": 70
     },
     "man-pesi": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "peso.png",
       "dims_px": [
-        30,
-        30
+        40,
+        40
       ],
       "label": "Pesi",
       "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
+      "label_pos": "column",
+      "color": "#17a2b8",
       "width_pct": 100,
-      "height_px": 33
+      "height_px": 70
     },
     "man-salva": {
+      "type": "png",
+      "file": "icons8-save-64.png",
+      "dims_px": [
+        40,
+        40
+      ],
+      "label": "Salva",
+      "label_size": 12,
+      "label_pos": "column",
+      "color": "#27ae60",
+      "width_pct": 100,
+      "height_px": 70
+    },
+    "man-ghost": {
+      "type": "png",
+      "file": "icons8-ghost-96.png",
+      "dims_px": [
+        40,
+        40
+      ],
+      "label": "Ghost: OFF",
+      "label_size": 12,
+      "label_pos": "column",
+      "color": "#6c757d",
+      "width_pct": 100,
+      "height_px": 70
+    },
+    "man-annulla": {
+      "type": "png",
+      "file": "icons8-undo-96.png",
+      "dims_px": [
+        40,
+        40
+      ],
+      "label": "Annulla",
+      "label_size": 12,
+      "label_pos": "column",
+      "color": "#6c757d",
+      "width_pct": 100,
+      "height_px": 70
+    },
+    "settings-salva": {
       "type": "bootstrap",
       "file": "",
       "dims_px": [
-        30,
-        30
+        18,
+        18
       ],
-      "label": "Salva",
+      "label": "Salva impostazioni",
       "label_size": 12,
       "label_pos": "row",
       "color": "#27ae60",
       "width_pct": 100,
-      "height_px": 33
+      "height_px": 36
     },
-    "man-ghost": {
+    "settings-reset": {
       "type": "bootstrap",
       "file": "",
       "dims_px": [
-        30,
-        30
+        16,
+        16
       ],
-      "label": "Ghost: OFF",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "man-annulla": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        27,
-        25
-      ],
-      "label": "Annulla piazzamento",
+      "label": "Ripristina default",
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
@@ -563,5 +911,13 @@
       "height_px": 36
     }
   },
-  "colori": {}
+  "colori": {
+    "header": "#1f3946",
+    "sidebar": "#ecf2f5",
+    "panel-bg": "#f4f7f9",
+    "panel-border": "#dae5eb",
+    "main-bg": "#e9f0f3",
+    "accent-hover": "#6998af",
+    "slider-track-start": "#c7d8e1"
+  }
 }

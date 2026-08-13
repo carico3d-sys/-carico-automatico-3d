@@ -26,14 +26,14 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
 
     <!-- Custom CSS — modulare (5 file, carico in ordine) -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=21">
-    <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=24">
+    <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=3">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=1">
-    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=18">
-    <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=20">
+    <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=4">
 
     <!-- Palette flottante Vista — file isolato -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/floating_palette.css' %}?v=15">
+    <link rel="stylesheet" href="{% static 'caricamento/css/floating_palette.css' %}?v=16">
 
     <!-- Barra slider spaziatura oggetti nella sidebar -->
     <link rel="stylesheet" href="{% static 'caricamento/css/workspace_spaziatura.css' %}?v=5">
@@ -81,14 +81,14 @@
     <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=3" defer></script>
 
     <!-- Multi Viewport 2×2 (4 viste: Fronte | Lato | Pianta | 3D) -->
-    <script src="{% static 'caricamento/js/multi_viewport_3d.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/multi_viewport_3d.js' %}?v=2" defer></script>
 
     <!-- Modalità Manuale: snap → oggetti → orchestratore → drag → ghost → tastiera -->
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_snap.js' %}?v=1" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_oggetti.js' %}?v=3" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=10" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=13" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_drag.js' %}?v=1" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale_ghost.js' %}?v=2" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_ghost.js' %}?v=4" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_tastiera.js' %}?v=1" defer></script>
 
     <!-- Chart.js per grafici distribuzione pesi -->
@@ -97,13 +97,13 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=7" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=13" defer></script>
 
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
-    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=27" defer></script>
+    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=36" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
-    <script src="{% static 'caricamento/js/gestione_file.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/gestione_file.js' %}?v=10" defer></script>
 
     <!-- 3. Sezioni di Carico (assi) nel form Mezzi -->
     <script src="{% static 'caricamento/js/workspace_sezioni.js' %}?v=4" defer></script>
@@ -117,10 +117,10 @@
     <script src="{% static 'caricamento/js/preview_oggetto_3d.js' %}?v=9" defer></script>
 
     <!-- 6. Pannello Destro: selezione mezzo, carico, editor inline, viewport, export -->
-    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=10" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=13" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
-    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=6" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=9" defer></script>
     <!-- 7a. Panel Mezzi (lista, form, selezione multipla, batch) -->
     <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=16" defer></script>
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
@@ -130,7 +130,7 @@
     <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=1" defer></script>
 
     <!-- 9. Ottimizzazione: camera controls, distribuzione pesi, elaboraOttimizzazione -->
-    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=10" defer></script>
+    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=15" defer></script>
     <script src="{% static 'caricamento/js/workspace_spaziatura.js' %}?v=1" defer></script>
 
     <!-- 9b. Report stampabile -->
@@ -141,13 +141,13 @@
 
 
     <!-- 9. Modali: nuovo mezzo, nuovo oggetto, vincoli, piani -->
-    <script src="{% static 'caricamento/js/workspace_modals.js' %}?v=2" defer></script>
+    <script src="{% static 'caricamento/js/workspace_modals.js' %}?v=3" defer></script>
 
     <!-- 10. Impostazioni: strategia, performance, output -->
-    <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=2" defer></script>
+    <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=3" defer></script>
 
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
-    <script src="{% static 'caricamento/js/workspace.js' %}?v=27" defer></script>
+    <script src="{% static 'caricamento/js/workspace.js' %}?v=30" defer></script>
 
     <script>
         window.WORKSPACE_CONFIG = {
@@ -211,13 +211,13 @@
                 <i class="bi bi-journal-text header-cat-icon"></i>
                 <span class="header-cat-label">Anagrafica</span>
             </button>
-            <button class="header-cat-btn header-cat-shortcut" data-cat="goto-automatica" title="Vai a Calcolo Automatico">
-                <i class="bi bi-lightning-charge header-cat-icon"></i>
-                <span class="header-cat-label">Auto</span>
-            </button>
             <button class="header-cat-btn header-cat-shortcut" data-cat="goto-manuale" title="Vai a Modifica Manuale">
                 <i class="bi bi-hand-index-thumb header-cat-icon"></i>
                 <span class="header-cat-label">Manuale</span>
+            </button>
+            <button class="header-cat-btn header-cat-shortcut" data-cat="goto-automatica" title="Vai a Calcolo Automatico">
+                <i class="bi bi-lightning-charge header-cat-icon"></i>
+                <span class="header-cat-label">Auto</span>
             </button>
             <button class="header-cat-btn header-cat-toggle" data-cat="toggle-vista" title="Mostra/Nascondi Toolbar Vista">
                 <i class="bi bi-eye header-cat-icon"></i>
@@ -252,15 +252,19 @@
     <div id="page">
 
         <!-- ============================================================ -->
-        <!-- COLONNA 1: SIDEBAR SINISTRA (MENU A 3 TAB) -->
+        <!-- COLONNA 1: SIDEBAR SINISTRA (MENU A 4 TAB) -->
         <!-- ============================================================ -->
         <nav id="sidebar">
 
-            <!-- Tab bar -->
+            <!-- Tab bar: aree principali della sidebar -->
             <div id="sidebar-tabs">
-                <button class="sidebar-tab active" data-tab="navigazione">
+                <button class="sidebar-tab active" data-tab="documenti">
                     <i class="bi bi-compass sidebar-tab-icon"></i>
-                    <span class="sidebar-tab-label">Navigaz.</span>
+                    <span class="sidebar-tab-label">Documenti</span>
+                </button>
+                <button class="sidebar-tab" data-tab="anagrafica">
+                    <i class="bi bi-journal-text sidebar-tab-icon"></i>
+                    <span class="sidebar-tab-label">Anagrafica</span>
                 </button>
                 <button class="sidebar-tab" data-tab="manuale">
                     <i class="bi bi-hand-index-thumb sidebar-tab-icon"></i>
@@ -277,10 +281,17 @@
             <div id="sidebar-nav">
 
                 <!-- ======================================================== -->
-                <!-- TAB: NAVIGAZIONE (contenuto dinamico in base alla categoria header) -->
+                <!-- TAB: DOCUMENTI -->
                 <!-- ======================================================== -->
-                <div class="sidebar-tab-panel active" data-tab-panel="navigazione" id="sidebar-nav-dynamic">
+                <div class="sidebar-tab-panel active" data-tab-panel="documenti" id="sidebar-nav-dynamic">
                     <!-- Riempito dinamicamente da JS: _renderSidebarNavigazione() -->
+                </div>
+
+                <!-- ======================================================== -->
+                <!-- TAB: ANAGRAFICA -->
+                <!-- ======================================================== -->
+                <div class="sidebar-tab-panel" data-tab-panel="anagrafica" id="sidebar-anagrafica-dynamic">
+                    <!-- Menu Articoli, Vincoli e Trasporti -->
                 </div>
 
                 <!-- ======================================================== -->
@@ -288,13 +299,16 @@
                 <!-- ======================================================== -->
                 <div class="sidebar-tab-panel" data-tab-panel="manuale">
                     <div class="sidebar-manuale-content">
-                        <!-- Help contestuale: 2 pulsanti → 2 modali (Mouse / Tastiera) -->
+                        <!-- Help contestuale: Mouse, Tastiera e Impostazioni -->
                         <div class="manuale-help-bar">
                             <button id="manuale-btn-help-mouse" class="manuale-help-btn" type="button" title="Come usare il mouse nella modifica manuale">
                                 <i class="bi bi-mouse"></i> ?
                             </button>
                             <button id="manuale-btn-help-tastiera" class="manuale-help-btn" type="button" title="Come usare la tastiera nella modifica manuale">
                                 <i class="bi bi-keyboard"></i> ?
+                            </button>
+                            <button id="manuale-btn-impostazioni" class="manuale-help-btn" type="button" title="Apri Impostazioni">
+                                <i class="bi bi-gear"></i> Impost.
                             </button>
                         </div>
                         <!-- Sezione D-Pad tastiera -->
@@ -316,18 +330,10 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Riga Snap + Ghost (50% + 50%) sotto il D-Pad -->
+                        <!-- Riga Undo + Ghost (50% + 50%) sotto il D-Pad -->
                         <div class="manuale-snap-ghost-row">
-                            <div class="manuale-snap-cell">
-                                <label class="field-label manuale-snap-label">
-                                    <span class="manuale-emoji">🧲</span> Snap griglia
-                                </label>
-                                <select class="form-select" id="manuale-snap-step">
-                                    <option value="1">1 cm</option>
-                                    <option value="5">5 cm</option>
-                                    <option value="10" selected>10 cm</option>
-                                    <option value="50">50 cm</option>
-                                </select>
+                            <div class="manuale-undo-cell">
+                                <button id="manuale-btn-annulla-ghost" class="btn btn-danger btn-sm manuale-annulla-btn" type="button" style="display:none;" disabled title="Annulla ultima modifica manuale"><i class="bi bi-arrow-counterclockwise"></i> Annulla ultima modifica</button>
                             </div>
                             <div class="manuale-ghost-cell">
                                 <button id="manuale-btn-ghost-toggle" class="btn btn-sm"><span class="manuale-emoji">👻</span> Ghost: OFF</button>
@@ -342,7 +348,6 @@
                                 <button id="manuale-btn-aggiungi" class="btn btn-primary btn-sm"><span class="manuale-emoji">➕</span> Aggiungi</button>
                             </div>
                         </div>
-                        <button id="manuale-btn-annulla-ghost" class="btn btn-danger btn-sm manuale-annulla-btn" style="display:none;"><i class="bi bi-x-circle"></i> Annulla piazzamento</button>
                         <!-- Riga Distribuzione Pesi + Salva (50% + 50%) -->
                         <div class="manuale-pesi-salva-row">
                             <div class="manuale-pesi-cell">
@@ -459,67 +464,6 @@
         <!-- COLONNA 2: AREA CENTRALE — VIEWPORT 3D IMMERSIVO -->
         <!-- ============================================================ -->
         <main id="main">
-
-            <!-- Toolbar sopra il 3D -->
-            <div id="viewport-toolbar">
-                <button class="vp-btn" id="vp-btn-top" title="Vista dall'alto">
-                    <i class="bi bi-arrow-up-square"></i>
-                </button>
-                <button class="vp-btn" id="vp-btn-front" title="Vista frontale">
-                    <i class="bi bi-square"></i>
-                </button>
-                <button class="vp-btn" id="vp-btn-side" title="Vista laterale">
-                    <i class="bi bi-arrow-right-square"></i>
-                </button>
-                <button class="vp-btn" id="vp-btn-grid" title="Vista 2×2 (4 quadranti)">
-                    <i class="bi bi-grid-3x3-gap"></i>
-                </button>
-                <span class="vp-separator"></span>
-                <button class="vp-btn" id="vp-btn-zoom-out" title="Zoom -">
-                    <i class="bi bi-zoom-out"></i>
-                </button>
-                <button class="vp-btn" id="vp-btn-zoom-in" title="Zoom +">
-                    <i class="bi bi-zoom-in"></i>
-                </button>
-                <span class="vp-separator"></span>
-                <button class="vp-btn" id="vp-btn-reset" title="Reset Camera">
-                    <i class="bi bi-house"></i>
-                </button>
-                <button class="vp-btn" id="vp-btn-fullscreen" title="Fullscreen">
-                    <i class="bi bi-arrows-fullscreen"></i>
-                </button>
-                <span class="vp-separator"></span>
-                <button class="vp-btn" id="vp-btn-help" title="Aiuto comandi">
-                    <i class="bi bi-question-circle"></i>
-                </button>
-                <span class="vp-separator"></span>
-                <span class="vp-spaziatura-indicator" id="vp-spaziatura-indicator" title="Spaziatura oggetti (Shift+rotella / [ ])">
-                    <i class="bi bi-rulers"></i> <span id="vp-spaziatura-val">100%</span>
-                </span>
-            </div>
-
-            <!-- Popover Aiuto Comandi -->
-            <div id="vp-help-popover" class="vp-help-popover" style="display:none;">
-                <div class="vp-help-close" id="vp-help-close">✕</div>
-                <div class="vp-help-section">
-                    <div class="vp-help-section-title"><i class="bi bi-mouse"></i> Mouse</div>
-                    <div class="vp-help-row"><kbd>Click sx</kbd> + trascina → Ruota</div>
-                    <div class="vp-help-row"><kbd>Click dx</kbd> + trascina → Sposta</div>
-                    <div class="vp-help-row"><kbd>Rotellina</kbd> → Zoom</div>
-                </div>
-                <div class="vp-help-section">
-                    <div class="vp-help-section-title"><i class="bi bi-keyboard"></i> Tastiera</div>
-                    <div class="vp-help-row"><kbd>+</kbd> / <kbd>-</kbd> → Zoom avanti / indietro</div>
-                    <div class="vp-help-row"><kbd>F</kbd> → Zoom fit</div>
-                    <div class="vp-help-row"><kbd>R</kbd> → Reset vista</div>
-                </div>
-                <div class="vp-help-section">
-                    <div class="vp-help-section-title"><i class="bi bi-rulers"></i> Spaziatura</div>
-                    <div class="vp-help-row"><kbd>Shift</kbd> + <kbd>Rotellina</kbd> → Regola fine (±1%)</div>
-                    <div class="vp-help-row"><kbd>[</kbd> / <kbd>]</kbd> → Meno / Più spaziatura (5%)</div>
-                    <div class="vp-help-row"><kbd>\</kbd> → Reset a 100%</div>
-                </div>
-            </div>
 
             <!-- Palette flottante Vista (draggabile) -->
             <div id="vp-floating-palette">

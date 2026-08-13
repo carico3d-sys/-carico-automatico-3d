@@ -47,6 +47,11 @@ const WS = {
     viewAttiva: 'carico',
     manualMode: false,
     _manualDragOccurred: false,  // flag: modifiche manuali non salvate
+    _manualUndoStack: [],         // cronologia Undo delle modifiche manuali
+    _manualUndoScene: null,       // scena a cui appartiene la cronologia
+    _manualUndoRestoring: false,  // evita di registrare durante il ripristino
+    _autoPreviewPosizioni: null, // snapshot stabile dell'ultimo "Elabora"
+    salvataggioInCorso: false,    // impedisce salvataggi DB concorrenti
     headerCategory: 'documenti',  // categoria attiva nell'header
     vistaToolbarVisible: false,   // toggle palette flottante (toolbar orizzontale sostituita)
 };
@@ -61,11 +66,12 @@ function cacheDom() {
     DOM.sidebarTabs = document.querySelectorAll('.sidebar-tab');
     DOM.sidebarTabPanels = document.querySelectorAll('.sidebar-tab-panel');
     DOM.sidebarNavDynamic = document.getElementById('sidebar-nav-dynamic');
+    DOM.sidebarAnagraficaDynamic = document.getElementById('sidebar-anagrafica-dynamic');
     DOM.headerCatBtns = document.querySelectorAll('.header-cat-btn');
-    DOM.vpHelpPopover = document.getElementById('vp-help-popover');
-    DOM.vpBtnZoomIn = document.getElementById('vp-btn-zoom-in');
-    DOM.vpBtnZoomOut = document.getElementById('vp-btn-zoom-out');
-    DOM.vpBtnHelp = document.getElementById('vp-btn-help');
+    DOM.vpfHelpPopover = document.getElementById('vpf-help-popover');
+    DOM.vpfBtnZoomIn = document.getElementById('vpf-btn-zoom-in');
+    DOM.vpfBtnZoomOut = document.getElementById('vpf-btn-zoom-out');
+    DOM.vpfBtnHelp = document.getElementById('vpf-btn-help');
     DOM.sidebarStatusDot = document.getElementById('sidebar-status-dot');
     DOM.sidebarStatusLabel = document.getElementById('sidebar-status-label');
 
@@ -102,8 +108,6 @@ function cacheDom() {
     // Viewport
     DOM.viewport3d = document.getElementById('viewport-3d');
     DOM.viewportPlaceholder = document.getElementById('viewport-placeholder');
-    DOM.viewportToolbarLabel = document.getElementById('viewport-toolbar-label');
-    DOM.viewportToolbar = document.getElementById('viewport-toolbar');
     DOM.headerCaricoLabel = document.getElementById('header-carico-label');
     DOM.panelView = document.getElementById('panel-view');
     DOM.pvListTitle = document.getElementById('pv-list-title');
@@ -242,15 +246,27 @@ function setActiveView(viewId) {
 
 /**
  * Cambia il tab attivo nella sidebar.
- * @param {string} tabName - 'navigazione', 'manuale', o 'automatica'
+ * @param {string} tabName - 'documenti', 'anagrafica', 'manuale', o 'automatica'
  */
 function switchSidebarTab(tabName) {
+    var sidebarTabsBar = document.getElementById('sidebar-tabs');
+    if (sidebarTabsBar) {
+        sidebarTabsBar.classList.remove('sidebar-tabs-context-header');
+    }
     DOM.sidebarTabs.forEach(function (t) {
         t.classList.toggle('active', t.dataset.tab === tabName);
     });
     DOM.sidebarTabPanels.forEach(function (p) {
         p.classList.toggle('active', p.dataset.tabPanel === tabName);
     });
+
+    // I primi due tab hanno contenuti indipendenti: il click diretto sulla
+    // sidebar deve sempre mostrare la categoria corrispondente.
+    if (tabName === 'documenti') {
+        _renderSidebarNavigazione('documenti');
+    } else if (tabName === 'anagrafica') {
+        _renderSidebarNavigazione('anagrafica');
+    }
 
     if (tabName === 'automatica' || tabName === 'manuale') {
         if (typeof mostraViewport === 'function') {
@@ -261,6 +277,14 @@ function switchSidebarTab(tabName) {
 
     // Attiva/disattiva modalita manuale
     WS.manualMode = (tabName === 'manuale');
+    if (WS.manualMode) {
+        if (typeof _inizializzaCronologiaManuale === 'function') {
+            _inizializzaCronologiaManuale();
+        }
+        if (typeof _aggiornaUndoManualeUI === 'function') {
+            _aggiornaUndoManualeUI();
+        }
+    }
     if (!WS.manualMode) {
         // Non trasferire la selezione persistente del pannello
         // nell'automatica o nella navigazione.
@@ -279,7 +303,12 @@ function switchSidebarTab(tabName) {
  */
 function eseguiNavigazione(view) {
     setActiveView(view);
-    switchSidebarTab('navigazione');
+    var tabNavigazione = ['oggetti', 'vincoli-tra', 'mezzi'].indexOf(view) >= 0
+        ? 'anagrafica' : 'documenti';
+    var mantieneContestoHeader = view === 'impostazioni' && WS.headerCategory === 'sistema';
+    if (!mantieneContestoHeader) {
+        switchSidebarTab(tabNavigazione);
+    }
 
     switch (view) {
         case 'carico':
@@ -306,7 +335,13 @@ function eseguiNavigazione(view) {
             setActiveView('carico');
             break;
         case 'salva-db':
-            if (typeof salvaPianoDB === 'function') salvaPianoDB();
+            if (typeof salvaPianoDB === 'function') {
+                // Il comando Navigazione/Salva deve comportarsi esattamente
+                // come i pulsanti Salva dei tab Manuale e Automatica.
+                salvaPianoDB();
+            } else {
+                showToast('Modulo salvataggio non caricato.', 'error');
+            }
             setActiveView('carico');
             break;
         case 'export-file':
@@ -354,11 +389,11 @@ function impostaVistaCamera(vista) {
 }
 
 // =============================================================================
-// HEADER CATEGORY — CONTENUTO DINAMICO SIDEBAR NAVIGAZIONE
+// HEADER CATEGORY — CONTENUTO DINAMICO SIDEBAR
 // =============================================================================
 
 /**
- * Attiva una categoria nell'header e aggiorna la sidebar Navigazione.
+ * Attiva una categoria nell'header e aggiorna il tab sidebar pertinente.
  * @param {string} cat - 'documenti' | 'anagrafica' | 'sistema' | 'goto-automatica' | 'goto-manuale' | 'toggle-vista'
  */
 function _attivaHeaderCategory(cat) {
@@ -384,19 +419,40 @@ function _attivaHeaderCategory(cat) {
         btn.classList.toggle('active', btn.dataset.cat === cat);
     });
 
-    // Assicura che il tab Navigazione sia attivo
-    switchSidebarTab('navigazione');
+    // Documenti e Anagrafica hanno tab distinti; Report e Sistema usano
+    // il tab Documenti come area di navigazione contestuale.
+    var tabCategoria = cat === 'anagrafica' ? 'anagrafica' : 'documenti';
+    switchSidebarTab(tabCategoria);
 
-    // Renderizza il contenuto dinamico
+    var sidebarTabsBar = document.getElementById('sidebar-tabs');
+    if (sidebarTabsBar) {
+        var contestoHeader = cat === 'sistema' || cat === 'report';
+        sidebarTabsBar.classList.toggle('sidebar-tabs-context-header', contestoHeader);
+        if (contestoHeader) {
+            // Sistema e Report sono contesti dell'header: lascia il pannello
+            // menu visibile, ma non selezionare/sottolineare uno dei quattro tab.
+            DOM.sidebarTabs.forEach(function (tab) { tab.classList.remove('active'); });
+        }
+    }
+
+    // Renderizza il contenuto dinamico della categoria selezionata
     _renderSidebarNavigazione(cat);
 }
 
 /**
- * Renderizza il contenuto del tab Navigazione in base alla categoria header attiva.
+ * Renderizza il contenuto del tab Documenti/Anagrafica in base alla categoria header attiva.
  * @param {string} cat - 'documenti' | 'anagrafica' | 'sistema'
  */
+function apriImpostazioniDaSidebar() {
+    _attivaHeaderCategory('sistema');
+    eseguiNavigazione('impostazioni');
+}
+
 function _renderSidebarNavigazione(cat) {
-    if (!DOM.sidebarNavDynamic) return;
+    var target = cat === 'anagrafica'
+        ? DOM.sidebarAnagraficaDynamic
+        : DOM.sidebarNavDynamic;
+    if (!target) return;
 
     // Blocco Strumenti Rapidi (in fondo a ogni categoria)
     var strumentiRapidiHtml = '' +
@@ -478,7 +534,7 @@ function _renderSidebarNavigazione(cat) {
             break;
     }
 
-    DOM.sidebarNavDynamic.innerHTML = html;
+    target.innerHTML = html;
 
     // Rilega gli eventi click sugli item dinamici
     _bindSidebarNavDynamicEvents();
@@ -490,28 +546,31 @@ function _renderSidebarNavigazione(cat) {
 }
 
 /**
- * Rilega gli eventi click sugli item generati dinamicamente nella sidebar Navigazione.
+ * Rilega gli eventi click sugli item generati dinamicamente nella sidebar.
  */
 function _bindSidebarNavDynamicEvents() {
-    if (!DOM.sidebarNavDynamic) return;
+    var containers = [DOM.sidebarNavDynamic, DOM.sidebarAnagraficaDynamic];
+    containers.forEach(function (container) {
+        if (!container) return;
 
-    // Item di navigazione (data-view)
-    var navItems = DOM.sidebarNavDynamic.querySelectorAll('.sidebar-nav-item[data-view]');
-    navItems.forEach(function (item) {
-        item.addEventListener('click', function (e) {
-            e.preventDefault();
-            var view = this.dataset.view;
-            eseguiNavigazione(view);
+        // Item di navigazione (data-view)
+        var navItems = container.querySelectorAll('.sidebar-nav-item[data-view]');
+        navItems.forEach(function (item) {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+                var view = this.dataset.view;
+                eseguiNavigazione(view);
+            });
         });
-    });
 
-    // Item azione rapida (data-action)
-    var actionItems = DOM.sidebarNavDynamic.querySelectorAll('.sidebar-nav-item[data-action]');
-    actionItems.forEach(function (item) {
-        item.addEventListener('click', function (e) {
-            e.preventDefault();
-            var action = this.dataset.action;
-            _eseguiAzioneRapida(action);
+        // Item azione rapida (data-action)
+        var actionItems = container.querySelectorAll('.sidebar-nav-item[data-action]');
+        actionItems.forEach(function (item) {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+                var action = this.dataset.action;
+                _eseguiAzioneRapida(action);
+            });
         });
     });
 }
@@ -537,14 +596,21 @@ function _eseguiAzioneRapida(action) {
             if (panel) {
                 if (panel.style.display === 'none' || panel.style.display === '') {
                     panel.style.display = 'block';
-                    if (typeof Chart === 'undefined') {
+                    // Il pannello deve essere già impaginato prima di creare
+                    // il canvas. La funzione comune gestisce anche il fallback
+                    // ai dati persistiti se la scena locale non è disponibile.
+                    if (typeof _apriDistribuzionePesi === 'function') {
+                        _apriDistribuzionePesi();
+                    } else if (typeof Chart === 'undefined') {
                         if (typeof caricaChartJS === 'function') {
                             caricaChartJS().then(function () {
                                 if (typeof _disegnaDistribuzionePesiLocale === 'function') _disegnaDistribuzionePesiLocale();
                             });
                         }
-                    } else {
-                        if (typeof _disegnaDistribuzionePesiLocale === 'function') _disegnaDistribuzionePesiLocale();
+                    } else if (typeof _disegnaDistribuzionePesiLocale === 'function') {
+                        requestAnimationFrame(function () {
+                            _disegnaDistribuzionePesiLocale();
+                        });
                     }
                 } else {
                     if (typeof nascondiDistribuzionePesi === 'function') nascondiDistribuzionePesi();
@@ -577,8 +643,6 @@ function _toggleVistaToolbar() {
     if (WS.vistaToolbarVisible) {
         if (typeof _apriFloatingPalette === 'function') _apriFloatingPalette();
         else palette.classList.add('visible');
-        // Nascondi la toolbar orizzontale: sostituita dalla palette
-        if (DOM.viewportToolbar) DOM.viewportToolbar.style.display = 'none';
     } else {
         if (typeof _chiudiFloatingPalette === 'function') _chiudiFloatingPalette();
         else palette.classList.remove('visible');

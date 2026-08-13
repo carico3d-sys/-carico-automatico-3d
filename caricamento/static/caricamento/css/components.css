@@ -1549,7 +1549,7 @@ img.header-cat-icon {
     flex-shrink: 0;
 }
 
-/* Help contestuale: 2 pulsanti 50% + 50% (Mouse / Tastiera → 2 modali) */
+/* Help contestuale: 3 pulsanti in riga (Mouse / Tastiera / Impostazioni) */
 .manuale-help-bar {
     display: flex;
     gap: 6px;
@@ -1557,7 +1557,7 @@ img.header-cat-icon {
 }
 
 .manuale-help-btn {
-    flex: 1 1 50%;
+    flex: 1 1 33.333%;
     min-width: 0;
     display: inline-flex;
     align-items: center;
@@ -1620,7 +1620,7 @@ img.header-cat-icon {
     to { opacity: 1; transform: translateX(0); }
 }
 
-/* Riga Snap + Ghost (50% + 50%) sopra il D-Pad — qui (non in base.css)
+/* Riga Undo + Ghost (50% + 50%) sopra il D-Pad — qui (non in base.css)
    per vincere il cascade contro .btn/.btn-sm di panels_vincoli.css */
 .manuale-snap-ghost-row {
     display: flex;
@@ -1630,6 +1630,7 @@ img.header-cat-icon {
 }
 
 .manuale-snap-ghost-row .manuale-snap-cell,
+.manuale-snap-ghost-row .manuale-undo-cell,
 .manuale-snap-ghost-row .manuale-ghost-cell {
     flex: 1 1 50%;
     min-width: 0;

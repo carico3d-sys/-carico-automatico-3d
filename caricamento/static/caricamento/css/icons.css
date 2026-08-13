@@ -43,7 +43,7 @@ html.icons-not-ready i {
     }
 
     .sidebar-tab-label {
-        font-size: 11px;
+        font-size: 9px;
     }
 
     /* Sidebar nav — icone più grandi su tablet */
@@ -132,24 +132,27 @@ html.icons-not-ready i {
 .header-cat-btn.active[data-cat="sistema"] .bi { color: #c4ccd2; }
 
 /* --- SIDEBAR TAB: colori --- */
-.sidebar-tab[data-tab="navigazione"] .sidebar-tab-icon { color: #447e9b; }
+.sidebar-tab[data-tab="documenti"] .sidebar-tab-icon { color: #447e9b; }
+.sidebar-tab[data-tab="anagrafica"] .sidebar-tab-icon { color: #7b61a8; }
 .sidebar-tab[data-tab="manuale"] .sidebar-tab-icon { color: #ff7b5a; }
 .sidebar-tab[data-tab="automatica"] .sidebar-tab-icon { color: #e67e00; }
 
-.sidebar-tab.active[data-tab="navigazione"] .sidebar-tab-icon { color: #3a6e8a; }
+.sidebar-tab.active[data-tab="documenti"] .sidebar-tab-icon { color: #3a6e8a; }
+.sidebar-tab.active[data-tab="anagrafica"] .sidebar-tab-icon { color: #654c91; }
 .sidebar-tab.active[data-tab="manuale"] .sidebar-tab-icon { color: #e0694a; }
 .sidebar-tab.active[data-tab="automatica"] .sidebar-tab-icon { color: #cc7000; }
 
 /* --- TOOLBAR VIEWPORT: colori funzionali --- */
-#vp-btn-top .bi { color: #4da6d9; }
-#vp-btn-front .bi { color: #4caf50; }
-#vp-btn-side .bi { color: #ff7b5a; }
-#vp-btn-grid .bi { color: #b07cd8; }
-#vp-btn-reset .bi { color: #f0a040; }
-#vp-btn-fullscreen .bi { color: #b0b8c0; }
-#vp-btn-zoom-out .bi { color: #4da6d9; }
-#vp-btn-zoom-in .bi { color: #4da6d9; }
-#vp-btn-help .bi { color: #f0a040; }
+#vpf-btn-top .bi { color: #4da6d9; }
+#vpf-btn-front .bi { color: #4caf50; }
+#vpf-btn-side .bi { color: #ff7b5a; }
+#vpf-btn-grid .bi { color: #b07cd8; }
+#vpf-btn-reset .bi { color: #f0a040; }
+#vpf-btn-fullscreen .bi { color: #b0b8c0; }
+#vpf-btn-zoom-out .bi { color: #4da6d9; }
+#vpf-btn-zoom-in .bi { color: #4da6d9; }
+#vpf-btn-spaziatura .bi { color: #f0a040; }
+#vpf-btn-help .bi { color: #f0a040; }
 
 /* Colori palette ora in floating_palette.css */
 

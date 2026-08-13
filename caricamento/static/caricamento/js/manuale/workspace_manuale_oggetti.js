@@ -164,6 +164,10 @@ function _removeSelectedObject() {
                 var qty = parseInt(qtyInput.value) || 1;
                 qty -= 1;
                 if (qty <= 0) {
+                    // Mantieni temporaneamente la riga nel DOM per l'animazione,
+                    // ma registra subito la quantità reale (zero): così Undo
+                    // salva uno stato coerente anche prima del setTimeout.
+                    if (qtyInput) qtyInput.value = 0;
                     // Rimuovi la riga dal pannello
                     item.style.opacity = '0';
                     item.style.transition = 'opacity 0.15s';
@@ -190,7 +194,9 @@ function _removeSelectedObject() {
         }
     }
 
-    // Segna modifiche manuali
+    // Segna modifiche manuali. La registrazione avviene dopo l'aggiornamento
+    // della quantità nel pannello, così lo snapshot rappresenta davvero lo
+    // stato corrente post-rimozione.
     if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
 
     // Deseleziona (pulisce anche UI) — DEVE avvenire PRIMA di aggiornare lo slider,
@@ -220,6 +226,7 @@ function _removeSelectedObject() {
         _selectObject(found);
     }
 
+    if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
     showToast('🗑️ Oggetto rimosso dal carico.', 'info');
 }
 
@@ -911,8 +918,9 @@ function _aggiungiOggettoDaPanel() {
             selectedPanelOggettoId,
             selectedPanelCodice || codice
         );
-        // _incrementaPanelQty aggiorna quantità e riepiloghi: ripristina la
-        // selezione dopo queste operazioni, come ultimo passo del flusso.
+        // _incrementaPanelQty aggiorna quantità e riepiloghi: ora lo snapshot
+        // include sia il nuovo mesh sia la quantità aggiornata.
+        if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
         _ripristinaSelezionePanelManuale(
             selectedPanelItem,
             selectedPanelOggettoId,

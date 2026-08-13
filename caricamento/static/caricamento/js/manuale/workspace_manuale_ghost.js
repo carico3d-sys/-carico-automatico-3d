@@ -138,7 +138,9 @@ function _attivaModalitaGhost(oggetto) {
 
     // Mostra pulsante annulla ghost
     var btnAnnullaGhost2 = document.getElementById('manuale-btn-annulla-ghost');
-    if (btnAnnullaGhost2) btnAnnullaGhost2.style.display = 'block';
+    // Mantieni il display flex: la Gestione Icone può avere scelto
+    // l'orientamento colonna (icona sopra, testo sotto).
+    if (btnAnnullaGhost2) btnAnnullaGhost2.style.display = 'flex';
 
     _ghostState.active = true;
     _ghostState.group = ghost.group;
@@ -581,7 +583,12 @@ function _confermaGhost() {
         showToast('✅ "' + oggetto.codice + '" piazzato!', 'success');
         _refreshSidebarLineari();
     }
+
+    // Il piazzamento è confermato: diventa una singola voce nella cronologia
+    // (gli spostamenti del ghost durante la preview non vengono registrati).
+    if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
 }
+
 
 /**
  * Annulla il ghost mode.
@@ -626,6 +633,16 @@ function _annullaGhost(silent) {
     if (btnAnnulla) btnAnnulla.style.display = 'none';
 
     if (!silent && !existingGroup) showToast('👻 Piazzamento annullato.', 'info');
+
+    // La modalità Ghost può restare attiva anche dopo la conferma/annullamento
+    // di un singolo piazzamento: riallinea comunque il bottone al suo stato
+    // reale, senza trasformare la fine del piazzamento in un toggle OFF.
+    if (typeof _aggiornaGhostToggleUI === 'function') {
+        _aggiornaGhostToggleUI();
+    }
+    if (typeof _aggiornaUndoManualeUI === 'function') {
+        _aggiornaUndoManualeUI();
+    }
 }
 
 // =============================================================================

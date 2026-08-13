@@ -28,6 +28,7 @@
     --color-slider-track-end: #447e9b;      /* fine gradiente traccia spaziatura */
     --color-slider-thumb: #447e9b;          /* manopola slider spaziatura */
     --color-strategia-thumb: #447e9b;       /* manopola slider strategia (default) */
+    --color-slider-sequence-bg: #1f3946;    /* sfondo slider sequenza oggetti */
     --color-text: #333;
     --color-text-muted: #888;
     --color-danger: #e74c3c;
@@ -225,14 +226,24 @@ body {
     background: #fff;
 }
 
+/* I menu Sistema e Report sono contesti dell'header, non tab della
+   sidebar: quando sono aperti nessun tab deve risultare sottolineato. */
+#sidebar-tabs.sidebar-tabs-context-header {
+    border-bottom-color: transparent;
+}
+
+#sidebar-tabs.sidebar-tabs-context-header .sidebar-tab {
+    border-bottom-color: transparent;
+}
+
 .sidebar-tab {
     flex: 1;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 6px;
+    gap: 2px;
+    padding: 4px 6px 3px;
     background: #f8f8f8;
     border: none;
     border-bottom: 2px solid transparent;
@@ -262,9 +273,9 @@ body {
 
 .sidebar-tab-label {
     text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-weight: 500;
-    font-size: 10px;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+    font-size: 9px;
     white-space: nowrap;
 }
 
@@ -1097,28 +1108,7 @@ body {
     position: relative;
 }
 
-/* Toolbar orizzontale in alto (default) */
-#viewport-toolbar {
-    display: none;       /* sostituito dalla palette flottante */
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    background: rgba(26,26,46,0.85);
-    backdrop-filter: blur(8px);
-    flex-shrink: 0;
-    z-index: 10;
-}
-
-.viewport-toolbar-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.7);
-    margin-left: 4px;
-    margin-right: auto;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-}
+/* La toolbar Vista è gestita esclusivamente da floating_palette.css. */
 
 .vp-btn {
     width: 32px;

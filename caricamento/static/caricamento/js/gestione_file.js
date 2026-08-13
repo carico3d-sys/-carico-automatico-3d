@@ -430,12 +430,8 @@ function _renderizzaImportati3D(data) {
         WS.treSceneLoaded = true;
     }
 
-    // Aggiorna label toolbar e header
-    var labelEl = document.getElementById('viewport-toolbar-label');
-    if (labelEl) {
-        labelEl.textContent = nome;
-        _setHeaderCaricoLabel(nome);
-    }
+    // Aggiorna l'etichetta del carico nell'header.
+    _setHeaderCaricoLabel(nome);
 }
 
 // =============================================================================
@@ -468,13 +464,54 @@ function _allineaQtyOriginaleDopoSalvataggio() {
 // =============================================================================
 
 async function salvaPianoDB() {
+    // Elabora (preview) e Salva sono azioni asincrone: un secondo click mentre
+    // il primo salvataggio è ancora in corso poteva svuotare/riallineare la
+    // scena e lasciare la richiesta senza posizioni valide.
+    if (WS.salvataggioInCorso) return;
+    WS.salvataggioInCorso = true;
+    if (typeof _impostaAzioniAutoDisabilitate === 'function') {
+        _impostaAzioniAutoDisabilitate(true);
+    }
+
     var oggetti = raccogliOggettiDaPanel();
     if (oggetti.length === 0) {
+        WS.salvataggioInCorso = false;
+        if (typeof _aggiornaStatoAzioniAuto === 'function') {
+            _aggiornaStatoAzioniAuto();
+        }
         showToast('Aggiungi almeno un oggetto al carico prima di salvare.', 'warning');
         return;
     }
     if (!WS.activeMezzoId && !WS.activePianoId) {
+        WS.salvataggioInCorso = false;
+        if (typeof _aggiornaStatoAzioniAuto === 'function') {
+            _aggiornaStatoAzioniAuto();
+        }
         showToast('Seleziona un mezzo di trasporto prima di salvare.', 'warning');
+        return;
+    }
+
+    // Congela subito la scena corrente, prima di qualsiasi await/fetch.
+    // Dopo "Elabora" la scena è una preview: attendere le chiamate DELETE/POST
+    // del piano può lasciare STATE.oggettiMesh vuoto o ricostruito quando si
+    // arriva al salvataggio delle coordinate. La quantità del pannello non
+    // decide quali oggetti visibili vengono persistiti.
+    var _originePosizioni = WS._manualDragOccurred ? 'manuale' : 'sincronizzazione';
+    var _snapshotPosizioni = _raccogliPosizioniScena(
+        _originePosizioni === 'sincronizzazione'
+    );
+    console.info('[SALVA] Snapshot 3D:', _snapshotPosizioni.length,
+        'posizioni; origine:', _originePosizioni,
+        'mesh:', (typeof STATE !== 'undefined' && Array.isArray(STATE.oggettiMesh)) ? STATE.oggettiMesh.length : 0,
+        'preview:', (Array.isArray(WS._autoPreviewPosizioni) ? WS._autoPreviewPosizioni.length : 0),
+        'STATE.dati:', (typeof STATE !== 'undefined' && STATE.dati && Array.isArray(STATE.dati.oggetti)) ? STATE.dati.oggetti.length : 0);
+    if (_snapshotPosizioni.length === 0) {
+        WS.salvataggioInCorso = false;
+        if (typeof _aggiornaStatoAzioniAuto === 'function') {
+            _aggiornaStatoAzioniAuto();
+        }
+        showToast('❌ Nessuna posizione 3D valida da salvare. Elabora prima il carico oppure verifica la scena 3D.', 'error');
+        setStatus('error', 'Errore salvataggio');
         return;
     }
 
@@ -521,43 +558,18 @@ async function salvaPianoDB() {
             });
         }
 
-        // Salva sempre le posizioni 3D (non solo in modalità manuale).
-        // Prima, sincronizza la scena 3D con le q.tà del pannello:
-        // rimuove gli oggetti 3D in eccesso rispetto alla q.tà indicata.
-        if (typeof STATE !== 'undefined' && STATE.oggettiMesh && STATE.oggettiMesh.length > 0) {
-            // Mappa q.tà pannello per codice
-            var _panelQty = {};
-            oggetti.forEach(function (o) { _panelQty[o.codice] = o.quantita; });
-            // Tieni solo i primi N oggetti per codice (N = q.tà pannello)
-            var _kept = [];
-            var _keptCount = {};
-            var _trimmedCount = 0;
-            STATE.oggettiMesh.forEach(function (group) {
-                var cod = group.userData && group.userData.codice;
-                if (!cod) { _kept.push(group); return; }
-                var target = _panelQty[cod] || 0;
-                var cur = _keptCount[cod] || 0;
-                if (cur < target) {
-                    _kept.push(group);
-                    _keptCount[cod] = cur + 1;
-                } else {
-                    STATE.scene.remove(group);
-                    _trimmedCount++;
-                }
-            });
-            STATE.oggettiMesh = _kept;
-            if (_trimmedCount > 0) {
-                showToast('🔧 ' + _trimmedCount + ' oggetti 3D rimossi per allineare la scena alle q.tà del pannello.', 'info');
-            }
-            // Se la scena è stata modificata con drag/rotazione/rimozione,
-            // il salvataggio è manuale; altrimenti è solo sincronizzazione
-            // della lista di carico e non deve cambiare l'origine del piano.
-            await _salvaPosizioniManuali(
-                pianoId,
-                WS._manualDragOccurred ? 'manuale' : 'sincronizzazione'
-            );
-            WS._manualDragOccurred = false;
-        }
+        // Salva lo snapshot raccolto prima delle chiamate di rete. Non
+        // modificare STATE.oggettiMesh qui: la preview deve restare visibile e
+        // lo snapshot è già stato raccolto da _raccogliPosizioniScena().
+        await _salvaPosizioniManuali(
+            pianoId,
+            _originePosizioni,
+            _snapshotPosizioni
+        );
+        WS._manualDragOccurred = false;
+        // Una volta persistito il piano, lo snapshot non è più necessario
+        // (anche dopo un salvataggio manuale non deve restare riutilizzabile).
+        WS._autoPreviewPosizioni = null;
 
         // Allinea q.tà richiesta = q.tà reale (il salvataggio conferma le q.tà attuali)
         _allineaQtyOriginaleDopoSalvataggio();
@@ -598,6 +610,9 @@ async function salvaPianoDB() {
 
         showToast('❌ Salvataggio fallito: ' + err.message, 'error');
         setStatus('error', 'Errore salvataggio');
+    } finally {
+        WS.salvataggioInCorso = false;
+        _aggiornaStatoAzioniAuto();
     }
 }
 
@@ -620,53 +635,206 @@ function _normalizzaRotazionePerApi(rotazione) {
     return compatta.length === 3 ? compatta : 'XYZ';
 }
 
-async function _salvaPosizioniManuali(pianoId, origine) {
-    origine = origine || 'manuale';
-    var posizioni = [];
+function _posizioneNumericaValida(posizione, dimensioni) {
+    if (!posizione || !dimensioni) return false;
+    var valori = [posizione.x, posizione.y, posizione.z, dimensioni.x, dimensioni.y, dimensioni.z];
+    return valori.every(function (valore) {
+        return Number.isFinite(Number(valore)) && Number(valore) >= 0;
+    }) && Number(dimensioni.x) > 0 && Number(dimensioni.y) > 0 && Number(dimensioni.z) > 0;
+}
 
-    STATE.oggettiMesh.forEach(function (group) {
-        var ud = group.userData;
-        if (!ud || !ud.codice) return;
+function _codicePosizione(oggetto) {
+    if (!oggetto) return '';
+    return String(oggetto.codice || oggetto.codice_oggetto || oggetto.oggetto_codice || '').trim();
+}
+
+function _triplettaPosizione(valore) {
+    if (Array.isArray(valore)) {
+        return { x: valore[0], y: valore[1], z: valore[2] };
+    }
+    if (!valore || typeof valore !== 'object') return null;
+    return {
+        x: valore.x !== undefined ? valore.x : (valore.l !== undefined ? valore.l : valore.lunghezza),
+        y: valore.y !== undefined ? valore.y : (valore.p !== undefined ? valore.p : valore.larghezza),
+        z: valore.z !== undefined ? valore.z : (valore.h !== undefined ? valore.h : valore.altezza),
+    };
+}
+
+function _triplettaNumerica(valore, fattore) {
+    var tripletta = _triplettaPosizione(valore);
+    if (!tripletta) return null;
+    return {
+        x: Number(tripletta.x) * fattore,
+        y: Number(tripletta.y) * fattore,
+        z: Number(tripletta.z) * fattore,
+    };
+}
+
+function _triplettaFinita(valore) {
+    return valore && [valore.x, valore.y, valore.z].every(function (n) {
+        return Number.isFinite(Number(n));
+    });
+}
+
+function _triplettaPositiva(valore) {
+    return _triplettaFinita(valore) && [valore.x, valore.y, valore.z].every(function (n) {
+        return Number(n) > 0;
+    });
+}
+
+function _normalizzaPosizioneDaDati3D(oggetto) {
+    var codice = _codicePosizione(oggetto);
+    if (!oggetto || !codice) return null;
+
+    // Accetta sia il formato API in cm sia il formato dell'ottimizzatore in mm.
+    // Se il formato cm è presente ma contiene NaN/chiavi diverse, prova comunque
+    // il formato mm originale invece di scartare l'intero oggetto.
+    var posizioneCm = _triplettaNumerica(
+        oggetto.posizione_cm || oggetto.posizione || oggetto.position,
+        1
+    );
+    var dimensioniCm = _triplettaNumerica(
+        oggetto.dimensioni_cm || oggetto.dimensioni || oggetto.dimensions,
+        1
+    );
+    var posizioneMm = _triplettaNumerica(oggetto.posizione_mm || oggetto.position_mm, 0.1);
+    var dimensioniMm = _triplettaNumerica(oggetto.dimensioni_mm || oggetto.dimensioni, 0.1);
+
+    var posizione = _triplettaFinita(posizioneCm) ? posizioneCm : posizioneMm;
+    var dimensioni = _triplettaPositiva(dimensioniCm) ? dimensioniCm : dimensioniMm;
+    if (!_triplettaFinita(posizione) || !_triplettaPositiva(dimensioni)) return null;
+
+    // La preview può avere una minima imprecisione negativa vicino a zero.
+    posizione = {
+        x: Math.max(0, Number(posizione.x)),
+        y: Math.max(0, Number(posizione.y)),
+        z: Math.max(0, Number(posizione.z)),
+    };
+    dimensioni = {
+        x: Number(dimensioni.x),
+        y: Number(dimensioni.y),
+        z: Number(dimensioni.z),
+    };
+    if (!_posizioneNumericaValida(posizione, dimensioni)) return null;
+
+    return {
+        oggetto_id: oggetto.oggetto_id || oggetto.id || oggetto.oggettoId || null,
+        codice: codice,
+        posizione_cm: posizione,
+        dimensioni_cm: dimensioni,
+        colore: oggetto.colore || '#447e9b',
+        rotazione: _normalizzaRotazionePerApi(oggetto.rotazione || oggetto.rotazione_applicata || 'XYZ'),
+    };
+}
+
+/**
+ * Raccoglie le coordinate dalla scena corrente. Dopo "Elabora" la scena è una
+ * preview e, in alcuni casi, i gruppi Three.js possono essere stati ricreati o
+ * riallineati prima che il salvataggio parta: STATE.dati.oggetti è il fallback
+ * persistito in memoria con lo stesso formato dell'endpoint 3D. La quantità
+ * richiesta dal pannello non viene usata per filtrare la scena visibile.
+ */
+function _raccogliPosizioniScena(usaFallback) {
+    // Nel flusso automatico usa prima il risultato immutabile di "Elabora".
+    // La scena Three.js è solo una rappresentazione visuale e può contenere
+    // gruppi ricostruiti, dimensioni locali o coordinate non più leggibili.
+    if (usaFallback && typeof WS !== 'undefined' &&
+        Array.isArray(WS._autoPreviewPosizioni) &&
+        WS._autoPreviewPosizioni.length > 0) {
+        var previewValide = 0;
+        var posizioniPreview = WS._autoPreviewPosizioni.map(function (oggetto) {
+            var normalizzata = _normalizzaPosizioneDaDati3D(oggetto);
+            if (normalizzata) previewValide += 1;
+            return normalizzata;
+        }).filter(function (posizione) { return !!posizione; });
+        // La preview è il risultato diretto dell'ottimizzatore: è già stata
+        // costruita sulla lista inviata al backend e rappresenta esattamente
+        // le posizioni che l'utente vede dopo "Elabora". Non ricostruirla dalla
+        // scena e non applicare il filtro quantità del pannello: quel filtro
+        // può avere codici/quantità visuali diversi dalla quantità piazzata.
+        console.info('[SALVA] Preview normalizzata:', previewValide + '/' + WS._autoPreviewPosizioni.length,
+            'usata direttamente:', posizioniPreview.length);
+        if (posizioniPreview.length > 0) {
+            return posizioniPreview;
+        }
+    }
+
+    var posizioni = [];
+    var meshDisponibili = typeof STATE !== 'undefined' && Array.isArray(STATE.oggettiMesh)
+        ? STATE.oggettiMesh : [];
+
+    meshDisponibili.forEach(function (group) {
+        var ud = group && group.userData;
+        if (!ud || !ud.codice || !group.position) return;
 
         var dimCm = typeof _getTjsDimensions === 'function'
             ? _getTjsDimensions(group)
             : { x: 0, y: 0, z: 0 };
+        if (!dimCm || !group.position) return;
 
-        // Salta oggetti con dimensioni invalide (zero)
-        if (!dimCm.x || !dimCm.y || !dimCm.z) return;
-
-        // group.position e' ora il centro world dell'oggetto (fix strutturale).
-        // mesh.position e' (0,0,0) relativo al group. Nessun offset da sommare.
-        var worldX = group.position.x;
-        var worldY = group.position.y;
-        var worldZ = group.position.z;
-
-        // Converti da coordinate Three.js (centro) a coordinate API (angolo)
-        // API.x = lunghezza, API.y = larghezza, API.z = altezza
-        // Three.js X = lunghezza, Three.js Y = altezza(up), Three.js Z = larghezza
-        var apiX = worldX - dimCm.x / 2;
-        var apiY = worldZ - dimCm.z / 2;
-        var apiZ = worldY - dimCm.y / 2;
-
-        // Clamp al pavimento
-        if (apiX < 0) apiX = 0;
-        if (apiY < 0) apiY = 0;
-        if (apiZ < 0) apiZ = 0;
+        // group.position è il centro world. Three.js usa Y per l'altezza,
+        // mentre l'API usa z per l'altezza.
+        var posizione = {
+            x: Math.max(0, Number(group.position.x) - Number(dimCm.x) / 2),
+            y: Math.max(0, Number(group.position.z) - Number(dimCm.z) / 2),
+            z: Math.max(0, Number(group.position.y) - Number(dimCm.y) / 2),
+        };
+        var dimensioni = {
+            x: Number(dimCm.x),
+            y: Number(dimCm.z),
+            z: Number(dimCm.y),
+        };
+        if (!_posizioneNumericaValida(posizione, dimensioni)) return;
 
         posizioni.push({
-            codice: ud.codice,
-            posizione_cm: { x: apiX, y: apiY, z: apiZ },
-            dimensioni_cm: {
-                x: dimCm.x,              // API lunghezza = dimCm.x
-                y: dimCm.z,              // API larghezza = dimCm.z
-                z: dimCm.y,              // API altezza  = dimCm.y
-            },
+            codice: String(ud.codice),
+            posizione_cm: posizione,
+            dimensioni_cm: dimensioni,
             colore: ud.colore || '#447e9b',
-            // Il DB memorizza una permutazione di assi lunga 3 caratteri;
-            // le etichette UI come "LxPxH" non sono valide per il campo.
             rotazione: _normalizzaRotazionePerApi(ud._orientamento || ud.rotazione || 'XYZ'),
         });
     });
+
+    // Fallback specifico per la preview di "Elabora": i dati sono già in cm
+    // API (x=lunghezza, y=larghezza, z=altezza), quindi non vanno riconvertiti.
+    // Non usarlo per un salvataggio manuale: in quel caso STATE.dati può essere
+    // una fotografia precedente e sovrascrivere modifiche dell'utente.
+    var snapshotPreview = (typeof WS !== 'undefined' && Array.isArray(WS._autoPreviewPosizioni))
+        ? WS._autoPreviewPosizioni
+        : [];
+    // Preferisci lo snapshot dell'ottimizzazione: STATE.dati può essere
+    // successivamente sostituito da una scena vuota o da dati più vecchi.
+    var datiFallback = snapshotPreview.length > 0
+        ? snapshotPreview
+        : ((typeof STATE !== 'undefined' && STATE.dati &&
+            Array.isArray(STATE.dati.oggetti)) ? STATE.dati.oggetti : []);
+
+    if (usaFallback && posizioni.length === 0 && datiFallback.length > 0) {
+        datiFallback.forEach(function (oggetto) {
+            var normalizzata = _normalizzaPosizioneDaDati3D(oggetto);
+            if (normalizzata) posizioni.push(normalizzata);
+        });
+    }
+
+    // Salva significa persistere la scena visibile. Le quantità del pannello
+    // descrivono la richiesta, ma non possono cancellare posizionamenti che
+    // l'utente vede (piano parziale, duplicati o override manuali inclusi).
+    return posizioni;
+}
+
+async function _salvaPosizioniManuali(pianoId, origine, posizioniSnapshot) {
+    origine = origine || 'manuale';
+    // Le coordinate possono essere state raccolte prima di un'altra await
+    // (flusso Elabora → Salva). Se non viene passato uno snapshot, mantieni
+    // il comportamento precedente raccogliendo dalla scena al momento della
+    // chiamata.
+    // Lo snapshot è già stato raccolto dalla scena visibile prima delle
+    // chiamate di rete. Non applicare qui limiti di quantità: Salva deve
+    // persistere esattamente gli oggetti mostrati, sia in automatico sia in
+    // manuale.
+    var posizioni = Array.isArray(posizioniSnapshot)
+        ? posizioniSnapshot
+        : _raccogliPosizioniScena(origine === 'sincronizzazione');
 
     if (posizioni.length === 0) {
         throw new Error('Nessuna posizione 3D valida da salvare.');
@@ -680,7 +848,7 @@ async function _salvaPosizioniManuali(pianoId, origine) {
         });
         if (!resp.ok) {
             var errData = await resp.json().catch(function () { return {}; });
-            var dettaglio = errData.errore || errData.detail || ('HTTP ' + resp.status);
+            var dettaglio = errData.errore || errData.detail || errData.oggetti || JSON.stringify(errData) || ('HTTP ' + resp.status);
             throw new Error('Salvataggio posizioni manuali fallito: ' + dettaglio);
         }
         var data = await resp.json();

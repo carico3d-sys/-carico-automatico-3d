@@ -1,32 +1,74 @@
 /**
  * Workspace Carico 3D — Vincoli Tra Oggetti: Canvas 3D
  *
- * Rendering Three.js indipendente per ogni card configurazione,
- * griglia interattiva con selezione/esclusione, cleanup WebGL.
+ * Rendering Three.js statico per le card configurazione,
+ * con un solo contesto WebGL condiviso e copia raster nei canvas 2D.
+ * Questo evita il limite del browser sui contesti WebGL simultanei.
+ *
+ * Griglia interattiva con selezione/esclusione e cleanup delle scene.
  *
  * Depends on: workspace_vt_rotazioni.js (_vtState, _vtNessunaSelezionata, _vtQualcunaSelezionata)
  */
 
 // =============================================================================
-// CANVAS THREE.JS INDIPENDENTI
+// RENDERER CONDIVISO
 // =============================================================================
+// Un WebGLRenderer per ogni card supera il limite dei contesti WebGL del
+// browser (in genere 8/16): le prime card diventano quindi vuote quando
+// vengono create molte configurazioni. Il renderer resta fuori dal DOM e il
+// suo frame viene copiato nel canvas 2D della card dopo ogni render.
+var _vtSharedRenderer = null;
+
+function _vtOttieniSharedRenderer() {
+    if (_vtSharedRenderer) {
+        try {
+            var gl = _vtSharedRenderer.getContext();
+            if (!gl || !gl.isContextLost()) return _vtSharedRenderer;
+            _vtSharedRenderer.dispose();
+        } catch (_) {
+            // Ricrea il renderer se il contesto è diventato inutilizzabile.
+        }
+        _vtSharedRenderer = null;
+    }
+    if (typeof THREE === 'undefined' || !THREE.WebGLRenderer) return null;
+
+    try {
+        _vtSharedRenderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false,
+            preserveDrawingBuffer: true,
+        });
+        _vtSharedRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        _vtSharedRenderer.domElement.addEventListener('webglcontextlost', function (event) {
+            event.preventDefault();
+            console.warn('[Vincoli tra oggetti] Contesto WebGL perso; verrà ricreato al prossimo render.');
+        }, false);
+    } catch (err) {
+        console.error('[Vincoli tra oggetti] Renderer WebGL non disponibile:', err);
+        _vtSharedRenderer = null;
+    }
+    return _vtSharedRenderer;
+}
+
+function _vtLiberaMateriale(materiale) {
+    if (!materiale) return;
+    var materiali = Array.isArray(materiale) ? materiale : [materiale];
+    materiali.forEach(function (material) {
+        if (!material) return;
+        if (material.map && typeof material.map.dispose === 'function') material.map.dispose();
+        material.dispose();
+    });
+}
 
 function _vtDistruggiCanvases() {
     _vtCanvases.forEach(function (entry) {
-        if (entry.renderer) {
-            entry.renderer.dispose();
-            entry.renderer.forceContextLoss();
-        }
+        // Il renderer è condiviso e non appartiene al singolo canvas: non
+        // distruggerlo qui, altrimenti la card successiva ricreerebbe un altro
+        // contesto WebGL. Vengono invece liberate le risorse della scena.
         if (entry.scene) {
             entry.scene.traverse(function (child) {
                 if (child.geometry) child.geometry.dispose();
-                if (child.material) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(function (m) { m.dispose(); });
-                    } else {
-                        child.material.dispose();
-                    }
-                }
+                _vtLiberaMateriale(child.material);
             });
         }
     });
@@ -60,35 +102,26 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
             var child = existing.scene.children[0];
             existing.scene.remove(child);
             if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(function (m) { m.dispose(); });
-                } else {
-                    child.material.dispose();
-                }
-            }
+            _vtLiberaMateriale(child.material);
         }
     }
 
-    var scene, renderer, camera;
-    if (existing && existing.renderer && existing.camera) {
+    var scene, camera;
+    if (existing && existing.scene && existing.camera) {
         scene = existing.scene;
-        renderer = existing.renderer;
         camera = existing.camera;
         scene.background = new THREE.Color(isShaded ? 0xeceef1 : 0xf5f6f8);
-        renderer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
     } else {
         scene = new THREE.Scene();
         scene.background = new THREE.Color(isShaded ? 0xeceef1 : 0xf5f6f8);
-
         camera = new THREE.PerspectiveCamera(35, w / h, 1, 5000);
-
-        renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-        renderer.setSize(w, h);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     }
+
+    var renderer = _vtOttieniSharedRenderer();
+    if (!renderer) return;
+    renderer.setSize(w, h);
 
     var dimsA = config.dimsA, dimsB = config.dimsB;
     // Converti cm
@@ -234,15 +267,20 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
         scene.add(hlLine);
     }
 
-    // Render statico
+    // Render statico nel renderer condiviso. Il canvas della card è 2D: così
+    // ogni card conserva la propria immagine senza creare un contesto WebGL.
     renderer.render(scene, camera);
+    var cardContext = canvas.getContext('2d');
+    if (cardContext) {
+        cardContext.clearRect(0, 0, canvas.width, canvas.height);
+        cardContext.drawImage(renderer.domElement, 0, 0, canvas.width, canvas.height);
+    }
 
-    // Salva/aggiorna per cleanup
+    // Salva/aggiorna solo scena e camera per il cleanup e il re-render.
     if (!existing) {
-        _vtCanvases.push({ canvas: canvas, renderer: renderer, scene: scene, camera: camera });
+        _vtCanvases.push({ canvas: canvas, scene: scene, camera: camera });
     } else {
         existing.scene = scene;
-        existing.renderer = renderer;
         existing.camera = camera;
     }
 }

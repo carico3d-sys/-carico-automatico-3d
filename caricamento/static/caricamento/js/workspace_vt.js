@@ -30,7 +30,7 @@ var _vtState = {
 };
 
 var _vtRotazioniCache = {};
-var _vtCanvases = [];       // [{ canvas, renderer, scene, camera }] — per cleanup
+var _vtCanvases = [];       // [{ canvas, scene, camera }] — per cleanup
 
 // =============================================================================
 // POPOLAMENTO LISTE OGGETTI

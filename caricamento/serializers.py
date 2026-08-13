@@ -359,6 +359,9 @@ class ImpostazioniManualeSerializer(serializers.Serializer):
     massima_sporgenza_pct = serializers.IntegerField(
         min_value=0, max_value=100, required=False
     )
+    snap_step_cm = serializers.ChoiceField(
+        choices=[1, 5, 10, 50], required=False
+    )
 
 
 class ImpostazioniOttimizzatoreSerializer(serializers.Serializer):

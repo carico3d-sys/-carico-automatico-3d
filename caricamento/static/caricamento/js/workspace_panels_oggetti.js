@@ -295,6 +295,7 @@ function _wireOggettiListClickHandlers() {
 }
 
 function renderOggettiPanel() {
+    if (typeof _panelViewPronto === 'function' && !_panelViewPronto('oggetti')) return;
     DOM.pvListTitle.innerHTML = '<i class="bi bi-box-seam"></i> Anagrafica Oggetti + Vincoli';
     DOM.pvListCount.textContent = WS.oggettiDisponibili.filter(function (o) { return !!o.archiviato === _oggettiMostraArchiviati; }).length;
 
@@ -308,10 +309,15 @@ function renderOggettiPanel() {
     
     // Save original form structure for restoration
     var formEl = document.getElementById('panel-view-form');
+    var listEl = document.getElementById('panel-view-list');
+    if (!formEl || !listEl) {
+        console.error('[Oggetti] Contenitori del pannello mancanti.');
+        return;
+    }
     _origFormInnerHTML = formEl.innerHTML;
     
     // Set list to 30%
-    document.getElementById('panel-view-list').style.flex = '0 0 30%';
+    listEl.style.flex = '0 0 30%';
     
     // Rebuild form area as 2-column (object form + vincoli) + 3D preview below
     formEl.innerHTML = 
@@ -539,6 +545,11 @@ function _aggiornaPreview3D(oggettoId) {
 }
 
 function renderOggettiForm(oggettoId) {
+    if (!DOM.pvFormTitle || !DOM.pvFormBody ||
+        !DOM.pvFormTitle.isConnected || !DOM.pvFormBody.isConnected) {
+        console.error('[Oggetti] Form dinamico non disponibile.');
+        return;
+    }
     var o = oggettoId ? trovaOggetto(oggettoId) : null;
     var isEdit = !!o;
     var coloreVal = o ? ((typeof coloreOggetto === 'function') ? coloreOggetto(o) : (o.colore || '#447e9b')) : '#447e9b';

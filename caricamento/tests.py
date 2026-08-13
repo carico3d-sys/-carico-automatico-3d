@@ -154,6 +154,7 @@ class TestStrategyFactory(TestCase):
         self.assertIs(kwargs["tracker"], None)
         self.assertTrue(kwargs["compattazione_aggressiva"])
         self.assertEqual(len(packer.results), 1)
+        self.assertEqual(packer.results[0].codice, oggetto.codice)
 
     def test_adattatori_eseguono_e_non_duplicano_istanze(self):
         def make_objects():
@@ -1620,6 +1621,7 @@ class TestOrigineSalvataggioPosizioni(TestCaseBase):
             {
                 "origine": origine,
                 "oggetti": [{
+                    "oggetto_id": piano.oggetti_da_caricare.first().oggetto_id,
                     "codice": piano.oggetti_da_caricare.first().oggetto.codice,
                     "posizione_cm": {"x": 0, "y": 0, "z": 0},
                     "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
@@ -1682,6 +1684,63 @@ class TestOrigineSalvataggioPosizioni(TestCaseBase):
         self.assertEqual(response.status_code, 200)
         piano.refresh_from_db()
         self.assertEqual(piano.algoritmo, "manuale")
+
+    def test_salva_persiste_tutte_le_posizioni_visibili(self):
+        """La quantità richiesta non elimina posizioni già visibili nella scena."""
+        contenitore = self.crea_contenitore(x=2000, y=2000, z=2000)
+        oggetto = self.crea_oggetto("VISIBLE-A", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano scena visibile",
+            contenitore=contenitore,
+            stato="parziale",
+            algoritmo="Algoritmo 3D Semplificato",
+        )
+        # Una sola unità richiesta, ma due istanze sono già presenti nella
+        # scena visualizzata. Entrambe sono valide e devono essere persistite.
+        OggettoDaCaricare.objects.create(
+            piano_di_carico=piano,
+            oggetto=oggetto,
+            quantita=1,
+        )
+
+        response = self._salva_posizioni_payload(piano, [
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+            },
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 100, "y": 100, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+            },
+        ], "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        posizioni = list(piano.oggetti_posizionati.order_by("coordinata_x_mm"))
+        self.assertEqual(len(posizioni), 2)
+        self.assertEqual(
+            [(p.coordinata_x_mm, p.coordinata_y_mm, p.coordinata_z_mm)
+             for p in posizioni],
+            [(0, 0, 0), (1000, 1000, 0)],
+        )
+        self.assertEqual(
+            [(p.dimensione_x_mm, p.dimensione_y_mm, p.dimensione_z_mm)
+             for p in posizioni],
+            [(500, 400, 300), (500, 400, 300)],
+        )
+
+    def _salva_posizioni_payload(self, piano, oggetti, origine):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        return client.post(
+            "/api/piani/{}/salva_posizioni_manuali/".format(piano.id),
+            {"origine": origine, "oggetti": oggetti},
+            format="json",
+        )
 
 
 class TestImpostazioniOttimizzatoreAPI(TestCase):

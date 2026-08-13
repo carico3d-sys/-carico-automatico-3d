@@ -104,7 +104,7 @@ function inizializza() {
     }
     // --- Deseleziona item selezionati al click ovunque tranne che su item, form anagrafica, modali o help popover ---
     document.addEventListener('click', function (e) {
-        if (!e.target.closest('.panel-item') && !e.target.closest('.pv-list-item') && !e.target.closest('#panel-view-form') && !e.target.closest('#modal-overlay') && !e.target.closest('#vp-help-popover')) {
+        if (!e.target.closest('.panel-item') && !e.target.closest('.pv-list-item') && !e.target.closest('#panel-view-form') && !e.target.closest('#modal-overlay') && !e.target.closest('#vpf-help-popover')) {
             _deselezionaTuttiItemSelezionati();
         }
     });
@@ -185,6 +185,16 @@ function inizializza() {
     if (manualeBtnHelpTastiera) {
         manualeBtnHelpTastiera.addEventListener('click', apriModaleAiutoTastiera);
     }
+    var manualeBtnImpostazioni = document.getElementById('manuale-btn-impostazioni');
+    if (manualeBtnImpostazioni) {
+        manualeBtnImpostazioni.addEventListener('click', function () {
+            if (typeof apriImpostazioniDaSidebar === 'function') {
+                apriImpostazioniDaSidebar();
+            } else {
+                showToast('Modulo impostazioni non caricato.', 'error');
+            }
+        });
+    }
 
     // --- Camera controls ---
     setupCameraControls();
@@ -242,11 +252,11 @@ function inizializza() {
 
     // Chiudi popover aiuto cliccando fuori
     document.addEventListener('click', function (e) {
-        if (DOM.vpHelpPopover && DOM.vpHelpPopover.style.display === 'block') {
-            var clickedInside = DOM.vpHelpPopover.contains(e.target) || (DOM.vpBtnHelp && DOM.vpBtnHelp.contains(e.target));
+        if (DOM.vpfHelpPopover && DOM.vpfHelpPopover.style.display === 'block') {
+            var clickedInside = DOM.vpfHelpPopover.contains(e.target) || (DOM.vpfBtnHelp && DOM.vpfBtnHelp.contains(e.target));
             if (!clickedInside) {
-                DOM.vpHelpPopover.style.display = 'none';
-                if (DOM.vpBtnHelp) DOM.vpBtnHelp.classList.remove('active');
+                DOM.vpfHelpPopover.style.display = 'none';
+                if (DOM.vpfBtnHelp) DOM.vpfBtnHelp.classList.remove('active');
             }
         }
     });
@@ -265,7 +275,7 @@ function inizializza() {
     aggiornaSelectOggetti();
     aggiornaSelectMezzi();
 
-    // --- Render iniziale sidebar Navigazione (categoria default: documenti)
+    // --- Render iniziale sidebar Documenti (categoria default)
     _renderSidebarNavigazione('documenti');
 
     // --- Applica configurazione icone (PNG al posto di Bootstrap dove configurato)

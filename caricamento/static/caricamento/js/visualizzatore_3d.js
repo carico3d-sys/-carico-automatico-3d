@@ -476,12 +476,8 @@ function mostraContenitoreVuoto(dimensioniCm, nomeMezzo) {
     STATE.animating = true;
     animate();
 
-    // Aggiorna label toolbar e header
-    var labelEl = document.getElementById('viewport-toolbar-label');
-    if (labelEl) {
-        labelEl.textContent = nomeMezzo || 'Contenitore vuoto';
-        _setHeaderCaricoLabel(nomeMezzo || '');
-    }
+    // Aggiorna l'etichetta del carico nell'header.
+    _setHeaderCaricoLabel(nomeMezzo || '');
 
     // Disabilita pulsanti 3D (reset/fullscreen non servono per il contenitore vuoto)
     var btnReset = document.getElementById('btn-reset-view');

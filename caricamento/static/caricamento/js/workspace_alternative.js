@@ -144,8 +144,6 @@ function visualizzaSoluzioneAlternativa(idx) {
     var dati = _costruisciDati3DdaSoluzione(soluzione);
     if (typeof renderizzaDati3D === 'function') {
         renderizzaDati3D(dati);
-        var label = document.getElementById('viewport-toolbar-label');
-        if (label) label.textContent = 'Anteprima alternativa #' + (idx + 1);
         _setHeaderCaricoLabel('Anteprima alternativa #' + (idx + 1));
         showToast('Anteprima alternativa #' + (idx + 1), 'info');
     } else {

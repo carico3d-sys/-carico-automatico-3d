@@ -54,6 +54,7 @@ function _wireMezziListClickHandlers() {
 }
 
 function renderMezziPanel() {
+    if (typeof _panelViewPronto === 'function' && !_panelViewPronto('mezzi')) return;
     DOM.pvListTitle.innerHTML = '<i class="bi bi-truck"></i> Mezzi di Trasporto';
     DOM.pvFormTitle.textContent = 'Nuovo Mezzo';
     DOM.pvListCount.textContent = WS.contenitori.filter(function (c) { return !!c.archiviato === _mezziMostraArchiviati; }).length;
@@ -150,6 +151,7 @@ function renderMezziPanel() {
 }
 
 function renderMezziForm(mezzoId) {
+    if (typeof _panelViewPronto === 'function' && !_panelViewPronto('form mezzo')) return;
     var m = mezzoId ? WS.contenitori.find(function (c) { return c.id == mezzoId; }) : null;
     var isEdit = !!m;
     DOM.pvFormTitle.innerHTML = isEdit ? '<i class="bi bi-pencil"></i> Modifica: ' + escapeHtml(m.nome) : '<i class="bi bi-plus-circle"></i> Nuovo Mezzo';

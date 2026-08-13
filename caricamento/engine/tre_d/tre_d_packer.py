@@ -192,10 +192,18 @@ class TreDPacker:
         self.priority_report["vincoli"] = self.constraint_report
         self.priority_missing_codes = list(self.priority_report["prioritari_mancanti"])
         self.results = []
+        codici_per_oggetto_id = {
+            oggetto.pk: oggetto.codice
+            for oggetto, _vincoli, _colore, *_extra in self._items
+        }
         for obj in placed_objs:
+            # ``obj.id`` identifica l'istanza interna (es. CODICE-0) e non è
+            # il codice dell'anagrafica. L'API/frontend devono ricevere il
+            # codice canonico dell'Oggetto per poter salvare la preview.
+            codice_anagrafica = codici_per_oggetto_id.get(obj.oggetto_id, obj.id)
             self.results.append(ItemPacked(
                 oggetto_id=obj.oggetto_id or 0,
-                codice=obj.id,
+                codice=codice_anagrafica,
                 coordinata_x_mm=_cm_to_mm(obj.x),
                 coordinata_y_mm=_cm_to_mm(obj.y),
                 coordinata_z_mm=_cm_to_mm(obj.z),

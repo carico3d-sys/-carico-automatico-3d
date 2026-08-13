@@ -5,9 +5,33 @@
    ============================================================================= */
 
 .modal-icon-manager {
+    position: fixed;
     width: 1500px !important;   /* 1050px originali → 1365 (+30%) → 1500 */
     max-width: 98vw !important;
     max-height: 90vh !important;
+    margin: 0;
+    right: auto;
+    bottom: auto;
+}
+
+/* La finestra si sposta dalla barra del titolo, senza bloccare lo scroll
+   o l'interazione con i campi e le tabelle del contenuto. */
+.modal-icon-manager .modal-header {
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.modal-icon-manager.modal-dragging .modal-header {
+    cursor: grabbing;
+}
+
+.modal-icon-manager.modal-dragging {
+    user-select: none;
+}
+
+.modal-icon-manager .modal-close {
+    cursor: pointer;
 }
 
 .modal-icon-manager .modal-body {

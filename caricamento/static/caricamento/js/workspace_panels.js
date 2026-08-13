@@ -13,6 +13,34 @@
 
 // Salvataggio dell'HTML originale del form per le viste custom
 var _origFormInnerHTML = null;
+var _panelViewEpoch = 0;
+
+/**
+ * Le viste del pannello ricostruiscono parte del DOM. Non conservare nodi
+ * detached: aggiorna sempre i riferimenti standard prima di renderizzare una
+ * nuova vista.
+ */
+function _ricaricaDOMPanelView() {
+    DOM.pvListTitle = document.getElementById('pv-list-title');
+    DOM.pvListCount = document.getElementById('pv-list-count');
+    DOM.pvListBody = document.getElementById('pv-list-body');
+    DOM.pvFormTitle = document.getElementById('pv-form-title');
+    DOM.pvFormBody = document.getElementById('pv-form-body');
+    return DOM;
+}
+
+function _panelViewPronto(contesto) {
+    _ricaricaDOMPanelView();
+    var richiesti = ['pvListTitle', 'pvListCount', 'pvListBody', 'pvFormTitle', 'pvFormBody'];
+    var mancanti = richiesti.filter(function (nome) { return !DOM[nome] || !DOM[nome].isConnected; });
+    if (mancanti.length === 0) return true;
+
+    console.error('[Panel View] DOM incompleto in ' + (contesto || 'vista') + ':', mancanti);
+    if (typeof showToast === 'function') {
+        showToast('Impossibile visualizzare questa sezione: interfaccia incompleta.', 'error');
+    }
+    return false;
+}
 
 function _ripristinaFormOggetti() {
     if (_origFormInnerHTML !== null) {
@@ -21,19 +49,22 @@ function _ripristinaFormOggetti() {
             PreviewOggetto3D.distruggi();
         }
         var formEl = document.getElementById('panel-view-form');
-        formEl.innerHTML = _origFormInnerHTML;
-        // Dopo innerHTML i vecchi riferimenti sono detached:
-        // ri-interroga il DOM per puntare ai nuovi nodi creati.
-        DOM.pvFormTitle = document.getElementById('pv-form-title');
-        DOM.pvFormBody = document.getElementById('pv-form-body');
+        if (formEl) formEl.innerHTML = _origFormInnerHTML;
         _origFormInnerHTML = null;
         // Reset list width
         var listEl = document.getElementById('panel-view-list');
         if (listEl) listEl.style.flex = '';
     }
+
+    // Le viste dinamiche possono sostituire il contenuto del form anche quando
+    // non è disponibile uno snapshot da ripristinare (per esempio dopo Vincoli
+    // o dopo un doppio passaggio nella vista Articoli). Ri-cache sempre i nodi
+    // correnti, evitando di usare riferimenti null o detached.
+    _ricaricaDOMPanelView();
 }
 
 function mostraPanelView(viewType) {
+    _panelViewEpoch += 1;
     distruggiMiniViewportVincolo();
     if (typeof _vtDistruggiCanvases === 'function') _vtDistruggiCanvases();
     // Nascondi il pannello distribuzione pesi quando si esce dalla vista principale
@@ -50,9 +81,13 @@ function mostraPanelView(viewType) {
     var splitEl = document.getElementById('panel-view-split');
     if (splitEl) splitEl.style.display = '';
     _ripristinaFormOggetti();
+    if (!_panelViewPronto(viewType)) return;
+    if (!DOM.viewport3d || !DOM.panelView) {
+        console.error('[Panel View] Contenitori principali mancanti.');
+        return;
+    }
 
     DOM.viewport3d.style.display = 'none';
-    DOM.viewportToolbar.style.display = 'none';
     DOM.panelView.style.display = 'flex';
     switch (viewType) {
         case 'mezzi': renderMezziPanel(); break;
@@ -64,6 +99,7 @@ function mostraPanelView(viewType) {
 }
 
 function mostraViewport() {
+    _panelViewEpoch += 1;
     distruggiMiniViewportVincolo();
     if (typeof _vtDistruggiCanvases === 'function') _vtDistruggiCanvases();
     _ripristinaFormOggetti();
@@ -202,11 +238,30 @@ var _miniViewportState = null;
 function distruggiMiniViewportVincolo() {
     if (_miniViewportState) {
         if (_miniViewportState.animationId) cancelAnimationFrame(_miniViewportState.animationId);
-        if (_miniViewportState.renderer) {
-            _miniViewportState.renderer.dispose();
-        }
         if (_miniViewportState.controls) {
             _miniViewportState.controls.dispose();
+        }
+        // Il renderer veniva liberato, ma geometrie/materiali della scena
+        // restavano referenziati fino al GC. Il pannello Vincoli può ricreare
+        // molte anteprime durante la navigazione: libera esplicitamente tutte
+        // le risorse Three.js prima di rimuovere il canvas.
+        if (_miniViewportState.scene) {
+            _miniViewportState.scene.traverse(function (child) {
+                if (child.geometry) child.geometry.dispose();
+                if (!child.material) return;
+                var materiali = Array.isArray(child.material)
+                    ? child.material : [child.material];
+                materiali.forEach(function (materiale) {
+                    if (materiale.map) materiale.map.dispose();
+                    materiale.dispose();
+                });
+            });
+        }
+        if (_miniViewportState.renderer) {
+            _miniViewportState.renderer.dispose();
+            if (typeof _miniViewportState.renderer.forceContextLoss === 'function') {
+                _miniViewportState.renderer.forceContextLoss();
+            }
         }
         var container = document.getElementById('pv-vt-miniview');
         if (container) container.innerHTML = '';
@@ -680,6 +735,7 @@ function _wirePianiListClickHandlers() {
 }
 
 function renderPianiPanel() {
+    if (!_panelViewPronto('piani')) return;
     _pianiDettaglioRichiesta++;
     _pianoDettaglioApertoId = null;
     DOM.pvListTitle.innerHTML = '<i class="bi bi-folder2-open"></i> Piani Recenti';
@@ -756,6 +812,8 @@ function renderPianiPanel() {
 }
 
 function renderPianiDettaglio(pianoId) {
+    if (!_panelViewPronto('dettaglio piano')) return;
+    var vistaEpoch = _panelViewEpoch;
     _pianoDettaglioApertoId = pianoId;
     var richiesta = ++_pianiDettaglioRichiesta;
     var p = WS.piani.find(function (x) { return x.id == pianoId; });
@@ -780,13 +838,15 @@ function renderPianiDettaglio(pianoId) {
         fetch('/api/piani/' + pianoId + '/distribuzione_pesi/', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (results) {
         // Ignora risposte arrivate in ritardo dopo un altro click o refresh.
-        if (richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
+        if (vistaEpoch !== _panelViewEpoch || richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         var pianoFull = results[0];
         var distribuzione = results[1];
         _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta);
     }).catch(function () {
-        if (richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
-        DOM.pvFormBody.innerHTML = '<p style="color:#c0392b;text-align:center;padding:40px;">Errore caricamento dettagli.</p>';
+        if (vistaEpoch !== _panelViewEpoch || richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
+        if (DOM.pvFormBody && DOM.pvFormBody.isConnected) {
+            DOM.pvFormBody.innerHTML = '<p style="color:#c0392b;text-align:center;padding:40px;">Errore caricamento dettagli.</p>';
+        }
     });
 }
 
@@ -938,6 +998,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
 
     // --- Event listeners ---
     document.getElementById('pv-piano-carica').addEventListener('click', function () {
+        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         WS.activePianoId = pianoId;
         if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = false;
         var mezzo = WS.contenitori.find(function (c) { return c.nome === p.container; });
@@ -1009,7 +1070,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
     setTimeout(function () {
         // Evita che un render ritardato di un piano precedente finisca
         // nel canvas del piano appena selezionato.
-        if (richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
+        if (vistaEpoch !== _panelViewEpoch || richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         _renderAnteprima3DPiano('pd-anteprima-canvas', oggetti, dimsCont);
     }, 100);
 }

@@ -16,6 +16,7 @@ import re
 import math
 import uuid
 from datetime import timedelta
+from urllib.parse import unquote
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -1207,77 +1208,84 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Cancella i posizionamenti esistenti e ricrea in modo atomico
-        # (o tutto o niente: se bulk_create fallisce, il delete viene annullato)
-        with transaction.atomic():
-            piano.oggetti_posizionati.all().delete()
+        # Il salvataggio rappresenta la scena visibile, non una nuova
+        # esecuzione dell'ottimizzatore: la lista ``oggetti_da_caricare`` e i
+        # relativi vincoli/quantità non devono quindi rifiutare il payload.
+        # L'unico controllo d'appartenenza necessario è la proprietà degli
+        # oggetti, per impedire di salvare record appartenenti a un altro utente.
+        # La preview di "Elabora" conserva l'ID dell'anagrafica. Usalo come
+        # chiave primaria stabile dopo l'eliminazione del piano tecnico; il
+        # codice resta un fallback per i client precedenti che non lo inviano.
+        codici = [str(item.get("codice", "")).strip() for item in oggetti_data]
+        oggetto_ids = [item.get("oggetto_id") for item in oggetti_data if item.get("oggetto_id")]
+        oggetti_qs = Oggetto.objects.filter(owner=request.user).filter(
+            models.Q(id__in=oggetto_ids) | models.Q(codice__in=codici)
+        )
+        oggetti_per_id = {str(o.id): o for o in oggetti_qs}
+        oggetti_per_codice = {o.codice: o for o in oggetti_qs}
 
-            # Recupera tutti gli oggetti in una query
-            codici = [item.get("codice") for item in oggetti_data]
-            oggetti_map = {
-                o.codice: o
-                for o in Oggetto.objects.filter(
-                    codice__in=codici,
-                    owner=request.user,
-                )
-            }
-            codici_piano = set(
-                piano.oggetti_da_caricare.values_list("oggetto__codice", flat=True)
-            )
-            codici_non_validi = set(codici) - codici_piano
-            if codici_non_validi:
+        nuovi = []
+        for item in oggetti_data:
+            codice = str(item.get("codice", "")).strip()
+            oggetto_id = item.get("oggetto_id")
+            oggetto = oggetti_per_id.get(str(oggetto_id)) if oggetto_id else None
+            if oggetto is None:
+                oggetto = oggetti_per_codice.get(codice)
+            if not oggetto:
                 raise ValidationError({
-                    "oggetti": "Sono presenti oggetti non selezionati nel piano."
+                    "oggetti": "Uno o più oggetti non appartengono all'utente."
                 })
 
-            nuovi = []
-            for item in oggetti_data:
-                codice = item.get("codice")
-                oggetto = oggetti_map.get(codice)
-                if not oggetto:
-                    raise ValidationError({
-                        "oggetti": "Uno o più oggetti non appartengono all'utente."
-                    })
+            pc = item.get("posizione_cm", {})
+            dc = item.get("dimensioni_cm", {})
+            try:
+                x, y, z = (float(pc[key]) for key in ("x", "y", "z"))
+                dx, dy, dz = (float(dc[key]) for key in ("x", "y", "z"))
+            except (KeyError, TypeError, ValueError):
+                raise ValidationError({
+                    "oggetti": "Posizione e dimensioni devono contenere valori numerici completi."
+                })
+            if (
+                not all(math.isfinite(value) for value in (x, y, z, dx, dy, dz))
+                or min(x, y, z) < 0
+                or min(dx, dy, dz) <= 0
+            ):
+                raise ValidationError({
+                    "oggetti": "Coordinate non negative e dimensioni positive richieste."
+                })
 
-                pc = item.get("posizione_cm", {})
-                dc = item.get("dimensioni_cm", {})
-                try:
-                    x, y, z = (float(pc[key]) for key in ("x", "y", "z"))
-                    dx, dy, dz = (float(dc[key]) for key in ("x", "y", "z"))
-                except (KeyError, TypeError, ValueError):
-                    raise ValidationError({
-                        "oggetti": "Posizione e dimensioni devono contenere valori numerici completi."
-                    })
-                if (
-                    not all(math.isfinite(value) for value in (x, y, z, dx, dy, dz))
-                    or min(x, y, z, dx, dy, dz) < 0
-                    or min(dx, dy, dz) <= 0
-                ):
-                    raise ValidationError({
-                        "oggetti": "Coordinate non negative e dimensioni positive richieste."
-                    })
-                if (
-                    x * 10 + dx * 10 > piano.contenitore.lunghezza_mm
-                    or y * 10 + dy * 10 > piano.contenitore.larghezza_mm
-                    or z * 10 + dz * 10 > piano.contenitore.altezza_mm
-                ):
-                    raise ValidationError({
-                        "oggetti": "Un posizionamento supera le dimensioni del contenitore."
-                    })
+            x_mm, y_mm, z_mm = round(x * 10), round(y * 10), round(z * 10)
+            dx_mm, dy_mm, dz_mm = round(dx * 10), round(dy * 10), round(dz * 10)
+            if min(dx_mm, dy_mm, dz_mm) < 1:
+                raise ValidationError({
+                    "oggetti": "Le dimensioni devono essere almeno 1 mm."
+                })
+            if (
+                x_mm + dx_mm > piano.contenitore.lunghezza_mm
+                or y_mm + dy_mm > piano.contenitore.larghezza_mm
+                or z_mm + dz_mm > piano.contenitore.altezza_mm
+            ):
+                raise ValidationError({
+                    "oggetti": "Un posizionamento supera le dimensioni del contenitore."
+                })
 
-                nuovi.append(OggettoPosizionato(
-                    piano_di_carico=piano,
-                    oggetto=oggetto,
-                    coordinata_x_mm=round(x * 10),
-                    coordinata_y_mm=round(y * 10),
-                    coordinata_z_mm=round(z * 10),
-                    dimensione_x_mm=round(dx * 10),
-                    dimensione_y_mm=round(dy * 10),
-                    dimensione_z_mm=round(dz * 10),
-                    colore=item.get("colore", "#4488ff"),
-                    rotazione_applicata=item.get("rotazione", "XYZ"),
-                ))
+            nuovi.append(OggettoPosizionato(
+                piano_di_carico=piano,
+                oggetto=oggetto,
+                coordinata_x_mm=x_mm,
+                coordinata_y_mm=y_mm,
+                coordinata_z_mm=z_mm,
+                dimensione_x_mm=dx_mm,
+                dimensione_y_mm=dy_mm,
+                dimensione_z_mm=dz_mm,
+                colore=item.get("colore", "#4488ff"),
+                rotazione_applicata=item.get("rotazione", "XYZ"),
+            ))
 
+        # Cancella solo dopo aver validato tutto il payload. La transazione
+        # mantiene comunque l'operazione atomica anche in caso di errore DB.
+        with transaction.atomic():
+            piano.oggetti_posizionati.all().delete()
             OggettoPosizionato.objects.bulk_create(nuovi)
 
             # La sincronizzazione non deve alterare lo stato di un piano
@@ -1379,6 +1387,23 @@ COLORI_CATALOG = {
 }
 
 
+def _normalizza_nome_file_icona(nome):
+    """Restituisce il nome PNG nello stesso formato usato dall'upload."""
+    file = os.path.basename(unquote(str(nome or "")).strip())
+    return file.lower().replace(" ", "_").replace("..", "")
+
+
+def _normalizza_file_config(data):
+    """Normalizza i nomi PNG nelle sezioni di configurazione ricevute."""
+    for section in ("config", "bottoni"):
+        section_data = data.get(section)
+        if not isinstance(section_data, dict):
+            continue
+        for entry in section_data.values():
+            if isinstance(entry, dict) and entry.get("file"):
+                entry["file"] = _normalizza_nome_file_icona(entry["file"])
+
+
 def _verifica_file_icone_esistono(data):
     """Raccoglie i riferimenti PNG mancanti nella cartella img."""
     mancanti = []
@@ -1389,9 +1414,9 @@ def _verifica_file_icone_esistono(data):
             continue
         for entry in section_data.values():
             if isinstance(entry, dict) and entry.get("file"):
-                riferimenti.append(entry["file"])
+                riferimenti.append(_normalizza_nome_file_icona(entry["file"]))
     for fn in sorted(set(riferimenti)):
-        if not os.path.exists(os.path.join(ICON_UPLOAD_DIR, os.path.basename(fn))):
+        if not os.path.exists(os.path.join(ICON_UPLOAD_DIR, fn)):
             mancanti.append(fn)
     return mancanti
 
@@ -1432,6 +1457,11 @@ def api_icone_config(request):
             data["bottoni"] = existing.get("bottoni", {})
         if "colori" not in data:
             data["colori"] = existing.get("colori", {})
+
+        # L'upload sostituisce gli spazi con underscore: applica la stessa
+        # normalizzazione anche ai nomi digitati nella tabella, evitando 400
+        # e URL 404 per file come "icons8-trash-96 (1).png".
+        _normalizza_file_config(data)
 
         # Sanitizzazione del colore dei bottoni: solo #rrggbb, maiuscole
         # normalizzate in minuscole. Un valore non valido viene scartato
@@ -1510,7 +1540,7 @@ def api_icone_file_delete(request):
     if not filename.lower().endswith(".png"):
         return JsonResponse({"error": "Solo file PNG."}, status=400)
 
-    safe_name = os.path.basename(filename).replace("..", "")
+    safe_name = _normalizza_nome_file_icona(filename)
     path = os.path.join(ICON_UPLOAD_DIR, safe_name)
 
     if not os.path.exists(path):
@@ -1521,10 +1551,10 @@ def api_icone_file_delete(request):
     referenziati = set()
     for entry in (cfg.get("config") or {}).values():
         if isinstance(entry, dict) and entry.get("file"):
-            referenziati.add(entry["file"])
+            referenziati.add(_normalizza_nome_file_icona(entry["file"]))
     for entry in (cfg.get("bottoni") or {}).values():
         if isinstance(entry, dict) and entry.get("file"):
-            referenziati.add(entry["file"])
+            referenziati.add(_normalizza_nome_file_icona(entry["file"]))
 
     if safe_name in referenziati:
         return JsonResponse({
@@ -1561,8 +1591,8 @@ def api_icone_upload(request):
     if not filename.endswith(".png"):
         return JsonResponse({"error": "Solo file PNG accettati."}, status=400)
 
-    # Sanitizza il nome file
-    safe_name = os.path.basename(filename).replace(" ", "_").replace("..", "")
+    # Sanitizza il nome file con la stessa regola usata dalla configurazione
+    safe_name = _normalizza_nome_file_icona(uploaded_file.name)
 
     # Limite dimensione: 500 KB
     if uploaded_file.size > 500 * 1024:
