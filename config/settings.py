@@ -71,6 +71,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'caricamento.middleware.RequestIDMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -230,8 +231,8 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 # ---------------------------------------------------------------------------
 # Middleware personalizzato per trial
 # ---------------------------------------------------------------------------
-TRIAL_REQUIRED_PATHS = ["/workspace/"]
-TRIAL_EXEMPT_PATHS = ["/logout/", "/admin/", "/accounts/", "/api/"]
+TRIAL_REQUIRED_PATHS = ["/workspace/", "/api/"]
+TRIAL_EXEMPT_PATHS = ["/logout/", "/admin/", "/accounts/"]
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +240,7 @@ TRIAL_EXEMPT_PATHS = ["/logout/", "/admin/", "/accounts/", "/api/"]
 # ---------------------------------------------------------------------------
 
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "caricamento.api_errors.custom_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_RENDERER_CLASSES": [
@@ -300,6 +302,11 @@ SECURE_SSL_REDIRECT = (
 
 # Dietro nginx: Django deve sapere che la richiesta originale era HTTPS
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Header di sicurezza indipendenti dal certificato: vengono applicati anche
+# quando TLS è terminato da un proxy esterno.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # Cookie sicuri (solo HTTPS)
 SESSION_COOKIE_SECURE = (

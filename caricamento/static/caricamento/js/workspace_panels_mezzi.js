@@ -1,7 +1,7 @@
 /**
  * Workspace Carico 3D — Panel Mezzi di Trasporto
  *
- * Lista, form creazione/modifica, selezione multipla e batch delete mezzi.
+ * Lista e form creazione/modifica dei mezzi.
  *
  * Depends on: workspace_panels.js (mostraPanelView), workspace_core.js (WS, DOM)
  */
@@ -30,25 +30,15 @@ function _buildMezziListHtml() {
     return listHtml || '<div class="pv-empty"><span class="pv-empty-icon">🚛</span><span>Nessun mezzo censito</span></div>';
 }
 
-// Helper: wiring click sugli item della lista mezzi (con multi-selezione Ctrl/Shift)
+// Helper: wiring click sugli item della lista mezzi
 function _wireMezziListClickHandlers() {
     DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (item) {
-        item.addEventListener('click', function (e) {
+        item.addEventListener('click', function () {
             var mid = parseInt(item.dataset.mezzoId) || 0;
             if (!mid) return;
-            if (e.ctrlKey || e.shiftKey) {
-                _toggleSelezioneMultiplaMezzi(mid, e.ctrlKey, e.shiftKey);
-            } else {
-                // Click semplice: seleziona il mezzo e apri in modifica
-                _pulisciSelezioneMultiplaMezzi();
-                _mezziSelState.mezziSelezionati.push(mid);
-                _mezziSelState.ultimoCliccato = mid;
-                item.classList.add('selected-multi');
-                _aggiornaBatchToolbarMezzi();
-                DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); });
-                item.classList.add('selected');
-                renderMezziForm(mid);
-            }
+            DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); });
+            item.classList.add('selected');
+            renderMezziForm(mid);
         });
     });
 }
@@ -59,21 +49,13 @@ function renderMezziPanel() {
     DOM.pvFormTitle.textContent = 'Nuovo Mezzo';
     DOM.pvListCount.textContent = WS.contenitori.filter(function (c) { return !!c.archiviato === _mezziMostraArchiviati; }).length;
 
-    // Reset stato selezione multipla mezzi
-    _mezziSelState.mezziSelezionati = [];
-    _mezziSelState.ultimoCliccato = null;
-
-    // ---- HEADER: select-all + archiviati checkbox ----
+    // ---- HEADER: filtro mezzi archiviati ----
     var listHeader = document.querySelector('#panel-view-list .pv-list-header');
     if (listHeader) {
         var oldSelAll = listHeader.querySelector('.pv-list-select-all');
         if (oldSelAll) oldSelAll.remove();
         var oldArchCheck = listHeader.querySelector('.pv-list-archiviati');
         if (oldArchCheck) oldArchCheck.remove();
-        var selectAllHtml = '<label class="pv-list-select-all" title="Seleziona/Deseleziona tutti">' +
-            '<input type="checkbox" id="pv-select-all-mezzi" autocomplete="off"> Seleziona tutti</label>';
-        listHeader.insertAdjacentHTML('afterbegin', selectAllHtml);
-
         // Checkbox "Archiviati" — creato via DOM per evitare autofill browser
         var archLabel = document.createElement('label');
         archLabel.className = 'pv-list-select-all pv-list-archiviati';
@@ -87,24 +69,6 @@ function renderMezziPanel() {
         archLabel.appendChild(document.createTextNode(' Archiviati'));
         listHeader.appendChild(archLabel);
 
-        var selAll = document.getElementById('pv-select-all-mezzi');
-        if (selAll) {
-            selAll.addEventListener('change', function () {
-                if (this.checked) {
-                    var items = document.querySelectorAll('#pv-list-body .pv-list-item');
-                    items.forEach(function (item) {
-                        var id = parseInt(item.dataset.mezzoId);
-                        if (_mezziSelState.mezziSelezionati.indexOf(id) === -1) {
-                            _mezziSelState.mezziSelezionati.push(id);
-                        }
-                        item.classList.add('selected-multi');
-                    });
-                } else {
-                    _pulisciSelezioneMultiplaMezzi();
-                }
-                _aggiornaBatchToolbarMezzi();
-            });
-        }
         // Difesa da autofill browser: se il browser ha auto-compilato, ripristina
         if (archCheck.checked !== _mezziMostraArchiviati) {
             archCheck.checked = _mezziMostraArchiviati;
@@ -118,30 +82,6 @@ function renderMezziPanel() {
             _wireMezziListClickHandlers();
         });
     }
-
-    // ---- BATCH TOOLBAR (rimuovi vecchie per evitare duplicati) ----
-    var oldToolbar = document.getElementById('pv-batch-toolbar-mezzi');
-    if (oldToolbar) oldToolbar.remove();
-    var oldOggettiToolbar = document.getElementById('pv-batch-toolbar');
-    if (oldOggettiToolbar) oldOggettiToolbar.remove();
-    var oldPianiToolbar = document.getElementById('pv-batch-toolbar-piani');
-    if (oldPianiToolbar) oldPianiToolbar.remove();
-    var batchToolbarHtml =
-        '<div class="pv-batch-toolbar" id="pv-batch-toolbar-mezzi">' +
-            '<span class="pv-batch-count">0 selezionati</span>' +
-            '<button class="btn btn-danger" id="pv-batch-delete-mezzi">🗑 Elimina</button>' +
-            '<button class="btn btn-sm" id="pv-batch-clear-mezzi" title="Cancella selezione">✕</button>' +
-        '</div>';
-    if (listHeader && listHeader.parentNode) {
-        listHeader.parentNode.insertBefore(
-            (function () { var d = document.createElement('div'); d.innerHTML = batchToolbarHtml; return d.firstElementChild; })(),
-            listHeader.nextSibling
-        );
-    }
-    var batchDelM = document.getElementById('pv-batch-delete-mezzi');
-    if (batchDelM) batchDelM.addEventListener('click', _eseguiEliminazioneBatchMezzi);
-    var batchClearM = document.getElementById('pv-batch-clear-mezzi');
-    if (batchClearM) batchClearM.addEventListener('click', _pulisciSelezioneMultiplaMezzi);
 
     DOM.pvListBody.innerHTML = _buildMezziListHtml();
     _wireMezziListClickHandlers();
@@ -300,122 +240,8 @@ function _aggiornaListaMezziESeleziona(mezzoId) {
     }
 
     // Seleziona il mezzo salvato e mostra il form in edit mode
-    _mezziSelState.mezziSelezionati = [mezzoId];
-    _mezziSelState.ultimoCliccato = mezzoId;
     var targetItem = DOM.pvListBody.querySelector('[data-mezzo-id="' + mezzoId + '"]');
-    if (targetItem) {
-        targetItem.classList.add('selected');
-        targetItem.classList.add('selected-multi');
-    }
-    _aggiornaBatchToolbarMezzi();
+    if (targetItem) targetItem.classList.add('selected');
     renderMezziForm(mezzoId);
-}
-
-// =============================================================================
-// SELEZIONE MULTIPLA MEZZI — Stato e funzioni
-// =============================================================================
-
-var _mezziSelState = {
-    mezziSelezionati: [],
-    ultimoCliccato: null,
-};
-
-function _pulisciSelezioneMultiplaMezzi() {
-    _mezziSelState.mezziSelezionati = [];
-    _mezziSelState.ultimoCliccato = null;
-    var items = document.querySelectorAll('#pv-list-body .pv-list-item');
-    items.forEach(function (el) { el.classList.remove('selected-multi'); });
-    var selAll = document.getElementById('pv-select-all-mezzi');
-    if (selAll) selAll.checked = false;
-    _aggiornaBatchToolbarMezzi();
-}
-
-function _aggiornaBatchToolbarMezzi() {
-    var toolbar = document.getElementById('pv-batch-toolbar-mezzi');
-    if (!toolbar) return;
-    var count = _mezziSelState.mezziSelezionati.length;
-    if (count >= 2) {
-        toolbar.classList.add('visible');
-        var countEl = toolbar.querySelector('.pv-batch-count');
-        if (countEl) countEl.textContent = count + ' selezionati';
-        var delBtn = document.getElementById('pv-batch-delete-mezzi');
-        if (delBtn) delBtn.textContent = '🗑 Elimina ' + count;
-    } else {
-        toolbar.classList.remove('visible');
-    }
-}
-
-function _toggleSelezioneMultiplaMezzi(mezzoId, ctrlKey, shiftKey) {
-    var items = Array.from(document.querySelectorAll('#pv-list-body .pv-list-item'));
-    var currentItem = items.find(function (el) { return parseInt(el.dataset.mezzoId) == mezzoId; });
-    if (!currentItem) return;
-
-    if (shiftKey && _mezziSelState.ultimoCliccato !== null) {
-        var startIdx = items.findIndex(function (el) { return parseInt(el.dataset.mezzoId) == _mezziSelState.ultimoCliccato; });
-        var endIdx = items.findIndex(function (el) { return el === currentItem; });
-        if (startIdx >= 0 && endIdx >= 0) {
-            var minIdx = Math.min(startIdx, endIdx);
-            var maxIdx = Math.max(startIdx, endIdx);
-            for (var i = minIdx; i <= maxIdx; i++) {
-                var id = parseInt(items[i].dataset.mezzoId);
-                if (_mezziSelState.mezziSelezionati.indexOf(id) === -1) {
-                    _mezziSelState.mezziSelezionati.push(id);
-                }
-                items[i].classList.add('selected-multi');
-            }
-        }
-    } else if (ctrlKey) {
-        var idx = _mezziSelState.mezziSelezionati.indexOf(mezzoId);
-        if (idx >= 0) {
-            _mezziSelState.mezziSelezionati.splice(idx, 1);
-            currentItem.classList.remove('selected-multi');
-        } else {
-            _mezziSelState.mezziSelezionati.push(mezzoId);
-            currentItem.classList.add('selected-multi');
-        }
-    } else {
-        _pulisciSelezioneMultiplaMezzi();
-        _mezziSelState.mezziSelezionati.push(mezzoId);
-        currentItem.classList.add('selected-multi');
-    }
-
-    _mezziSelState.ultimoCliccato = mezzoId;
-    _aggiornaBatchToolbarMezzi();
-}
-
-async function _eseguiEliminazioneBatchMezzi() {
-    var ids = _mezziSelState.mezziSelezionati;
-    if (ids.length === 0) return;
-
-    var mezzi = ids.map(function (id) {
-        return WS.contenitori.find(function (c) { return c.id == id; });
-    }).filter(Boolean);
-    var nomi = mezzi.map(function (m) { return m.nome; }).join(', ');
-
-    if (!confirm('Eliminare ' + ids.length + ' mezzi?\n\n' + nomi + '\n\nNota: i mezzi usati in piani di carico non saranno eliminati.')) return;
-
-    try {
-        setStatus('busy', 'Eliminazione batch mezzi...');
-        var eliminati = 0;
-        for (var i = 0; i < ids.length; i++) {
-            var resp = await fetch('/api/contenitori/' + ids[i] + '/', {
-                method: 'DELETE',
-                headers: { 'X-CSRFToken': getCSRFToken() },
-            });
-            if (resp.ok) {
-                var idx = WS.contenitori.findIndex(function (c) { return c.id == ids[i]; });
-                if (idx >= 0) WS.contenitori.splice(idx, 1);
-                eliminati++;
-            }
-        }
-        _pulisciSelezioneMultiplaMezzi();
-        aggiornaSelectMezzi();
-        renderMezziPanel();
-        showToast('🗑 Eliminati ' + eliminati + ' mezzi!', 'success');
-        setStatus('idle', 'Eliminati');
-    } catch (err) {
-        showToast('❌ Errore eliminazione batch: ' + err.message, 'error');
-        setStatus('error', 'Errore');
-    }
 }
 

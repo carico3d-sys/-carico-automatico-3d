@@ -24,11 +24,17 @@ var COLORI_PACCHI = [
  * Restituisce il colore di un oggetto, replicando la logica del backend
  * _genera_colore_da_oggetto() in engine/common.py.
  */
+function coloreEsadecimaleValido(valore) {
+    return typeof valore === 'string' && /^#[0-9a-fA-F]{6}$/.test(valore.trim());
+}
+
 function coloreOggetto(oggetto) {
-    if (oggetto.colore && oggetto.colore.trim()) {
-        return oggetto.colore.trim();
+    var colore = oggetto && typeof oggetto.colore === 'string' ? oggetto.colore.trim() : '';
+    if (coloreEsadecimaleValido(colore)) {
+        return colore;
     }
-    return COLORI_PACCHI[oggetto.id % COLORI_PACCHI.length];
+    var id = oggetto && Number.isFinite(Number(oggetto.id)) ? Number(oggetto.id) : 0;
+    return COLORI_PACCHI[Math.abs(id) % COLORI_PACCHI.length];
 }
 
 const W = window.WORKSPACE_CONFIG || {};
@@ -179,6 +185,126 @@ function getCSRFToken() {
 }
 
 // =============================================================================
+// ERRORI API / RETE
+// =============================================================================
+
+function ApiError(message, status, code, requestId) {
+    this.name = 'ApiError';
+    this.message = message || 'Errore di comunicazione con il server.';
+    this.status = status || 0;
+    this.code = code || 'network_error';
+    this.requestId = requestId || '';
+    if (Error.captureStackTrace) Error.captureStackTrace(this, ApiError);
+}
+ApiError.prototype = Object.create(Error.prototype);
+ApiError.prototype.constructor = ApiError;
+
+function _messaggioErroreHttp(status) {
+    if (status === 400 || status === 422) return 'I dati inseriti non sono validi.';
+    if (status === 401) return 'La sessione è scaduta. Ricarica la pagina e accedi di nuovo.';
+    if (status === 403) return 'Non hai i permessi per eseguire questa operazione.';
+    if (status === 404) return 'La risorsa richiesta non è stata trovata.';
+    if (status === 409) return 'L’operazione non è compatibile con lo stato attuale.';
+    if (status === 429) return 'Troppe richieste. Riprova tra poco.';
+    if (status >= 500) return 'Servizio temporaneamente non disponibile. Riprova più tardi.';
+    return 'Errore di comunicazione con il server.';
+}
+
+function _datiErroreApi(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    var error = payload.error;
+    if (error && typeof error === 'object') {
+        return {
+            message: typeof error.message === 'string' ? error.message : '',
+            code: typeof error.code === 'string' ? error.code : '',
+            requestId: typeof error.request_id === 'string' ? error.request_id : ''
+        };
+    }
+    return {
+        message: typeof error === 'string' ? error :
+            (typeof payload.detail === 'string' ? payload.detail :
+                (typeof payload.errore === 'string' ? payload.errore : '')),
+        code: '',
+        requestId: ''
+    };
+}
+
+function _apiFetch(input, init) {
+    init = init ? Object.assign({}, init) : {};
+    var timeoutMs = Number(init.timeoutMs) || 20000;
+    delete init.timeoutMs;
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = null;
+
+    if (controller) {
+        if (init.signal) {
+            if (init.signal.aborted) controller.abort();
+            else init.signal.addEventListener('abort', function () { controller.abort(); }, { once: true });
+        }
+        init.signal = controller.signal;
+        timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    }
+
+    if (typeof Headers !== 'undefined') {
+        var headers = new Headers(init.headers || {});
+        if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+        init.headers = headers;
+    }
+    if (!init.credentials) init.credentials = 'same-origin';
+
+    return window.__nativeFetch(input, init).then(async function (response) {
+        if (timer) clearTimeout(timer);
+        if (response.ok) return response;
+
+        var payload = null;
+        try { payload = await response.clone().json(); } catch (ignore) { /* risposta non JSON */ }
+        var parsed = _datiErroreApi(payload) || {};
+        var status = response.status;
+        var message = status >= 500 ? _messaggioErroreHttp(status) : (parsed.message || _messaggioErroreHttp(status));
+        var requestId = parsed.requestId || response.headers.get('X-Request-ID') || '';
+        throw new ApiError(message, status, parsed.code || 'http_error', requestId);
+    }).catch(function (error) {
+        if (timer) clearTimeout(timer);
+        if (error instanceof ApiError) throw error;
+        if (error && error.name === 'AbortError') {
+            throw new ApiError('La richiesta ha impiegato troppo tempo. Riprova.', 0, 'timeout_error');
+        }
+        throw new ApiError('Impossibile raggiungere il server. Controlla la connessione e riprova.', 0, 'network_error');
+    });
+}
+
+// Una sola porta per tutte le chiamate fetch del workspace. I moduli esistenti
+// continuano a usare fetch(), ma ricevono timeout e ApiError uniformi.
+if (!window.__nativeFetch) {
+    window.__nativeFetch = window.fetch.bind(window);
+    window.fetch = _apiFetch;
+}
+
+function inizializzaGestioneErroriGlobale() {
+    if (window.__workspaceErrorHandlersReady) return;
+    window.__workspaceErrorHandlersReady = true;
+    var ultimaNotifica = 0;
+
+    function notificaErrore(error) {
+        var now = Date.now();
+        if (now - ultimaNotifica < 3000) return;
+        ultimaNotifica = now;
+        console.error('[Workspace] Errore non gestito:', error);
+        if (DOM.toastContainer) {
+            showToast(error instanceof ApiError ? error.message : 'Si è verificato un errore imprevisto. Riprova.', 'error');
+        }
+    }
+
+    window.addEventListener('error', function (event) {
+        notificaErrore(event.error || new Error(event.message || 'Errore JavaScript'));
+    });
+    window.addEventListener('unhandledrejection', function (event) {
+        event.preventDefault();
+        notificaErrore(event.reason instanceof Error ? event.reason : new Error(String(event.reason || 'Promise rifiutata')));
+    });
+}
+
+// =============================================================================
 // STATUS
 // =============================================================================
 function setStatus(state, label) {
@@ -192,10 +318,23 @@ function setStatus(state, label) {
 // =============================================================================
 function showToast(message, type) {
     type = type || 'info';
-    const icons = { success: '<i class="bi bi-check-circle"></i>', error: '<i class="bi bi-x-circle"></i>', info: '<i class="bi bi-info-circle"></i>', warning: '<i class="bi bi-exclamation-triangle"></i>' };
+    const icons = {
+        success: 'bi-check-circle',
+        error: 'bi-x-circle',
+        info: 'bi-info-circle',
+        warning: 'bi-exclamation-triangle'
+    };
     const t = document.createElement('div');
     t.className = 'toast toast-' + type;
-    t.innerHTML = '<span class="toast-icon">' + (icons[type] || 'ℹ️') + '</span><span>' + message + '</span>';
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'toast-icon';
+    const icon = document.createElement('i');
+    icon.className = 'bi ' + (icons[type] || 'bi-info-circle');
+    iconWrap.appendChild(icon);
+    const messageEl = document.createElement('span');
+    messageEl.textContent = message == null ? '' : String(message);
+    t.appendChild(iconWrap);
+    t.appendChild(messageEl);
     DOM.toastContainer.appendChild(t);
     setTimeout(function () { if (t.parentNode) t.remove(); }, 4000);
 }

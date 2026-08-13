@@ -16,10 +16,18 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from caricamento.health import healthz, worker_healthz
 
 urlpatterns = [
+    path(
+        "favicon.ico",
+        RedirectView.as_view(
+            url="/static/caricamento/img/icons8-3d-64.png",
+            permanent=False,
+        ),
+    ),
     path('healthz/', healthz, name='healthz'),
     path('worker-healthz/', worker_healthz, name='worker_healthz'),
     path('admin/', admin.site.urls),

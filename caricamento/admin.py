@@ -1,4 +1,8 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import User
+from django.db.models import Count
+from django.db.models.deletion import ProtectedError
 from django.utils.html import format_html
 from django_q.models import Failure, Schedule, Success
 
@@ -27,6 +31,142 @@ for model in [Schedule, Success, Failure]:
         admin.site.unregister(model)
     except admin.sites.NotRegistered:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Azioni amministrative sugli utenti demo
+# ---------------------------------------------------------------------------
+
+try:
+    admin.site.unregister(User)
+except admin.sites.NotRegistered:
+    pass
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    """User admin con stato account e pulizia dati separata."""
+
+    list_display = (
+        "username",
+        "email",
+        "stato_account",
+        "stato_pagamento",
+        "stato_dati_workspace",
+        "is_staff",
+    )
+    list_filter = ("is_active", "is_staff", "is_superuser")
+    search_fields = ("username", "email", "first_name", "last_name")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("profile").annotate(
+            _num_piani=Count("piani_di_carico", distinct=True),
+            _num_mezzi=Count("contenitori", distinct=True),
+            _num_oggetti=Count("oggetti", distinct=True),
+        )
+
+    @admin.display(description="Stato", ordering="is_active")
+    def stato_account(self, obj):
+        return "🟢 Attivo" if obj.is_active else "🔴 Disattivato"
+
+    @admin.display(description="Pagamento")
+    def stato_pagamento(self, obj):
+        profile = getattr(obj, "profile", None)
+        return "💰 Pagante" if profile and profile.is_paying else "🎫 Demo"
+
+    @admin.display(description="Dati workspace")
+    def stato_dati_workspace(self, obj):
+        piani = getattr(obj, "_num_piani", 0)
+        mezzi = getattr(obj, "_num_mezzi", 0)
+        oggetti = getattr(obj, "_num_oggetti", 0)
+        totale = piani + mezzi + oggetti
+        if totale == 0:
+            return "⚪ Nessun dato"
+        return f"📦 {piani} piani · 🚛 {mezzi} mezzi · 📦 {oggetti} oggetti"
+
+    actions = [
+        "delete_selected",
+        "disattiva_utenti",
+        "elimina_dati_utenti_disattivati",
+        "rendi_utenti_paganti",
+        "rimuovi_stato_pagante",
+    ]
+
+    @admin.action(description="Imposta utenti selezionati come paganti")
+    def rendi_utenti_paganti(self, request, queryset):
+        aggiornati = 0
+        for user in queryset:
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if not profile.is_paying:
+                profile.is_paying = True
+                profile.save(update_fields=["is_paying", "updated_at"])
+                aggiornati += 1
+        self.message_user(request, f"Impostati come paganti: {aggiornati} utenti.", messages.SUCCESS)
+
+    @admin.action(description="Rimuovi stato pagante dagli utenti selezionati")
+    def rimuovi_stato_pagante(self, request, queryset):
+        aggiornati = 0
+        for user in queryset:
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if profile.is_paying:
+                profile.is_paying = False
+                profile.save(update_fields=["is_paying", "updated_at"])
+                aggiornati += 1
+        self.message_user(request, f"Tornati a demo: {aggiornati} utenti.", messages.SUCCESS)
+
+    @admin.action(description="Disattiva utenti selezionati")
+    def disattiva_utenti(self, request, queryset):
+        # Non permettere all'amministratore di disattivare sé stesso o un
+        # superuser dalla lista: evita di perdere l'unico accesso all'admin.
+        eleggibili = queryset.exclude(pk=request.user.pk).exclude(is_superuser=True)
+        disattivati = eleggibili.filter(is_active=True).update(is_active=False)
+        ignorati = queryset.count() - eleggibili.count()
+
+        self.message_user(
+            request,
+            f"Disattivati {disattivati} utenti."
+            + (f" Ignorati {ignorati} account protetti." if ignorati else ""),
+            messages.SUCCESS,
+        )
+
+    @admin.action(description="Elimina dati applicativi degli utenti disattivati")
+    def elimina_dati_utenti_disattivati(self, request, queryset):
+        """Elimina i dati di workspace ma conserva account e fingerprint.
+
+        L'account resta disattivato, quindi non può accedere né riaprire il
+        trial; mantenere UserProfile/DemoFingerprint conserva il segnale
+        anti-abuso. Gli eventuali record protetti da dati di altri utenti
+        interrompono la pulizia di quel singolo utente senza cancellazioni
+        parziali.
+        """
+        inattivi = queryset.filter(is_active=False)
+        attivi = queryset.filter(is_active=True).count()
+        eliminati = 0
+        bloccati = []
+
+        for user in inattivi:
+            try:
+                from django.db import transaction
+                with transaction.atomic():
+                    # Prima i piani: rimuovono oggetti_da_caricare e
+                    # oggetti_posizionati collegati in CASCADE.
+                    PianoDiCarico.objects.filter(owner=user).delete()
+                    Oggetto.objects.filter(owner=user).delete()
+                    Contenitore.objects.filter(owner=user).delete()
+                eliminati += 1
+            except ProtectedError:
+                bloccati.append(user.username)
+
+        messaggio = f"Dati applicativi eliminati per {eliminati} utenti disattivati."
+        if attivi:
+            messaggio += f" Ignorati {attivi} utenti ancora attivi."
+        if bloccati:
+            messaggio += " Dati protetti non eliminati per: " + ", ".join(bloccati) + "."
+        self.message_user(
+            request,
+            messaggio,
+            messages.WARNING if bloccati or attivi else messages.SUCCESS,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -338,8 +478,8 @@ class DemoFingerprintAdmin(admin.ModelAdmin):
 @admin.register(ImpostazioniSistema)
 class ImpostazioniSistemaAdmin(admin.ModelAdmin):
     list_display = [
-        "giorni_prova", "demo_attiva", "google_oauth_attivo",
-        "soglia_controlli_demo",
+        "giorni_prova", "demo_attiva", "controlli_demo_attivi",
+        "google_oauth_attivo", "soglia_controlli_demo",
     ]
     fieldsets = [
         ("Periodo di Prova", {
@@ -347,11 +487,11 @@ class ImpostazioniSistemaAdmin(admin.ModelAdmin):
             "description": "Durata del trial in giorni per nuovi utenti (demo e Google).",
         }),
         ("Demo", {
-            "fields": ["demo_attiva", "soglia_controlli_demo"],
+            "fields": ["demo_attiva", "controlli_demo_attivi", "soglia_controlli_demo"],
             "description": (
-                "Abilita/disabilita l'accesso demo con account condivisi. "
-                "Soglia controlli: su 3 segnali (IP, browser, cookie), "
-                "quanti devono matchare per bloccare un utente."
+                "Abilita/disabilita l'accesso demo. I controlli anti-abuso "
+                "usano IP, browser e cookie; la soglia indica quanti segnali "
+                "devono coincidere per bloccare un nuovo trial."
             ),
         }),
         ("Google OAuth2", {

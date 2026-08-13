@@ -12,6 +12,7 @@ __pycache__
 db.sqlite3
 staticfiles
 media
+backups
 .env
 *.env
 packer_prima_della_modifica.py

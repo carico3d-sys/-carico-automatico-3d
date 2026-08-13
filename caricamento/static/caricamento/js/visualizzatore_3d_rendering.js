@@ -179,7 +179,8 @@ function buildOggetti(oggetti) {
     oggetti.forEach((oggetto, index) => {
         const pos = oggetto.posizione_cm;
         const dim = oggetto.dimensioni_cm;
-        const colore = new THREE.Color(oggetto.colore);
+        const coloreHex = coloreOggetto(oggetto);
+        const colore = new THREE.Color(coloreHex);
 
         // Converti coordinate: API (x=lunghezza, y=larghezza, z=altezza)
         // → Three.js (X=lunghezza, Y=altezza, Z=larghezza)
@@ -244,7 +245,7 @@ function buildOggetti(oggetti) {
             peso: oggetto.peso_kg,
             pesoSopra: oggetto.peso_sopra_kg,
             rotazione: oggetto.rotazione,
-            colore: oggetto.colore,
+            colore: coloreHex,
             index: index,
             _baseY: 0,                                                // Y locale mesh (per animazione floating)
             _posZ: pos.z,                                              // API z (visual bottom) per calcoli drag verticale
@@ -278,7 +279,7 @@ function buildOggetti(oggetti) {
         decalCtx.fill();
 
         // Banda colorata laterale per identificazione rapida
-        decalCtx.fillStyle = oggetto.colore;
+        decalCtx.fillStyle = coloreHex;
         decalCtx.fillRect(0, 0, 8, decalCanvas.height);
 
         // Testo

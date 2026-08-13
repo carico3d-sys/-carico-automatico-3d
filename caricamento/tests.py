@@ -10,12 +10,17 @@ Copre:
 
 import copy
 import random
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.core.exceptions import ValidationError
+from django.test import RequestFactory, TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
+
+from caricamento.views import _check_demo_abuse, _save_demo_fingerprints
 
 from caricamento.engine.common import (
     ConfigurazioneOttimizzazione,
@@ -24,6 +29,7 @@ from caricamento.engine.common import (
 )
 from caricamento.models import (
     Contenitore,
+    ImpostazioniSistema,
     Oggetto,
     OggettoDaCaricare,
     PianoDiCarico,
@@ -2127,3 +2133,179 @@ class TestOwnershipIsolation(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 404)
+
+
+class TestApiErrorHandling(TestCase):
+    """Le API restituiscono errori leggibili senza perdere i dettagli legacy."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="errors-user", password="test-password")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_validation_error_has_standard_envelope_and_request_id(self):
+        response = self.client.put(
+            "/api/impostazioni_ottimizzatore/",
+            {"sezione_non_valida": {}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data["success"])
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertTrue(response.data["error"]["request_id"])
+        self.assertEqual(response["X-Request-ID"], response.data["error"]["request_id"])
+        # Compatibilità con i client che usavano il campo DRF originale.
+        self.assertIn("sezioni", response.data)
+
+
+class TestDemoTrialFingerprint(TestCase):
+    """Un fingerprint impedisce di assegnare trial demo aggiuntivi."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.ip = "203.0.113.10"
+        self.browser = "browser-hash-demo"
+        self.cookie = "cookie-token-demo"
+        impostazioni = ImpostazioniSistema.get()
+        impostazioni.demo_attiva = True
+        impostazioni.soglia_controlli_demo = 1
+        impostazioni.save()
+
+    def _request(self):
+        request = self.factory.post("/")
+        request.META["HTTP_X_REAL_IP"] = self.ip
+        request.COOKIES["cb_fp"] = self.browser
+        request.COOKIES["cb_demo"] = self.cookie
+        return request
+
+    def _active_user(self, username):
+        user = User.objects.create_user(username=username, password="password-demo")
+        profile = user.profile
+        profile.trial_start = timezone.now()
+        profile.trial_end = timezone.now() + timedelta(days=7)
+        profile.save(update_fields=["trial_start", "trial_end"])
+        return user
+
+    def test_used_fingerprint_blocks_second_trial_while_first_is_active(self):
+        user = self._active_user("first-demo")
+        _save_demo_fingerprints(self._request(), user)
+
+        self.assertTrue(_check_demo_abuse(self._request()))
+
+    def test_admin_can_disable_anti_abuse_checks_for_testing(self):
+        user = self._active_user("first-demo-disabled-checks")
+        _save_demo_fingerprints(self._request(), user)
+        impostazioni = ImpostazioniSistema.get()
+        impostazioni.controlli_demo_attivi = False
+        impostazioni.save()
+
+        self.assertFalse(_check_demo_abuse(self._request()))
+
+    def test_staff_fingerprint_does_not_block_demo_trials(self):
+        user = User.objects.create_user(
+            username="staff-fingerprint", password="password-demo", is_staff=True
+        )
+        _save_demo_fingerprints(self._request(), user)
+
+        self.assertFalse(_check_demo_abuse(self._request()))
+
+    def test_existing_account_can_login_from_a_matching_device(self):
+        user = self._active_user("portable-demo")
+        _save_demo_fingerprints(self._request(), user)
+
+        self.client.cookies["cb_fp"] = self.browser
+        self.client.cookies["cb_demo"] = self.cookie
+        response = self.client.post(
+            "/",
+            {"username": user.username, "password": "password-demo"},
+            REMOTE_ADDR="127.0.0.1",
+            HTTP_X_REAL_IP=self.ip,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/workspace/")
+
+    def test_expired_trial_api_returns_json_403(self):
+        user = User.objects.create_user(username="expired-demo", password="password-demo")
+        profile = user.profile
+        profile.trial_start = timezone.now() - timedelta(days=15)
+        profile.trial_end = timezone.now() - timedelta(days=1)
+        profile.save(update_fields=["trial_start", "trial_end"])
+        self.client.force_login(user)
+
+        response = self.client.get("/api/contenitori/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["error"]["code"], "trial_expired")
+
+    def test_disactivated_user_cannot_reuse_an_existing_session(self):
+        user = self._active_user("disabled-demo")
+        self.client.force_login(user)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        response = self.client.get("/workspace/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/?next=/workspace/")
+
+    def test_new_google_identity_is_blocked_by_used_fingerprint(self):
+        from types import SimpleNamespace
+
+        from allauth.core.exceptions import ImmediateHttpResponse
+        from caricamento.adapter import DynamicGoogleAdapter
+
+        user = self._active_user("google-demo")
+        _save_demo_fingerprints(self._request(), user)
+        request = self._request()
+
+        with self.assertRaises(ImmediateHttpResponse) as raised:
+            with patch("caricamento.views._check_demo_abuse", return_value=True):
+                DynamicGoogleAdapter().pre_social_login(
+                    request,
+                    SimpleNamespace(is_existing=False),
+                )
+
+        self.assertEqual(raised.exception.response.status_code, 302)
+        self.assertEqual(raised.exception.response["Location"], "/?trial=used")
+
+    def test_disabled_local_account_shows_disabled_message_instead_of_recreating(self):
+        user = self._active_user("disabled-login")
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        response = self.client.post(
+            "/",
+            {"username": user.username, "password": "password-demo"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Questo account è stato disattivato")
+        self.assertEqual(User.objects.filter(username=user.username).count(), 1)
+
+    def test_google_new_identity_is_blocked_when_demo_is_disabled(self):
+        from types import SimpleNamespace
+
+        from allauth.core.exceptions import ImmediateHttpResponse
+        from caricamento.adapter import DynamicGoogleAdapter
+
+        impostazioni = ImpostazioniSistema.get()
+        impostazioni.demo_attiva = False
+        impostazioni.save()
+
+        with self.assertRaises(ImmediateHttpResponse) as raised:
+            DynamicGoogleAdapter().pre_social_login(
+                self._request(),
+                SimpleNamespace(is_existing=False),
+            )
+
+        self.assertEqual(raised.exception.response.status_code, 302)
+        self.assertEqual(raised.exception.response["Location"], "/?demo=disabled")
+
+    def test_demo_threshold_cannot_exceed_available_signals(self):
+        impostazioni = ImpostazioniSistema.get()
+        impostazioni.soglia_controlli_demo = 4
+
+        with self.assertRaises(ValidationError):
+            impostazioni.full_clean()

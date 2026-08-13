@@ -168,12 +168,9 @@ var BUTTON_CATALOG = [
     // --- Finestre Main View: Piani di carico ---
     // (bottoni generati dinamicamente all'apertura della vista: iconSelRelative
     // vuoto perché l'emoji è nel testo, non in un elemento dedicato)
-    { id: 'win-piani-elimina',       selector: '#pv-batch-delete-piani',  iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina selezione',      emoji_default: '🗑', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
-    { id: 'win-piani-clear',         selector: '#pv-batch-clear-piani',   iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                       emoji_default: '✕',  location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'win-piani-salva-nome',    selector: '#pd-btn-salva-nome',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                       emoji_default: '💾', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     { id: 'win-piani-carica',        selector: '#pv-piano-carica',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Carica nel viewport 3D', emoji_default: '📦', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     { id: 'win-piani-delete',        selector: '#pv-piano-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina piano',          emoji_default: '🗑', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
-    { id: 'win-piani-seleziona',     selector: '#pv-piano-seleziona',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Seleziona questo mezzo', emoji_default: '🚛', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
 
     // --- Finestre Main View: Vincoli ---
     { id: 'win-vincoli-escludi',     selector: '#vt-btn-escludi',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Escludi tutti',     emoji_default: '🚫', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
@@ -183,20 +180,11 @@ var BUTTON_CATALOG = [
     { id: 'win-vincoli-delete',      selector: '#vt-btn-delete',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina',           emoji_default: '🗑', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
 
     // --- Finestre Main View: Articoli ---
-    { id: 'win-art-reset-vista',     selector: '#pv3d-btn-reset-vista',   iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Reset vista',     emoji_default: '🏠', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-art-reset-oggetto',   selector: '#pv3d-btn-reset-oggetto', iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Reset oggetto',   emoji_default: '↺', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-art-delete',          selector: '#pv-batch-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina selezione', emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
-    { id: 'win-art-vincoli',         selector: '#pv-batch-vincoli',       iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Vincoli',         emoji_default: '🔧', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'win-art-clear',           selector: '#pv-batch-clear',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                 emoji_default: '✕',  location: 'Finestre: Articoli', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'win-art-nuovo',           selector: '#pv-ogg-nuovo',           iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            emoji_default: '➕', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'win-art-salva',           selector: '#pv-ogg-save',            iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     { id: 'win-art-delete-ogg',      selector: '#pv-ogg-delete',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina oggetto',   emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
-    { id: 'win-art-batch-annulla',   selector: '#modal-batch-cancel',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Annulla',           emoji_default: '✕',  location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-art-batch-applica',   selector: '#modal-batch-save',       iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Applica',           emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
 
     // --- Finestre Main View: Trasporti ---
-    { id: 'win-trasp-delete',        selector: '#pv-batch-delete-mezzi',  iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina selezione', emoji_default: '🗑', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
-    { id: 'win-trasp-clear',         selector: '#pv-batch-clear-mezzi',   iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                 emoji_default: '✕',  location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'win-trasp-nuovo',         selector: '#pv-mezzo-nuovo',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            emoji_default: '➕', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'win-trasp-salva',         selector: '#pv-mezzo-save',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             emoji_default: '💾', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     { id: 'win-trasp-delete-mezzo',  selector: '#pv-mezzo-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina mezzo',     emoji_default: '🗑', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' }
@@ -241,6 +229,8 @@ var _btnSnapshot = {};
 // Flag anti-loop per il MutationObserver: evita di riapplicare la config
 // mentre l'applicazione stessa sta modificando il DOM.
 var _iconApplying = false;
+var _lastIconConfigLogKey = '';
+var _lastButtonConfigLogKey = '';
 
 // =============================================================================
 // INIZIALIZZAZIONE
@@ -373,6 +363,18 @@ function _trovaElementiIcona(icon) {
     });
 }
 
+// Questi elementi vengono creati solo quando si apre una sezione del
+// workspace. La loro assenza al primo caricamento non è un errore.
+function _iconaDinamicaAttesa(icon) {
+    if (!icon) return false;
+    if (/^nav-/.test(icon.id)) return true;
+    return ['Impostazioni', 'Viewport', 'Panel View', 'Panel Destro'].indexOf(icon.location) >= 0;
+}
+
+function _bottoneDinamicoAtteso(btnDef) {
+    return !!btnDef && (btnDef.tab === 'finestre' || /^settings-/.test(btnDef.id));
+}
+
 /**
  * Applica la configurazione icone al DOM. Prima RIPRISTINA le icone
  * Bootstrap (per gli elementi già sostituiti con <img>), poi riapplica
@@ -404,7 +406,11 @@ var _applyIconConfig = function _applyIconConfig() {
         // consente al MutationObserver di gestire anche icone dinamiche
         // senza creare un ciclo infinito di sostituzioni DOM.
         if (elements.length === 0) {
-            configurateNonTrovate.push({ id: icon.id, selector: icon.selector });
+            // Sidebar navigazione, impostazioni, viewport e pannelli vengono
+            // renderizzati in momenti diversi: non generare falsi warning.
+            if (!_iconaDinamicaAttesa(icon)) {
+                configurateNonTrovate.push({ id: icon.id, selector: icon.selector });
+            }
             return;
         }
 
@@ -437,11 +443,16 @@ var _applyIconConfig = function _applyIconConfig() {
         });
     });
 
-    if (configurateNonTrovate.length > 0) {
-        console.warn('[Gestione Icone] PNG configurati ma non trovati nel DOM:', configurateNonTrovate);
+    var iconLogKey = applicate + '|' + configurateNonTrovate.length;
+    if (iconLogKey !== _lastIconConfigLogKey) {
+        _lastIconConfigLogKey = iconLogKey;
+        if (configurateNonTrovate.length > 0) {
+            console.warn('[Gestione Icone] PNG statici configurati ma non trovati nel DOM:', configurateNonTrovate);
+        }
+        if (applicate > 0) {
+            console.info('[Gestione Icone] Icone PNG applicate:', applicate);
+        }
     }
-    console.info('[Gestione Icone] Icone PNG applicate:', applicate,
-        '| configurate non trovate:', configurateNonTrovate.length);
 };
 
 /**
@@ -461,9 +472,7 @@ var _applyButtonConfig = function _applyButtonConfig(force) {
 
 var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
     var bottoniApplicati = 0;
-    var bottoniNonTrovati = [];
     var bottoniStaticiNonTrovati = [];
-    var bottoniDinamiciNonPresenti = [];
 
     BUTTON_CATALOG.forEach(function (btnDef) {
         var el = document.querySelector(btnDef.selector);
@@ -475,12 +484,12 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
                     id: btnDef.id,
                     selector: btnDef.selector,
                 };
-                bottoniNonTrovati.push(dettaglioMancante);
-                if (btnDef.tab === 'finestre') {
-                    bottoniDinamiciNonPresenti.push(dettaglioMancante);
-                } else {
-                    bottoniStaticiNonTrovati.push(dettaglioMancante);
+                if (_bottoneDinamicoAtteso(btnDef)) {
+                    // La sezione o la finestra può non essere stata ancora
+                    // renderizzata: non è un bottone rotto.
+                    return;
                 }
+                bottoniStaticiNonTrovati.push(dettaglioMancante);
             }
             return;
         }
@@ -615,16 +624,16 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
         bottoniApplicati += 1;
     });
 
-    if (bottoniStaticiNonTrovati.length > 0) {
-        console.warn('[Gestione Icone] Bottoni statici configurati ma non trovati nel DOM:', bottoniStaticiNonTrovati);
+    var buttonLogKey = bottoniApplicati + '|' + bottoniStaticiNonTrovati.length;
+    if (buttonLogKey !== _lastButtonConfigLogKey) {
+        _lastButtonConfigLogKey = buttonLogKey;
+        if (bottoniStaticiNonTrovati.length > 0) {
+            console.warn('[Gestione Icone] Bottoni statici configurati ma non trovati nel DOM:', bottoniStaticiNonTrovati);
+        }
+        if (bottoniApplicati > 0) {
+            console.info('[Gestione Icone] Bottoni configurati applicati:', bottoniApplicati);
+        }
     }
-    if (bottoniDinamiciNonPresenti.length > 0) {
-        // Le finestre vengono create solo quando l'utente le apre: il
-        // MutationObserver li catturerà e applicherà la configurazione.
-        console.info('[Gestione Icone] Bottoni finestra in attesa di apertura:', bottoniDinamiciNonPresenti);
-    }
-    console.info('[Gestione Icone] Bottoni configurati applicati:', bottoniApplicati,
-        '| non presenti ora:', bottoniNonTrovati.length);
 
     // Il bottone Undo ha uno stato runtime (tab Manuale, Ghost e cronologia):
     // la configurazione icone può ridisegnarlo, ma non deve perderne lo stato.
@@ -1165,7 +1174,7 @@ function _popolaTabellaBottoni(tbodyId, tab) {
                 '</td>' +
                 '<td class="bt-col-btnsize">' +
                     '<div class="icone-dims-row">' +
-                        '<input type="number" class="form-input bt-size-w" value="' + btnW + '" min="40" max="100" step="5">' +
+                        '<input type="number" class="form-input bt-size-w" value="' + btnW + '" min="5" max="100" step="5">' +
                         '<span>%</span>' +
                         '<input type="number" class="form-input bt-size-h" value="' + btnH + '" min="20" max="120" step="1">' +
                         '<span>px</span>' +

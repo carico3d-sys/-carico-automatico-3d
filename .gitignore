@@ -25,6 +25,10 @@ staticfiles/
 
 # === Docker ===
 docker-compose.override.yml
+backups/
+
+# === Deploy locale ===
+.env.bak
 
 # === IDE ===
 .vscode/

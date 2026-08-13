@@ -19,6 +19,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carico 3D – Workspace</title>
+    <link rel="icon" type="image/png" href="{% static 'caricamento/img/icons8-3d-64.png' %}">
 
     <!-- Three.js via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -29,7 +30,7 @@
     <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=24">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=3">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=1">
-    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=20">
+    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=21">
     <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=4">
 
     <!-- Palette flottante Vista — file isolato -->
@@ -39,7 +40,7 @@
     <link rel="stylesheet" href="{% static 'caricamento/css/workspace_spaziatura.css' %}?v=5">
 
     <!-- Gestione Icone Admin -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/icone_manager.css' %}?v=11">
+    <link rel="stylesheet" href="{% static 'caricamento/css/icone_manager.css' %}?v=13">
 
     <!-- Bootstrap Icons (SVG, touch-friendly) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
@@ -77,8 +78,8 @@
 
     <!-- Three.js visualizzatore: core + rendering + orchestratore -->
     <script src="{% static 'caricamento/js/visualizzatore_3d_core.js' %}?v=1" defer></script>
-    <script src="{% static 'caricamento/js/visualizzatore_3d_rendering.js' %}?v=1" defer></script>
-    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=3" defer></script>
+    <script src="{% static 'caricamento/js/visualizzatore_3d_rendering.js' %}?v=2" defer></script>
+    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=4" defer></script>
 
     <!-- Multi Viewport 2×2 (4 viste: Fronte | Lato | Pianta | 3D) -->
     <script src="{% static 'caricamento/js/multi_viewport_3d.js' %}?v=2" defer></script>
@@ -97,10 +98,10 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=13" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=15" defer></script>
 
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
-    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=36" defer></script>
+    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=37" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
     <script src="{% static 'caricamento/js/gestione_file.js' %}?v=10" defer></script>
@@ -120,9 +121,9 @@
     <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=13" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
-    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=9" defer></script>
-    <!-- 7a. Panel Mezzi (lista, form, selezione multipla, batch) -->
-    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=16" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=15" defer></script>
+    <!-- 7a. Panel Mezzi (lista e form) -->
+    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=17" defer></script>
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
     <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=6" defer></script>
 
@@ -141,13 +142,13 @@
 
 
     <!-- 9. Modali: nuovo mezzo, nuovo oggetto, vincoli, piani -->
-    <script src="{% static 'caricamento/js/workspace_modals.js' %}?v=3" defer></script>
+    <script src="{% static 'caricamento/js/workspace_modals.js' %}?v=4" defer></script>
 
     <!-- 10. Impostazioni: strategia, performance, output -->
     <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=3" defer></script>
 
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
-    <script src="{% static 'caricamento/js/workspace.js' %}?v=30" defer></script>
+    <script src="{% static 'caricamento/js/workspace.js' %}?v=31" defer></script>
 
     <script>
         window.WORKSPACE_CONFIG = {

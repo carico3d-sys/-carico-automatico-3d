@@ -14,6 +14,7 @@ import os
 import random
 import re
 import math
+import secrets
 import uuid
 from datetime import timedelta
 from urllib.parse import unquote
@@ -44,6 +45,7 @@ class OttimizzaRateThrottle(UserRateThrottle):
 
 from .models import (
     Contenitore,
+    ImpostazioniSistema,
     Oggetto,
     OggettoDaCaricare,
     OggettoPosizionato,
@@ -140,46 +142,74 @@ def _calcola_distribuzione_pesi(piano):
 # Helper: Controlli anti-abuso demo (3 segnali)
 # ---------------------------------------------------------------------------
 
+def _client_ip(request):
+    """Restituisce l'IP reale quando la richiesta passa dal reverse proxy fidato."""
+    real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
+    if real_ip:
+        return real_ip
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "").strip()
+
+
+def _demo_cookie_token(request):
+    """Restituisce o prepara il token persistente anti-abuso per la richiesta."""
+    token = request.COOKIES.get("cb_demo", "") or getattr(request, "_cb_demo_token", "")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        request._cb_demo_token = token
+    return token
+
+
+def _attach_demo_cookie(request, response):
+    """Imposta il cookie anti-abuso sulla risposta iniziale della landing."""
+    if not request.COOKIES.get("cb_demo"):
+        response.set_cookie(
+            "cb_demo",
+            _demo_cookie_token(request),
+            max_age=365 * 24 * 60 * 60,
+            httponly=True,
+            secure=request.is_secure(),
+            samesite="Lax",
+        )
+    return response
+
+
 def _check_demo_abuse(request, user=None):
-    """Verifica se l'utente demo sta cercando di riutilizzare la prova.
+    """Verifica se i segnali sono già associati a una demo utilizzata.
 
-    Controlla 3 segnali contro il DB dei fingerprint di demo scadute:
-    1. IP Hash
-    2. Browser Fingerprint (da cookie JS)
-    3. Cookie Token server-side
-
-    Restituisce True se l'utente DEVE essere bloccato (match trovati).
-    Se user è None (controllo pre-creazione), salta il logging.
+    Il controllo viene usato quando si sta per assegnare un NUOVO trial,
+    non durante il login di un account già esistente. I fingerprint di tutte
+    le demo non paganti restano rilevanti anche quando il trial è ancora attivo:
+    così lo stesso browser/rete non può aprire più trial contemporaneamente.
     """
     from .models import DemoFingerprint, ImpostazioniSistema
 
     imp = ImpostazioniSistema.get()
+    if not imp.controlli_demo_attivi:
+        return False
     soglia = imp.soglia_controlli_demo  # default 1
 
-    # Raccogli i 3 segnali
-    ip_raw = request.META.get("REMOTE_ADDR", "")
-    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest()
-
+    ip_raw = _client_ip(request)
+    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest() if ip_raw else ""
     browser_hash = request.COOKIES.get("cb_fp", "") or None
-    cookie_token = request.COOKIES.get("cb_demo", "") or None
+    cookie_token = _demo_cookie_token(request) or None
 
-    # Cerca fingerprint di demo SCADUTE (non paganti, trial finito)
+    # Una demo già utilizzata, attiva o scaduta, consuma il trial del segnale.
     matches = DemoFingerprint.objects.filter(
         user_profile__is_paying=False,
-        user_profile__trial_end__isnull=False,
-        user_profile__trial_end__lt=timezone.now(),
+        user_profile__user__is_staff=False,
+        user_profile__user__is_superuser=False,
     )
 
     match_count = 0
-    if ip_hash:
-        if matches.filter(ip_hash=ip_hash).exists():
-            match_count += 1
-    if browser_hash:
-        if matches.filter(browser_hash=browser_hash).exists():
-            match_count += 1
-    if cookie_token:
-        if matches.filter(cookie_token=cookie_token).exists():
-            match_count += 1
+    if ip_hash and matches.filter(ip_hash=ip_hash).exists():
+        match_count += 1
+    if browser_hash and matches.filter(browser_hash=browser_hash).exists():
+        match_count += 1
+    if cookie_token and matches.filter(cookie_token=cookie_token).exists():
+        match_count += 1
 
     blocked = match_count >= soglia
     if blocked and user is not None:
@@ -211,18 +241,21 @@ def _setup_trial_for_user(user):
 
 
 def _save_demo_fingerprints(request, user):
-    """Salva i 3 segnali identificativi per l'utente demo."""
-    from .models import DemoFingerprint, UserProfile
+    """Salva i segnali solo quando l'anti-abuso è attivo."""
+    from .models import DemoFingerprint, ImpostazioniSistema, UserProfile
+
+    if not ImpostazioniSistema.get().controlli_demo_attivi:
+        return
 
     try:
         profile = user.profile
     except UserProfile.DoesNotExist:
         return
 
-    ip_raw = request.META.get("REMOTE_ADDR", "")
-    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest()
+    ip_raw = _client_ip(request)
+    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest() if ip_raw else ""
     browser_hash = request.COOKIES.get("cb_fp", "") or None
-    cookie_token = request.COOKIES.get("cb_demo", "") or None
+    cookie_token = _demo_cookie_token(request) or None
 
     DemoFingerprint.objects.get_or_create(
         user_profile=profile,
@@ -250,6 +283,7 @@ def homepage(request):
     from .models import ImpostazioniSistema, UserProfile
 
     imp = ImpostazioniSistema.get()
+    _demo_cookie_token(request)
 
     # Helper per validare il parametro next (anti open-redirect)
     def _safe_next(request, default="caricamento:workspace"):
@@ -258,31 +292,34 @@ def homepage(request):
             return next_url
         return default
 
-    # Se già autenticato, verifica trial e redirect
+    # Se già autenticato, verifica trial e redirect. Un account esistente
+    # resta utilizzabile da qualunque dispositivo: il fingerprint controlla
+    # soltanto la richiesta di un nuovo trial.
     next_url = _safe_next(request)
     if request.user.is_authenticated:
-        try:
-            profile = request.user.profile
-            if not profile.is_trial_active and not request.user.is_staff:
-                # Trial scaduto: logout e redirect a landing con messaggio
-                from django.contrib.auth import logout
-                logout(request)
-                return render(request, "caricamento/landing.html", {
-                    "login_error": False,
-                    "trial_expired": True,
-                    "demo_user": "",
-                    "demo_pass": "",
-                    "oggetti_demo": [],
-                    "google_oauth_attivo": imp.google_oauth_attivo,
-                    "demo_attiva": imp.demo_attiva,
-                    "switch_account": False,
-                })
-        except UserProfile.DoesNotExist:
-            pass
-        return redirect(next_url)
+        profile = _setup_trial_for_user(request.user)
+        if not profile.is_trial_active and not request.user.is_staff:
+            from django.contrib.auth import logout
+            logout(request)
+            response = render(request, "caricamento/landing.html", {
+                "login_error": False,
+                "trial_expired": True,
+                "trial_used": False,
+                "demo_user": "",
+                "demo_pass": "",
+                "oggetti_demo": [],
+                "google_oauth_attivo": imp.google_oauth_attivo,
+                "demo_attiva": imp.demo_attiva,
+                "switch_account": False,
+            })
+            return _attach_demo_cookie(request, response)
+        return _attach_demo_cookie(request, redirect(next_url))
 
     login_error = False
-    trial_expired = False
+    trial_expired = request.GET.get("trial") == "expired"
+    trial_used = request.GET.get("trial") == "used"
+    account_disabled = request.GET.get("account") == "disabled"
+    demo_disabled = request.GET.get("demo") == "disabled"
     switch_account = request.GET.get("switch_account", "") == "1"
 
     if request.method == "POST":
@@ -295,48 +332,53 @@ def homepage(request):
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
-                # Utente esistente → login demo (tutti dalla landing page sono demo)
-                if not imp.demo_attiva and not user.is_staff:
+                # Account esistente: nessun blocco fingerprint. Il trial già
+                # scaduto resta scaduto, mentre un account pagante passa sempre.
+                profile = _setup_trial_for_user(user)
+                if not imp.demo_attiva and not user.is_staff and not profile.is_paying:
                     login_error = True
-                elif _check_demo_abuse(request, user):
+                elif not profile.is_trial_active and not user.is_staff:
                     trial_expired = True
-                    logger.warning("Demo abuse detected for user=%s", username)
                 else:
-                    _setup_trial_for_user(user)
-                    try:
-                        profile = user.profile
-                        if not profile.is_trial_active and not user.is_staff:
-                            trial_expired = True
-                        else:
-                            auth_login(request, user)
-                            _save_demo_fingerprints(request, user)
-                            return redirect(_safe_next(request))
-                    except UserProfile.DoesNotExist:
-                        auth_login(request, user)
-                        _save_demo_fingerprints(request, user)
-                        return redirect(_safe_next(request))
-            else:
-                # Utente non esiste → auto-creazione demo (se demo_attiva)
-                if not imp.demo_attiva:
-                    login_error = True
-                elif _check_demo_abuse(request):  # controlla fingerprint PRIMA di creare
-                    trial_expired = True
-                    logger.warning(
-                        "Demo auto-create BLOCKED: username=%s ip_hash=%s",
-                        username, hashlib.sha256(
-                            request.META.get("REMOTE_ADDR", "").encode()
-                        ).hexdigest()[:12],
-                    )
-                else:
-                    user = User.objects.create_user(username=username, password=password)
-                    _setup_trial_for_user(user)
-                    auth_login(
-                        request, user,
-                        backend="django.contrib.auth.backends.ModelBackend",
-                    )
+                    auth_login(request, user)
                     _save_demo_fingerprints(request, user)
-                    logger.info("Demo auto-created: user=%s", username)
-                    return redirect(_safe_next(request))
+                    return _attach_demo_cookie(request, redirect(_safe_next(request)))
+            else:
+                # authenticate() restituisce None anche per un account
+                # disattivato. Verifica prima l'esistenza dello username, così
+                # non tentiamo erroneamente di ricrearlo con lo stesso nome.
+                existing_user = User.objects.filter(username=username).first()
+                if existing_user is not None:
+                    if not existing_user.is_active:
+                        account_disabled = True
+                    else:
+                        login_error = True
+                # Utente realmente nuovo: il fingerprint decide se è possibile
+                # assegnare il primo e unico trial per questa impronta.
+                elif not imp.demo_attiva:
+                    login_error = True
+                else:
+                    # Serializza il controllo e la registrazione locale: senza
+                    # questo lock due POST simultanei potrebbero superare
+                    # entrambi il controllo prima del salvataggio fingerprint.
+                    with transaction.atomic():
+                        ImpostazioniSistema.objects.select_for_update().get(pk=1)
+                        if _check_demo_abuse(request):
+                            trial_used = True
+                            logger.warning("Demo auto-create blocked: username=%s", username)
+                        else:
+                            user = User.objects.create_user(
+                                username=username,
+                                password=password,
+                            )
+                            _setup_trial_for_user(user)
+                            auth_login(
+                                request, user,
+                                backend="django.contrib.auth.backends.ModelBackend",
+                            )
+                            _save_demo_fingerprints(request, user)
+                            logger.info("Demo auto-created: user=%s", username)
+                            return _attach_demo_cookie(request, redirect(_safe_next(request)))
 
     # GET: prepara il contesto per la landing page
 
@@ -372,6 +414,9 @@ def homepage(request):
     return render(request, "caricamento/landing.html", {
         "login_error": login_error,
         "trial_expired": trial_expired,
+        "trial_used": trial_used,
+        "account_disabled": account_disabled,
+        "demo_disabled": demo_disabled,
         "demo_user": "",
         "demo_pass": "",
         "oggetti_demo": oggetti_demo,
@@ -1421,6 +1466,19 @@ def _verifica_file_icone_esistono(data):
     return mancanti
 
 
+def _json_api_error(request, message, status_code, code="api_error", **extra):
+    """Risposta errore coerente per gli endpoint legacy non-DRF."""
+    request_id = getattr(request, "request_id", "-")
+    payload = {
+        "success": False,
+        "error": {"code": code, "message": message, "request_id": request_id},
+        # Mantieni detail per i client legacy che leggono il formato DRF.
+        "detail": message,
+    }
+    payload.update(extra)
+    return JsonResponse(payload, status=status_code)
+
+
 @login_required
 def api_icone_config(request):
     """
@@ -1436,16 +1494,20 @@ def api_icone_config(request):
 
     if request.method == "POST":
         if not request.user.is_staff:
-            return JsonResponse({"error": "Solo amministratori."}, status=403)
+            return _json_api_error(request, "Solo amministratori.", 403, "permission_denied")
         try:
             data = json.loads(request.body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
-            return JsonResponse({"error": "JSON non valido."}, status=400)
+            return _json_api_error(request, "JSON non valido.", 400, "invalid_json")
+        if not isinstance(data, dict):
+            return _json_api_error(request, "Il payload deve essere un oggetto JSON.", 400, "invalid_payload")
 
         if "config" not in data and "bottoni" not in data and "colori" not in data:
-            return JsonResponse(
-                {"error": "Campi 'config', 'bottoni' o 'colori' richiesti."},
-                status=400,
+            return _json_api_error(
+                request,
+                "Campi 'config', 'bottoni' o 'colori' richiesti.",
+                400,
+                "validation_error",
             )
 
         # Merge difensivo: un payload parziale non deve mai perdere la
@@ -1478,10 +1540,11 @@ def api_icone_config(request):
                         entry["color"] = color.lower()
                     else:
                         entry.pop("color", None)
-                # Dimensioni bottone: larghezza % (40-100) e altezza px (20-120)
+                # Dimensioni bottone: larghezza % (5-100) e altezza px (20-120).
+                # Il minimo 5% permette bottoni stretti (es. Elimina al 10%).
                 if "width_pct" in entry:
                     try:
-                        entry["width_pct"] = max(40, min(100, int(entry["width_pct"])))
+                        entry["width_pct"] = max(5, min(100, int(entry["width_pct"])))
                     except (TypeError, ValueError):
                         entry.pop("width_pct", None)
                 if "height_px" in entry:
@@ -1505,15 +1568,18 @@ def api_icone_config(request):
         # Validazione: i file PNG referenziati devono esistere nella cartella img
         mancanti = _verifica_file_icone_esistono(data)
         if mancanti:
-            return JsonResponse({
-                "error": "File PNG non trovati: " + ", ".join(mancanti),
-                "file_mancanti": mancanti,
-            }, status=400)
+            return _json_api_error(
+                request,
+                "File PNG non trovati: " + ", ".join(mancanti),
+                400,
+                "missing_files",
+                file_mancanti=mancanti,
+            )
 
         _save_icon_config(data)
         return JsonResponse({"success": True, "message": "Configurazione salvata."})
 
-    return JsonResponse({"error": "Metodo non consentito."}, status=405)
+    return _json_api_error(request, "Metodo non consentito.", 405, "method_not_allowed")
 
 
 @login_required
@@ -1526,25 +1592,27 @@ def api_icone_file_delete(request):
     attuale (icone o bottoni).
     """
     if request.method != "DELETE":
-        return JsonResponse({"error": "Metodo non consentito."}, status=405)
+        return _json_api_error(request, "Metodo non consentito.", 405, "method_not_allowed")
 
     if not request.user.is_staff:
-        return JsonResponse({"error": "Solo amministratori."}, status=403)
+        return _json_api_error(request, "Solo amministratori.", 403, "permission_denied")
 
     try:
         data = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"error": "JSON non valido."}, status=400)
+        return _json_api_error(request, "JSON non valido.", 400, "invalid_json")
+    if not isinstance(data, dict):
+        return _json_api_error(request, "Il payload deve essere un oggetto JSON.", 400, "invalid_payload")
 
     filename = (data.get("filename") or "").strip()
     if not filename.lower().endswith(".png"):
-        return JsonResponse({"error": "Solo file PNG."}, status=400)
+        return _json_api_error(request, "Solo file PNG.", 400, "invalid_file_type")
 
     safe_name = _normalizza_nome_file_icona(filename)
     path = os.path.join(ICON_UPLOAD_DIR, safe_name)
 
     if not os.path.exists(path):
-        return JsonResponse({"error": "File non trovato."}, status=404)
+        return _json_api_error(request, "File non trovato.", 404, "not_found")
 
     # Controlla che il file non sia referenziato nella configurazione attuale
     cfg = _load_icon_config()
@@ -1557,12 +1625,15 @@ def api_icone_file_delete(request):
             referenziati.add(_normalizza_nome_file_icona(entry["file"]))
 
     if safe_name in referenziati:
-        return JsonResponse({
-            "error": (
+        return _json_api_error(
+            request,
+            (
                 f"'{safe_name}' è ancora usato nella configurazione. "
                 "Rimuovi il riferimento prima di eliminarlo."
             ),
-        }, status=409)
+            409,
+            "conflict",
+        )
 
     os.remove(path)
     logger.info("Icon PNG deleted: %s by %s", safe_name, request.user.username)
@@ -1577,26 +1648,26 @@ def api_icone_upload(request):
     Body: multipart/form-data con campo 'file'.
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Metodo non consentito."}, status=405)
+        return _json_api_error(request, "Metodo non consentito.", 405, "method_not_allowed")
 
     if not request.user.is_staff:
-        return JsonResponse({"error": "Solo amministratori."}, status=403)
+        return _json_api_error(request, "Solo amministratori.", 403, "permission_denied")
 
     uploaded_file = request.FILES.get("file")
     if not uploaded_file:
-        return JsonResponse({"error": "Nessun file fornito."}, status=400)
+        return _json_api_error(request, "Nessun file fornito.", 400, "missing_file")
 
     # Verifica estensione
     filename = uploaded_file.name.lower()
     if not filename.endswith(".png"):
-        return JsonResponse({"error": "Solo file PNG accettati."}, status=400)
+        return _json_api_error(request, "Solo file PNG accettati.", 400, "invalid_file_type")
 
     # Sanitizza il nome file con la stessa regola usata dalla configurazione
     safe_name = _normalizza_nome_file_icona(uploaded_file.name)
 
     # Limite dimensione: 500 KB
     if uploaded_file.size > 500 * 1024:
-        return JsonResponse({"error": "File troppo grande. Max 500 KB."}, status=400)
+        return _json_api_error(request, "File troppo grande. Max 500 KB.", 400, "file_too_large")
 
     # Crea la directory se non esiste
     os.makedirs(ICON_UPLOAD_DIR, exist_ok=True)

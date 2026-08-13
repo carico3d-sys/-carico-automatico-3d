@@ -18,7 +18,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils.translation import gettext_lazy as _
 
 
@@ -890,6 +890,13 @@ class ImpostazioniSistema(models.Model):
         default=True,
         help_text=_("Se attivo, gli utenti possono accedere con account demo."),
     )
+    controlli_demo_attivi = models.BooleanField(
+        default=True,
+        help_text=_(
+            "Se attivo, IP/browser/cookie impediscono di ottenere più trial "
+            "dallo stesso dispositivo o dalla stessa rete."
+        ),
+    )
     google_oauth_attivo = models.BooleanField(
         default=False,
         help_text=_(
@@ -900,7 +907,7 @@ class ImpostazioniSistema(models.Model):
     )
     soglia_controlli_demo = models.PositiveSmallIntegerField(
         default=1,
-        validators=[MinValueValidator(1)],
+        validators=[MinValueValidator(1), MaxValueValidator(3)],
         help_text=_(
             "Numero minimo di controlli (su 3) che devono matchare per "
             "bloccare un utente demo. 1 = basta 1 match, 3 = tutti e 3."
@@ -912,7 +919,11 @@ class ImpostazioniSistema(models.Model):
         verbose_name_plural = _("Impostazioni Sistema")
 
     def __str__(self):
-        return f"⚙️ Impostazioni (prova: {self.giorni_prova}gg, demo: {'ON' if self.demo_attiva else 'OFF'})"
+        return (
+            f"⚙️ Impostazioni (prova: {self.giorni_prova}gg, "
+            f"demo: {'ON' if self.demo_attiva else 'OFF'}, "
+            f"anti-abuso: {'ON' if self.controlli_demo_attivi else 'OFF'})"
+        )
 
     def save(self, *args, **kwargs):
         """Forza il singleton: salva sempre su pk=1."""

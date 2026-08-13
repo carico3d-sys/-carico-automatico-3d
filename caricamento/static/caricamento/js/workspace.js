@@ -40,6 +40,7 @@ function apriModaleAiutoTastiera() {
 
 function inizializza() {
     cacheDom();
+    inizializzaGestioneErroriGlobale();
     caricaImpostazioni(); // Carica impostazioni ottimizzatore da localStorage
     _inizializzaIndicatoreStrategia();
 

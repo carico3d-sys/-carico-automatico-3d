@@ -13,7 +13,7 @@
 - [x] `DEFAULT_AUTO_FIELD = AutoField` → `makemigrations --check` pulito.
 - [x] Config icone dal server (json_script inline): niente flash, niente cache localStorage.
 - [x] Anti-flash icone via CSS (`icons-not-ready`) con fallback noscript.
-- [x] **80 test verdi su PostgreSQL**.
+- [x] **94 test verdi su PostgreSQL**.
 
 ### 1. Web server
 - [x] `gunicorn==23.0.0` in `requirements.txt` (versioni pinnate).
@@ -25,6 +25,7 @@
 - [x] `collectstatic` validato: 207 file raccolti (CSS, JS, PNG).
 - [x] `views.py`: `ICON_CONFIG_PATH` e `ICON_UPLOAD_DIR` sovrascrivibili via env (per i volumi Docker).
 - [x] `nginx/nginx.conf`: serve `/static/` (collectstatic) e `/static/caricamento/img/` (upload admin) + reverse proxy con `X-Forwarded-Proto`.
+- [x] CSP iniziale in modalità `Content-Security-Policy-Report-Only`: monitora script inline e sorgenti esterne senza bloccare la webapp.
 
 ### 3. Docker (creato e validato)
 - [x] `Dockerfile` (python:3.13-slim + gunicorn) — **build OK**.
@@ -58,10 +59,22 @@
   - SocialApp Google (Admin → Social applications) se usi il login Google
   - Utenti/articoli/mezzi/piani (o dump/restore da ambiente esistente)
 - [ ] **4. HTTPS**: configurare certificato e blocco TLS in `nginx/nginx.conf` (il file attuale ascolta ancora solo su HTTP), poi impostare `SECURE_SSL_REDIRECT=True`, `SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`, `SECURE_HSTS_SECONDS`.
+- [ ] **4a. CSP**: osservare le violazioni `Report-Only` in ambiente di staging/produzione, sistemare gli script inline e passare a `Content-Security-Policy` effettiva senza `unsafe-inline` per gli script.
 - [ ] **4b. Dati legacy**: assegnare i record con `owner IS NULL` a un tenant/utente deciso dall'amministratore, oppure esportarli per una riconciliazione; restano intenzionalmente invisibili agli utenti finché non assegnati. Verificare anche il comando `seed_data --username <utente>`: in produzione richiede esplicitamente `--force` ed è limitato al proprietario scelto.
-- [ ] **5. Backup programmati** (cron/container): `pg_dump` + `icon_config.json` + cartella upload PNG (3 cose separate).
+- [ ] **5. Backup programmati**: usare `sh ops/backup.sh` via cron, conservando separatamente `postgres.dump`, `icon_config.json` e `img_uploads.tar.gz`; verificare periodicamente anche il restore descritto in `ops/RESTORE.md`.
 
 ---
+
+## Backup e restore
+
+Il repository contiene `ops/backup.sh`, che crea un dump PostgreSQL in formato custom, una copia di `icon_config.json` e un archivio separato delle immagini persistenti. La directory `backups/` è esclusa da Git.
+
+```bash
+sh ops/backup.sh
+# Eseguire il test di ripristino seguendo ops/RESTORE.md su un ambiente separato
+```
+
+Il backup non sostituisce una policy di retention esterna: copiare gli artefatti su storage separato dal server e verificare periodicamente che siano leggibili.
 
 ## Verifiche finali pre-lancio
 
@@ -71,7 +84,7 @@ python manage.py check --deploy       # in produzione: niente warning bloccanti
 docker compose config --quiet         # OK
 docker compose up -d --build
 docker compose ps                     # 4 servizi UP (worker incluso!)
-curl -I https://tuodominio/                       # 200
+curl -I https://tuodominio/                       # 200 + HTTPS + CSP Report-Only
 curl -I https://tuodominio/static/caricamento/css/base.css   # 200
 # Ottimizzazione: crea piano → Elabora (async) → verifica task completato
 ```

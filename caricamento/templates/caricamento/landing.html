@@ -1,7 +1,9 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="{% static 'caricamento/img/icons8-3d-64.png' %}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carico 3D — Ottimizzazione del carico tridimensionale</title>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -220,8 +222,14 @@
                         {% if login_error %}
                         <div class="login-error">❌ Credenziali non valide. Riprova.</div>
                         {% endif %}
-                        {% if trial_expired %}
+                        {% if account_disabled %}
+                        <div class="login-warning">🔒 Questo account è stato disattivato.<br>Contatta l'amministratore per richiedere la riattivazione.</div>
+                        {% elif trial_used %}
+                        <div class="login-warning">🆓 Il periodo di prova gratuito è già stato utilizzato.<br>Accedi con l'account esistente oppure contatta l'amministratore.</div>
+                        {% elif trial_expired %}
                         <div class="login-warning">⏰ Periodo di prova scaduto.<br>Contatta l'amministratore per attivare un abbonamento.</div>
+                        {% elif demo_disabled %}
+                        <div class="login-warning">🚫 Le nuove prove gratuite sono momentaneamente disattivate.<br>Contatta l'amministratore per richiedere l'accesso.</div>
                         {% endif %}
 
                         {% if google_oauth_attivo %}

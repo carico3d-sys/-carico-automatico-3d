@@ -326,7 +326,7 @@ function renderImpostazioniForm(sezione) {
     var sezioneData = SEZIONI_IMPOSTAZIONI.find(function (s) { return s.id === sezione; });
     DOM.pvFormTitle.innerHTML = sezioneData ? sezioneData.icon + ' ' + sezioneData.label : '<i class="bi bi-gear settings-impostazioni-icon"></i> Impostazioni';
 
-    // Barra azioni in cima al form
+    // Barra azioni: viene renderizzata in fondo al form (sotto le card)
     var actionsBar =
         '<div class="settings-actions-bar">' +
             '<button class="btn btn-success" id="btn-save-impostazioni"><i class="bi bi-save"></i> Salva impostazioni</button>' +
@@ -345,7 +345,8 @@ function renderImpostazioniForm(sezione) {
         cardsHtml += renderCardManuale();
     }
 
-    DOM.pvFormBody.innerHTML = actionsBar + cardsHtml;
+    // I bottoni azione in fondo al form, sotto le card (non più in cima).
+    DOM.pvFormBody.innerHTML = cardsHtml + actionsBar;
 
     // Aggancia event listener pulsanti
     document.getElementById('btn-save-impostazioni').addEventListener('click', salvaImpostazioni);

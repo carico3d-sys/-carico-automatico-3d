@@ -94,7 +94,7 @@ function apriModaleNuovoMezzo() {
 
 function aggiornaSelectMezzi() {
     var opts = WS.contenitori.filter(function (c) { return !c.archiviato; }).map(function (c) {
-        return '<option value="' + c.id + '">' + c.nome + '</option>';
+        return '<option value="' + c.id + '">' + escapeHtml(c.nome) + '</option>';
     }).join('');
     DOM.headerVehicleSelect.innerHTML = '<option value="">— Seleziona mezzo —</option>' + opts;
 }

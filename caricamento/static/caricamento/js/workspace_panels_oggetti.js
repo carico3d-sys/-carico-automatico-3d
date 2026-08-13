@@ -29,24 +29,6 @@ function _pulisciSelezioneMultipla() {
     // Deseleziona checkbox select-all
     var selAll = document.getElementById('pv-select-all');
     if (selAll) selAll.checked = false;
-    _aggiornaBatchToolbar();
-}
-
-function _aggiornaBatchToolbar() {
-    var toolbar = document.getElementById('pv-batch-toolbar');
-    if (!toolbar) return;
-    var count = _multiSelState.oggettiSelezionati.length;
-    if (count >= 2) {
-        toolbar.classList.add('visible');
-        var countEl = toolbar.querySelector('.pv-batch-count');
-        if (countEl) countEl.textContent = count + ' selezionati';
-        var delBtn = document.getElementById('pv-batch-delete');
-        if (delBtn) delBtn.textContent = '🗑 Elimina ' + count;
-        var vincBtn = document.getElementById('pv-batch-vincoli');
-        if (vincBtn) vincBtn.textContent = '🔧 Vincoli ' + count;
-    } else {
-        toolbar.classList.remove('visible');
-    }
 }
 
 function _toggleSelezioneMultipla(oggettoId, ctrlKey, shiftKey) {
@@ -87,164 +69,6 @@ function _toggleSelezioneMultipla(oggettoId, ctrlKey, shiftKey) {
     }
 
     _multiSelState.ultimoCliccato = oggettoId;
-    _aggiornaBatchToolbar();
-}
-
-// =============================================================================
-// OPERAZIONI BATCH
-// =============================================================================
-
-async function _eseguiEliminazioneBatch() {
-    var ids = _multiSelState.oggettiSelezionati;
-    if (ids.length === 0) return;
-
-    // Ottieni i codici per il messaggio di conferma
-    var oggetti = ids.map(function (id) {
-        return trovaOggetto(id);
-    }).filter(Boolean);
-    var codici = oggetti.map(function (o) { return o.codice; }).join(', ');
-
-    if (!confirm('Eliminare ' + ids.length + ' oggetti?\n\n' + codici + '\n\nNota: gli oggetti posizionati in piani di carico ottimizzati non saranno eliminati.')) return;
-
-    try {
-        setStatus('busy', 'Eliminazione batch...');
-        var resp = await fetch('/api/oggetti/bulk_delete/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ ids: ids }),
-        });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        var data = await resp.json();
-
-        // Rimuovi dal WS locale
-        ids.forEach(function (id) {
-            var idx = WS.oggettiDisponibili.findIndex(function (x) { return x.id == id; });
-            if (idx >= 0) WS.oggettiDisponibili.splice(idx, 1);
-            // Sincronizza anche il catalogo
-            if (WS.oggettiCatalog) {
-                var catIdx = WS.oggettiCatalog.findIndex(function (x) { return x.id == id; });
-                if (catIdx >= 0) WS.oggettiCatalog.splice(catIdx, 1);
-            }
-            // Rimuovi anche da vincoli locali
-            var vIdx = WS.vincoli.findIndex(function (v) { return v.oggetto_id == id; });
-            if (vIdx >= 0) WS.vincoli.splice(vIdx, 1);
-        });
-
-        _pulisciSelezioneMultipla();
-        aggiornaSelectOggetti();
-        renderOggettiPanel();
-        showToast('🗑 Eliminati ' + (data.eliminati || ids.length) + ' oggetti!', 'success');
-        setStatus('idle', 'Eliminati');
-    } catch (err) {
-        showToast('❌ Errore eliminazione batch: ' + err.message, 'error');
-        setStatus('error', 'Errore');
-    }
-}
-
-function _apriModaleBatchVincoli() {
-    var ids = _multiSelState.oggettiSelezionati;
-    if (ids.length === 0) return;
-
-    // Ottieni i codici
-    var oggetti = ids.map(function (id) {
-        return trovaOggetto(id);
-    }).filter(Boolean);
-
-    // Prendi i vincoli del primo oggetto come default
-    var primoVincolo = WS.vincoli.find(function (v) { return v.oggetto_id == ids[0]; }) || {};
-
-    // Crea il modale
-    var overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML =
-        '<div class="modal-container" style="width:520px;">' +
-            '<div class="modal-header">' +
-                '<span class="modal-title">🔧 Modifica Vincoli Batch</span>' +
-                '<button class="modal-close" id="modal-batch-close">&times;</button>' +
-            '</div>' +
-            '<div class="modal-body">' +
-                '<div class="field-group">' +
-                    '<label class="field-label">Oggetti selezionati (' + oggetti.length + ')</label>' +
-                    '<div class="batch-oggetti-lista">' +
-                        oggetti.map(function (o) {
-                            var col = (typeof coloreOggetto === 'function') ? coloreOggetto(o) : (o.colore || '#447e9b');
-                            return '<span class="batch-oggetti-tag"><span class="tag-color" style="background:' + col + ';"></span>' + escapeHtml(o.codice) + '</span>';
-                        }).join('') +
-                    '</div>' +
-                '</div>' +
-                '<hr style="border:none;border-top:1px solid #eee;margin:4px 0;">' +
-                '<div class="field-group"><label class="field-label">Orientamento</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-rot-x" ' + (primoVincolo.rotazione_su_x !== false ? 'checked' : '') + '> Rotazione su X</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-rot-y" ' + (primoVincolo.rotazione_su_y !== false ? 'checked' : '') + '> Rotazione su Y</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-rot-z" ' + (primoVincolo.rotazione_su_z !== false ? 'checked' : '') + '> Rotazione su Z</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-nocap" ' + (primoVincolo.rotazione_consentita === false ? 'checked' : '') + '> Non capovolgere</label>' +
-                '</div>' +
-                '<div class="field-group"><label class="field-label">Impilabilità</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-sovrapp" ' + (primoVincolo.sovrapponibile !== false ? 'checked' : '') + '> Può sostenere altri oggetti</label>' +
-                '</div>' +
-                '<div class="field-group"><label class="field-label">Peso max sul tetto (kg)</label>' +
-                    '<input type="number" class="form-input" id="batch-vinc-pesomax" value="' + (primoVincolo.peso_massimo_tetto_kg || 0) + '" min="0" step="0.5">' +
-                '</div>' +
-                '<div class="field-group">' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-piano" ' + (primoVincolo.solo_su_piano === true ? 'checked' : '') + '> Solo su pavimento</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="batch-vinc-fragile" ' + (primoVincolo.fragile === true ? 'checked' : '') + '> ⚠️ Oggetto fragile</label>' +
-                '</div>' +
-            '</div>' +
-            '<div class="modal-footer">' +
-                '<button class="btn" id="modal-batch-cancel">Annulla</button>' +
-                '<button class="btn btn-primary" id="modal-batch-save">💾 Applica a ' + oggetti.length + ' oggetti</button>' +
-            '</div>' +
-        '</div>';
-
-    document.body.appendChild(overlay);
-
-    // Eventi chiusura
-    var close = function () { overlay.remove(); };
-    document.getElementById('modal-batch-close').addEventListener('click', close);
-    document.getElementById('modal-batch-cancel').addEventListener('click', close);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-
-    // Salva
-    document.getElementById('modal-batch-save').addEventListener('click', async function () {
-        var payload = {
-            rotazione_consentita: !document.getElementById('batch-vinc-nocap').checked,
-            rotazione_su_x: document.getElementById('batch-vinc-rot-x').checked,
-            rotazione_su_y: document.getElementById('batch-vinc-rot-y').checked,
-            rotazione_su_z: document.getElementById('batch-vinc-rot-z').checked,
-            sovrapponibile: document.getElementById('batch-vinc-sovrapp').checked,
-            peso_massimo_tetto_kg: parseFloat(document.getElementById('batch-vinc-pesomax').value) || 0,
-            solo_su_piano: document.getElementById('batch-vinc-piano').checked,
-            fragile: document.getElementById('batch-vinc-fragile').checked,
-        };
-
-        try {
-            setStatus('busy', 'Salvataggio vincoli batch...');
-            var resp = await fetch('/api/oggetti/bulk_vincoli/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-                body: JSON.stringify({ ids: ids, vincoli: payload }),
-            });
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            var data = await resp.json();
-
-            // Aggiorna WS locale
-            ids.forEach(function (id) {
-                var idx = WS.vincoli.findIndex(function (v) { return v.oggetto_id == id; });
-                var entry = Object.assign({ oggetto_id: id }, payload);
-                if (idx >= 0) WS.vincoli[idx] = entry; else WS.vincoli.push(entry);
-            });
-
-            close();
-            _pulisciSelezioneMultipla();
-            // Riapri la vista per aggiornare i badge nella lista
-            renderOggettiPanel();
-            showToast('✅ Vincoli aggiornati per ' + (data.aggiornati || ids.length) + ' oggetti!', 'success');
-            setStatus('idle', 'Vincoli salvati');
-        } catch (err) {
-            showToast('❌ Errore: ' + err.message, 'error');
-            setStatus('error', 'Errore');
-        }
-    });
 }
 
 // --- Anagrafica Oggetti ---
@@ -257,7 +81,7 @@ function _buildOggettiListHtml() {
         if (!!o.archiviato !== _oggettiMostraArchiviati) return;
         var coloreDisplay = (typeof coloreOggetto === 'function') ? coloreOggetto(o) : (o.colore || '#447e9b');
         var v = WS.vincoli.find(function (x) { return x.oggetto_id == o.id; });
-        var vincInfo = v ? ((v.fragile ? '⚠️ Fragile ' : '') + (!v.sovrapponibile ? '📦 No impil ' : '') + (v.solo_su_piano ? '⬇️ Pavimento' : '')) : '';
+        var vincInfo = v ? ((!v.sovrapponibile ? '📦 No impil ' : '') + (v.solo_su_piano ? '⬇️ Pavimento' : '')) : '';
         if (vincInfo) vincInfo = ' · ' + vincInfo.trim();
         var archBadge = o.archiviato ? ' <span style="font-size:10px;color:#999;">📁 archiviato</span>' : '';
         listHtml += '<div class="pv-list-item" data-oggetto-id="' + o.id + '">' +
@@ -284,7 +108,6 @@ function _wireOggettiListClickHandlers() {
                 _multiSelState.oggettiSelezionati.push(oid);
                 _multiSelState.ultimoCliccato = oid;
                 item.classList.add('selected-multi');
-                _aggiornaBatchToolbar();
                 DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); });
                 item.classList.add('selected');
                 renderOggettiForm(oid);
@@ -296,7 +119,7 @@ function _wireOggettiListClickHandlers() {
 
 function renderOggettiPanel() {
     if (typeof _panelViewPronto === 'function' && !_panelViewPronto('oggetti')) return;
-    DOM.pvListTitle.innerHTML = '<i class="bi bi-box-seam"></i> Anagrafica Oggetti + Vincoli';
+    DOM.pvListTitle.innerHTML = 'oggetti : ';
     DOM.pvListCount.textContent = WS.oggettiDisponibili.filter(function (o) { return !!o.archiviato === _oggettiMostraArchiviati; }).length;
 
     // Mostra paginazione oggetti (nascosta nelle altre viste)
@@ -336,16 +159,7 @@ function renderOggettiPanel() {
         '<div id="pv-oggetti-actions" style="padding:0 8px;"></div>' +
         '<div class="pv-3d-preview">' +
             '<div class="pv-3d-header">' +
-                '<span class="pv-3d-title">🎯 Anteprima 3D Oggetto</span>' +
-                '<span class="pv-3d-hint" title="Trascina per ruotare su X e Y • Trascina in diagonale per ruotare anche Z • Shift+trascina per Z puro • Destro per spostare la vista • Scroll per zoom">🖱️ Trascina=X,Y | Shift+Trascina=Z | Diagonale=XYZ | Destro=Pan | Scroll=Zoom</span>' +
-                '<span class="pv-3d-axis-status" id="pv3d-axis-status">' +
-                    '<span class="axis-dot" data-axis="x" style="background:#ff4444;"></span>' +
-                    '<span class="axis-dot" data-axis="y" style="background:#44ff44;"></span>' +
-                    '<span class="axis-dot" data-axis="z" style="background:#4444ff;"></span>' +
-                '</span>' +
-                '<span class="pv-3d-badge" id="pv3d-rot-badge">🔄 Tutti gli assi abilitati</span>' +
-                '<button class="btn btn-sm" id="pv3d-btn-reset-vista" title="Resetta camera">🏠 Reset vista</button>' +
-                '<button class="btn btn-sm" id="pv3d-btn-reset-oggetto" title="Resetta rotazione/posizione">↺ Reset oggetto</button>' +
+                '<span class="pv-3d-title">Anteprima 3D</span>' +
             '</div>' +
             '<div class="pv-3d-canvas-wrap" id="pv-3d-canvas-wrap">' +
                 '<div class="pv-3d-placeholder" id="pv-3d-placeholder">' +
@@ -383,7 +197,7 @@ function renderOggettiPanel() {
         
         // Aggiungi checkbox select-all
         var selectAllHtml = '<label class="pv-list-select-all" title="Seleziona/Deseleziona tutti">' +
-            '<input type="checkbox" id="pv-select-all" autocomplete="off"> Seleziona tutti</label>';
+            '<input type="checkbox" id="pv-select-all" autocomplete="off"> seleziona</label>';
         listHeader.insertAdjacentHTML('afterbegin', selectAllHtml);
 
         // Checkbox "Archiviati" — creato via DOM per evitare autofill browser
@@ -417,7 +231,6 @@ function renderOggettiPanel() {
                     // Deseleziona tutti
                     _pulisciSelezioneMultipla();
                 }
-                _aggiornaBatchToolbar();
             });
         }
         // Difesa da autofill browser: se il browser ha auto-compilato, ripristina
@@ -435,37 +248,12 @@ function renderOggettiPanel() {
         });
     }
     
-    // ---- BATCH TOOLBAR (rimuovi vecchie per evitare duplicati) ----
-    var oldToolbar = document.getElementById('pv-batch-toolbar');
-    if (oldToolbar) oldToolbar.remove();
-    var oldMezziToolbar = document.getElementById('pv-batch-toolbar-mezzi');
-    if (oldMezziToolbar) oldMezziToolbar.remove();
+    // ---- NESSUNA TOOLBAR BATCH PER GLI ARTICOLI ----
+    // Il bottone Elimina è unico ed è quello accanto a Salva nel form articolo:
+    // elimina tutti gli articoli selezionati oppure il singolo articolo aperto.
+    // Rimuoviamo solo eventuali toolbar residue della vista piani.
     var oldPianiToolbar = document.getElementById('pv-batch-toolbar-piani');
     if (oldPianiToolbar) oldPianiToolbar.remove();
-    
-    var batchToolbarHtml = 
-        '<div class="pv-batch-toolbar" id="pv-batch-toolbar">' +
-            '<span class="pv-batch-count">0 selezionati</span>' +
-            '<button class="btn btn-danger" id="pv-batch-delete">🗑 Elimina</button>' +
-            '<button class="btn btn-primary" id="pv-batch-vincoli">🔧 Vincoli</button>' +
-            '<button class="btn btn-sm" id="pv-batch-clear" title="Cancella selezione">✕</button>' +
-        '</div>';
-    
-    // Inserisci toolbar dopo l'header
-    if (listHeader && listHeader.parentNode) {
-        listHeader.parentNode.insertBefore(
-            (function () { var d = document.createElement('div'); d.innerHTML = batchToolbarHtml; return d.firstElementChild; })(),
-            listHeader.nextSibling
-        );
-    }
-    
-    // Wire batch buttons
-    var batchDel = document.getElementById('pv-batch-delete');
-    if (batchDel) batchDel.addEventListener('click', _eseguiEliminazioneBatch);
-    var batchVinc = document.getElementById('pv-batch-vincoli');
-    if (batchVinc) batchVinc.addEventListener('click', _apriModaleBatchVincoli);
-    var batchClear = document.getElementById('pv-batch-clear');
-    if (batchClear) batchClear.addEventListener('click', _pulisciSelezioneMultipla);
     
     // Build list with vincoli summary + checkbox
     DOM.pvListBody.innerHTML = _buildOggettiListHtml();
@@ -526,22 +314,6 @@ function _aggiornaPreview3D(oggettoId) {
             }));
         }
     });
-    
-    // Reset vista
-    var resetVistaBtn = document.getElementById('pv3d-btn-reset-vista');
-    if (resetVistaBtn) {
-        resetVistaBtn.addEventListener('click', _preview3dSafe(function () {
-            PreviewOggetto3D.resetVista();
-        }));
-    }
-    
-    // Reset oggetto (rot/trans)
-    var resetOggettoBtn = document.getElementById('pv3d-btn-reset-oggetto');
-    if (resetOggettoBtn) {
-        resetOggettoBtn.addEventListener('click', _preview3dSafe(function () {
-            PreviewOggetto3D.resettaOggetto();
-        }));
-    }
 }
 
 function renderOggettiForm(oggettoId) {
@@ -701,16 +473,14 @@ function renderOggettiForm(oggettoId) {
             // Salva anche i vincoli (unificato con il salvataggio oggetto)
             var targetId = isEdit ? oggettoId : serverId;
             try {
-                var vincPayload = {
-                    rotazione_consentita: !document.getElementById('pv-vinc-nocap').checked,
-                    rotazione_su_x: document.getElementById('pv-vinc-rot-x').checked,
-                    rotazione_su_y: document.getElementById('pv-vinc-rot-y').checked,
-                    rotazione_su_z: document.getElementById('pv-vinc-rot-z').checked,
-                    sovrapponibile: document.getElementById('pv-vinc-sovrapp').checked,
-                    peso_massimo_tetto_kg: parseFloat(document.getElementById('pv-vinc-pesomax').value) || 0,
-                    solo_su_piano: document.getElementById('pv-vinc-piano').checked,
-                    fragile: document.getElementById('pv-vinc-fragile').checked,
-                };
+        var vincPayload = {
+            rotazione_su_x: document.getElementById('pv-vinc-rot-x').checked,
+            rotazione_su_y: document.getElementById('pv-vinc-rot-y').checked,
+            rotazione_su_z: document.getElementById('pv-vinc-rot-z').checked,
+            sovrapponibile: document.getElementById('pv-vinc-sovrapp').checked,
+            peso_massimo_tetto_kg: parseFloat(document.getElementById('pv-vinc-pesomax').value) || 0,
+            solo_su_piano: document.getElementById('pv-vinc-piano').checked,
+        };
                 var vincResp = await fetch('/api/oggetti/' + targetId + '/vincoli/', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
@@ -729,30 +499,68 @@ function renderOggettiForm(oggettoId) {
         } catch (err) { showToast('❌ Errore: ' + err.message, 'error'); setStatus('error', 'Errore'); }
     });
 
-    // Delete oggetto (solo in modifica)
+    // Delete oggetto (solo in modifica): unico bottone Elimina (accanto a Salva).
+    // Se sono selezionati più articoli li elimina tutti; altrimenti elimina quello aperto.
     var deleteBtn = document.getElementById('pv-ogg-delete');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', async function (e) {
             e.stopPropagation();
-            if (!confirm('Eliminare l\'oggetto "' + (o ? escapeHtml(o.codice) : '') + '"?\n\nNota: se l\'oggetto è posizionato in un piano di carico ottimizzato, l\'eliminazione sarà bloccata.')) return;
+            var ids = _multiSelState.oggettiSelezionati.length >= 2
+                ? _multiSelState.oggettiSelezionati.slice()
+                : [oggettoId];
+            var codici = ids.map(function (id) {
+                var ogg = trovaOggetto(id);
+                return ogg ? ogg.codice : '';
+            }).filter(Boolean);
+            var dettaglio = ids.length === 1
+                ? 'l\'articolo "' + (codici[0] || '') + '"'
+                : ids.length + ' articoli:\n\n' + codici.join(', ');
+            if (!confirm('Eliminare ' + dettaglio + '?\n\nNota: gli articoli posizionati in piani di carico ottimizzati non saranno eliminati.')) return;
             try {
                 setStatus('busy', 'Eliminazione...');
-                var resp = await fetch('/api/oggetti/' + oggettoId + '/', {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': getCSRFToken() },
-                });
-                if (!resp.ok) throw new Error(await _parseDeleteError(resp));
-                var idx = WS.oggettiDisponibili.findIndex(function (x) { return x.id == oggettoId; });
-                if (idx >= 0) WS.oggettiDisponibili.splice(idx, 1);
-                // Sincronizza catalogo
-                if (WS.oggettiCatalog) {
-                    var catIdx = WS.oggettiCatalog.findIndex(function (x) { return x.id == oggettoId; });
-                    if (catIdx >= 0) WS.oggettiCatalog.splice(catIdx, 1);
+                var eliminati = 0;
+                if (ids.length === 1) {
+                    var resp = await fetch('/api/oggetti/' + oggettoId + '/', {
+                        method: 'DELETE',
+                        headers: { 'X-CSRFToken': getCSRFToken() },
+                    });
+                    if (!resp.ok) throw new Error(await _parseDeleteError(resp));
+                    eliminati = 1;
+                    var idx = WS.oggettiDisponibili.findIndex(function (x) { return x.id == oggettoId; });
+                    if (idx >= 0) WS.oggettiDisponibili.splice(idx, 1);
+                    // Sincronizza catalogo
+                    if (WS.oggettiCatalog) {
+                        var catIdx = WS.oggettiCatalog.findIndex(function (x) { return x.id == oggettoId; });
+                        if (catIdx >= 0) WS.oggettiCatalog.splice(catIdx, 1);
+                    }
+                    // Rimuovi anche da vincoli locali
+                    var vIdx = WS.vincoli.findIndex(function (v) { return v.oggetto_id == oggettoId; });
+                    if (vIdx >= 0) WS.vincoli.splice(vIdx, 1);
+                } else {
+                    var respBatch = await fetch('/api/oggetti/bulk_delete/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                        body: JSON.stringify({ ids: ids }),
+                    });
+                    if (!respBatch.ok) throw new Error('HTTP ' + respBatch.status);
+                    var data = await respBatch.json();
+                    eliminati = data.eliminati || ids.length;
+                    ids.forEach(function (id) {
+                        var idxB = WS.oggettiDisponibili.findIndex(function (x) { return x.id == id; });
+                        if (idxB >= 0) WS.oggettiDisponibili.splice(idxB, 1);
+                        if (WS.oggettiCatalog) {
+                            var catIdxB = WS.oggettiCatalog.findIndex(function (x) { return x.id == id; });
+                            if (catIdxB >= 0) WS.oggettiCatalog.splice(catIdxB, 1);
+                        }
+                        var vIdxB = WS.vincoli.findIndex(function (v) { return v.oggetto_id == id; });
+                        if (vIdxB >= 0) WS.vincoli.splice(vIdxB, 1);
+                    });
                 }
+                _pulisciSelezioneMultipla();
                 aggiornaSelectOggetti();
                 renderOggettiPanel();
-                showToast('🗑 Oggetto eliminato!', 'success');
-                setStatus('idle', 'Eliminato');
+                showToast(ids.length === 1 ? '🗑 Articolo eliminato!' : '🗑 Eliminati ' + eliminati + ' articoli!', 'success');
+                setStatus('idle', 'Eliminati');
             } catch (err) {
                 showToast('❌ Errore eliminazione: ' + err.message, 'error');
                 setStatus('error', 'Errore');
@@ -783,7 +591,6 @@ function _aggiornaListaOggettiESeleziona(oggettoId) {
         targetItem.classList.add('selected-multi');
         _multiSelState.oggettiSelezionati = [oggettoId];
         _multiSelState.ultimoCliccato = oggettoId;
-        _aggiornaBatchToolbar();
     }
     renderOggettiForm(oggettoId);
     _aggiornaPreview3D(oggettoId);
@@ -801,7 +608,6 @@ function _mostraVincoliDefault() {
             '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-x" checked> Rotazione su X</label>' +
             '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-y" checked> Rotazione su Y</label>' +
             '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-z" checked> Rotazione su Z</label>' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-nocap"> Non capovolgere</label>' +
         '</div>' +
         '<div class="field-group"><label class="field-label">Impilabilità</label>' +
             '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" checked> Può sostenere altri oggetti</label>' +
@@ -811,7 +617,6 @@ function _mostraVincoliDefault() {
         '</div>' +
         '<div class="field-group">' +
             '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-piano"> Solo su pavimento</label>' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-fragile"> ⚠️ Oggetto fragile</label>' +
         '</div>';
 }
 
@@ -840,7 +645,6 @@ function renderVincoliInOggetti(oggettoId) {
                     '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-x" ' + (v.rotazione_su_x !== false ? 'checked' : '') + lockAttr + lockTitle + '> Rotazione su X</label>' +
                     '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-y" ' + (v.rotazione_su_y !== false ? 'checked' : '') + lockAttr + lockTitle + '> Rotazione su Y</label>' +
                     '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-z" ' + (v.rotazione_su_z !== false ? 'checked' : '') + lockAttr + lockTitle + '> Rotazione su Z</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-nocap" ' + (v.rotazione_consentita === false ? 'checked' : '') + lockAttr + lockTitle + '> Non capovolgere</label>' +
                 '</div>' +
                 '<div class="field-group"><label class="field-label">Impilabilità' + lockIcon + '</label>' +
                     '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" ' + (v.sovrapponibile !== false ? 'checked' : '') + lockAttr + lockTitle + '> Può sostenere altri oggetti</label>' +
@@ -850,7 +654,6 @@ function renderVincoliInOggetti(oggettoId) {
                 '</div>' +
                 '<div class="field-group">' +
                     '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-piano" ' + (v.solo_su_piano === true ? 'checked' : '') + '> Solo su pavimento</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-fragile" ' + (v.fragile === true ? 'checked' : '') + '> ⚠️ Oggetto fragile</label>' +
                 '</div>';
             document.getElementById('pv-vincoli-body').innerHTML = formHtml;
         })

@@ -18,7 +18,7 @@
     },
     "header-auto": {
       "type": "png",
-      "file": "icons8-run-command-48.png",
+      "file": "icons8-automatic-64.png",
       "dims": [
         40,
         40
@@ -106,7 +106,7 @@
     },
     "sidebar-auto": {
       "type": "png",
-      "file": "icons8-run-command-48.png",
+      "file": "icons8-automatic-64.png",
       "dims": [
         40,
         40
@@ -230,6 +230,126 @@
       "dims": [
         40,
         40
+      ]
+    },
+    "settings-title": {
+      "type": "png",
+      "file": "icons8-setting-96.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-strategia": {
+      "type": "png",
+      "file": "icons8-strategy-96.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-output": {
+      "type": "png",
+      "file": "icons8-output-64.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-manuale": {
+      "type": "png",
+      "file": "icons8-manual-handling-96.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-algoritmo": {
+      "type": "png",
+      "file": "icons8-tool-96.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-compattazione": {
+      "type": "png",
+      "file": "icons8-objects-96.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-backtracking": {
+      "type": "png",
+      "file": "icons8-backward-32.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-distribuzione": {
+      "type": "png",
+      "file": "peso.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
+    "settings-output-etichette": {
+      "type": "png",
+      "file": "icons8-labels-96.png",
+      "dims": [
+        15,
+        15
+      ]
+    },
+    "settings-output-contenitore": {
+      "type": "png",
+      "file": "icons8-container-55.png",
+      "dims": [
+        15,
+        15
+      ]
+    },
+    "settings-output-vuoti": {
+      "type": "png",
+      "file": "peso.png",
+      "dims": [
+        15,
+        15
+      ]
+    },
+    "settings-output-rotazione": {
+      "type": "png",
+      "file": "icons8-3d-rotate-96.png",
+      "dims": [
+        15,
+        15
+      ]
+    },
+    "settings-manuale-strategia": {
+      "type": "png",
+      "file": "icons8-strategy-96_(1).png",
+      "dims": [
+        15,
+        15
+      ]
+    },
+    "settings-manuale-snap": {
+      "type": "png",
+      "file": "icons8-magnetic-94.png",
+      "dims": [
+        15,
+        15
+      ]
+    },
+    "settings-manuale-sporgenza": {
+      "type": "png",
+      "file": "icons8-ordinata-80.png",
+      "dims": [
+        15,
+        15
       ]
     },
     "sidebar-mezzo": {
@@ -519,92 +639,64 @@
       "height_px": 70
     },
     "settings-salva": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-save-64.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
-      "label": "Salva impostazioni",
+      "label": "Salva",
       "label_size": 12,
       "label_pos": "row",
       "color": "#27ae60",
       "width_pct": 100,
-      "height_px": 36
+      "height_px": 35
     },
     "settings-reset": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-restart-80.png",
       "dims_px": [
-        16,
-        16
+        30,
+        30
       ],
       "label": "Ripristina default",
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
       "width_pct": 100,
-      "height_px": 33
-    },
-    "win-piani-elimina": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        20,
-        20
-      ],
-      "label": "Elimina selezione",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#e74c3c",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "win-piani-clear": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        16,
-        16
-      ],
-      "label": "",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 33
+      "height_px": 35
     },
     "win-piani-salva-nome": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-save-64.png",
       "dims_px": [
-        16,
-        16
+        30,
+        30
       ],
-      "label": "",
+      "label": "Salva",
       "label_size": 12,
       "label_pos": "row",
       "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 33
+      "width_pct": 40,
+      "height_px": 35
     },
     "win-piani-carica": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-load-cargo-96.png",
       "dims_px": [
-        20,
-        20
+        30,
+        30
       ],
       "label": "Carica nel viewport 3D",
       "label_size": 12,
       "label_pos": "row",
       "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 80,
+      "height_px": 35
     },
     "win-piani-delete": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-trash-48.png",
       "dims_px": [
         20,
         20
@@ -613,22 +705,8 @@
       "label_size": 12,
       "label_pos": "row",
       "color": "#e74c3c",
-      "width_pct": 100,
-      "height_px": 36
-    },
-    "win-piani-seleziona": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        20,
-        20
-      ],
-      "label": "Seleziona questo mezzo",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 40,
+      "height_px": 35
     },
     "win-vincoli-escludi": {
       "type": "bootstrap",
@@ -700,215 +778,89 @@
       "width_pct": 100,
       "height_px": 36
     },
-    "win-art-reset-vista": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        16,
-        16
-      ],
-      "label": "Reset vista",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "win-art-reset-oggetto": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        16,
-        16
-      ],
-      "label": "Reset oggetto",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "win-art-delete": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        18,
-        18
-      ],
-      "label": "Elimina selezione",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#e74c3c",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "win-art-vincoli": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        18,
-        18
-      ],
-      "label": "Vincoli",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "win-art-clear": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        16,
-        16
-      ],
-      "label": "",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 33
-    },
     "win-art-nuovo": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-new-file-96.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Nuovo",
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 45,
+      "height_px": 35
     },
     "win-art-salva": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-save-64.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Salva",
       "label_size": 12,
       "label_pos": "row",
       "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 45,
+      "height_px": 35
     },
     "win-art-delete-ogg": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-trash-48.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
-      "label": "Elimina oggetto",
+      "label": "Elimina",
       "label_size": 12,
       "label_pos": "row",
       "color": "#e74c3c",
-      "width_pct": 100,
-      "height_px": 36
-    },
-    "win-art-batch-annulla": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        18,
-        18
-      ],
-      "label": "Annulla",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 36
-    },
-    "win-art-batch-applica": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        18,
-        18
-      ],
-      "label": "Applica",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 36
-    },
-    "win-trasp-delete": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        18,
-        18
-      ],
-      "label": "Elimina selezione",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#e74c3c",
-      "width_pct": 100,
-      "height_px": 33
-    },
-    "win-trasp-clear": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        16,
-        16
-      ],
-      "label": "",
-      "label_size": 12,
-      "label_pos": "row",
-      "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 33
+      "width_pct": 10,
+      "height_px": 35
     },
     "win-trasp-nuovo": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-new-file-96.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Nuovo",
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 45,
+      "height_px": 35
     },
     "win-trasp-salva": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-save-64.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Salva",
       "label_size": 12,
       "label_pos": "row",
       "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 45,
+      "height_px": 35
     },
     "win-trasp-delete-mezzo": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-trash-48.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
-      "label": "Elimina mezzo",
+      "label": "Elimina",
       "label_size": 12,
       "label_pos": "row",
       "color": "#e74c3c",
-      "width_pct": 100,
-      "height_px": 36
+      "width_pct": 10,
+      "height_px": 35
     }
   },
   "colori": {

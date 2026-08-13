@@ -109,11 +109,17 @@ function mostraViewport() {
     setActiveView('carico');
 }
 
+// API pubbliche usate dai moduli caricati prima di questo file.
+// L'assegnazione esplicita evita problemi quando gli script statici vengono
+// serviti in un contesto con scope non globale o da una cache incoerente.
+window.mostraPanelView = mostraPanelView;
+window.mostraViewport = mostraViewport;
+
 // --- Helper: estrae messaggio errore da response API ---
 async function _parseDeleteError(resp) {
     try { var errData = await resp.json(); if (errData.detail) return errData.detail; if (errData.error) return errData.error; } catch (_) {}
-    return 'HTTP ' + resp.status;
-}
+    return 'HTTP ' + resp.status;}
+
 
 // =============================================================================
 // VINCOLI TRA OGGETTI — Nuovo layout 3 colonne (A | MiniViewport | B)
@@ -215,19 +221,20 @@ function renderVincoliTraPanel() {
     // Popola e wire
     _vtPopolaListeOggetti();
     _vtPopolaGrigliaConfigurazioni();
-    _vtWireEvents();
-}
+    _vtWireEvents();}
+
 function renderVincoliTraForm(vincoloId) {
     // Deprecato: la nuova UI v2 non usa questa funzione.
 }
+
 
 function evidenziaOggettiVincolo(vincoloId) {
     var v = WS.vincoliTra.find(function (x) { return x.id == vincoloId; });
     if (!v) return;
     if (typeof evidenziaOggetti3D === 'function') {
         evidenziaOggetti3D(v.oggetto_a_codice, v.oggetto_b_codice);
-    }
-}
+    }}
+
 
 // =============================================================================
 // MINI-VIEWPORT 3D VINCOLI TRA OGGETTI
@@ -266,8 +273,8 @@ function distruggiMiniViewportVincolo() {
         var container = document.getElementById('pv-vt-miniview');
         if (container) container.innerHTML = '';
         _miniViewportState = null;
-    }
-}
+    }}
+
 
 function initMiniViewportVincolo() {
     distruggiMiniViewportVincolo();
@@ -329,8 +336,8 @@ function initMiniViewportVincolo() {
         controls.update();
         renderer.render(scene, camera);
     }
-    anim();
-}
+    anim();}
+
 
 function aggiornaMiniViewportVincolo(oggettoAId, oggettoBId, tipoRelazione, distanzaCm) {
     if (!_miniViewportState) return;
@@ -428,8 +435,8 @@ function aggiornaMiniViewportVincolo(oggettoAId, oggettoBId, tipoRelazione, dist
     var totalSpan = Math.max(Math.abs(posA.x - posB.x) + Math.max(dimA.w, dimB.w), 80);
     st.controls.target.set(centerX, centerY, centerZ);
     st.camera.position.set(centerX + totalSpan * 0.4, centerY + totalSpan * 0.5, totalSpan * 1.1);
-    st.controls.update();
-}
+    st.controls.update();}
+
 
 function _creaBoxMiniViewport(dimCm, coloreHex, pos) {
     var group = new THREE.Group();
@@ -455,8 +462,8 @@ function _creaBoxMiniViewport(dimCm, coloreHex, pos) {
 
     group._mesh = mesh;
     group._edges = edges;
-    return group;
-}
+    return group;}
+
 
 function _creaVisualizzazioneVincolo(tipo, distanzaCm, dimA, dimB, posA, posB) {
     var group = new THREE.Group();
@@ -522,8 +529,8 @@ function _creaVisualizzazioneVincolo(tipo, distanzaCm, dimA, dimB, posA, posB) {
             break;
     }
 
-    return group;
-}
+    return group;}
+
 
 function _aggiungiFrecciaVerticale(group, fromY, toY, x, z, color) {
     var altezza = Math.abs(toY - fromY);
@@ -543,8 +550,8 @@ function _aggiungiFrecciaVerticale(group, fromY, toY, x, z, color) {
     var headMat = new THREE.MeshPhongMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.4 });
     var head = new THREE.Mesh(headGeo, headMat);
     head.position.set(x, toY - dir * 4, z);
-    group.add(head);
-}
+    group.add(head);}
+
 
 function _aggiungiFrecciaOrizzontale(group, fromX, toX, y, z, color) {
     var lunghezza = Math.abs(toX - fromX);
@@ -566,8 +573,8 @@ function _aggiungiFrecciaOrizzontale(group, fromX, toX, y, z, color) {
     var head = new THREE.Mesh(headGeo, headMat);
     head.rotation.z = Math.PI / 2;
     head.position.set(toX - dir * 4, y, z);
-    group.add(head);
-}
+    group.add(head);}
+
 
 function _aggiungiLinea(group, x1, y1, z1, x2, y2, z2, color, dashed) {
     var points = [new THREE.Vector3(x1, y1, z1), new THREE.Vector3(x2, y2, z2)];
@@ -580,8 +587,8 @@ function _aggiungiLinea(group, x1, y1, z1, x2, y2, z2, color, dashed) {
     }
     var line = new THREE.Line(geo, mat);
     if (dashed) line.computeLineDistances();
-    group.add(line);
-}
+    group.add(line);}
+
 
 function _aggiungiCerchio(group, cx, cy, cz, radius, color, opacity) {
     var geo = new THREE.TorusGeometry(radius, 0.8, 8, 48);
@@ -595,8 +602,8 @@ function _aggiungiCerchio(group, cx, cy, cz, radius, color, opacity) {
     var torus = new THREE.Mesh(geo, mat);
     torus.rotation.x = Math.PI / 2;
     torus.position.set(cx, cy + 0.5, cz);
-    group.add(torus);
-}
+    group.add(torus);}
+
 
 function _aggiungiX(group, cx, cy, cz, size, color) {
     var half = size / 2;
@@ -618,8 +625,8 @@ function _aggiungiX(group, cx, cy, cz, size, color) {
     var borderMat = new THREE.MeshPhongMaterial({ color: colorHex, opacity: 0.5, transparent: true });
     var border = new THREE.Mesh(borderGeo, borderMat);
     border.position.set(cx, cy, cz);
-    group.add(border);
-}
+    group.add(border);}
+
 
 function _aggiungiEtichettaDistanza(group, x, y, z, testo, colore) {
     var canvas = document.createElement('canvas');
@@ -640,8 +647,8 @@ function _aggiungiEtichettaDistanza(group, x, y, z, testo, colore) {
     var sprite = new THREE.Sprite(spriteMat);
     sprite.position.set(x, y, z);
     sprite.scale.set(40, 10, 1);
-    group.add(sprite);
-}
+    group.add(sprite);}
+
 
 function _disposeGroupMini(group) {
     if (!group) return;
@@ -651,14 +658,24 @@ function _disposeGroupMini(group) {
             if (child.material.map) child.material.map.dispose();
             child.material.dispose();
         }
-    });
-}
+    });}
+
 
 function _mostraPlaceholderMiniViewport(messaggio) {
     var container = document.getElementById('pv-vt-miniview');
     if (!container) return;
-    container.innerHTML = '<div class="pv-vt-miniview-placeholder"><span class="pv-vt-miniview-icon">📦</span><span>' + messaggio + '</span></div>';
-}
+    container.replaceChildren();
+    var placeholder = document.createElement('div');
+    placeholder.className = 'pv-vt-miniview-placeholder';
+    var icon = document.createElement('span');
+    icon.className = 'pv-vt-miniview-icon';
+    icon.textContent = '📦';
+    var message = document.createElement('span');
+    message.textContent = messaggio == null ? '' : String(messaggio);
+    placeholder.appendChild(icon);
+    placeholder.appendChild(message);
+    container.appendChild(placeholder);}
+
 
 // --- Piani Recenti ---
 
@@ -676,8 +693,10 @@ function _distruggiAnteprima3DPiano() {
 
     var renderer = canvas._pdRenderer;
     if (renderer) {
+        // dispose() rilascia il contesto WebGL. Niente forceContextLoss(): una
+        // perdita forzata rende il contesto inutilizzabile in modo permanente
+        // e un eventuale riuso dello stesso canvas resterebbe vuoto per sempre.
         renderer.dispose();
-        if (typeof renderer.forceContextLoss === 'function') renderer.forceContextLoss();
     }
 
     var scene = canvas._pdScene;
@@ -694,8 +713,8 @@ function _distruggiAnteprima3DPiano() {
     }
 
     canvas._pdRenderer = null;
-    canvas._pdScene = null;
-}
+    canvas._pdScene = null;}
+
 
 // Helper: costruisce l'HTML della lista piani
 function _buildPianiListHtml() {
@@ -708,8 +727,8 @@ function _buildPianiListHtml() {
             '</div>' +
         '</div>';
     });
-    return listHtml || '<div class="pv-empty"><span class="pv-empty-icon">📁</span><span>Nessun piano salvato</span></div>';
-}
+    return listHtml || '<div class="pv-empty"><span class="pv-empty-icon">📁</span><span>Nessun piano salvato</span></div>';}
+
 
 // Helper: wiring click sugli item della lista piani (con multi-selezione Ctrl/Shift)
 function _wirePianiListClickHandlers() {
@@ -725,14 +744,13 @@ function _wirePianiListClickHandlers() {
                 _pianiSelState.pianiSelezionati.push(pid);
                 _pianiSelState.ultimoCliccato = pid;
                 item.classList.add('selected-multi');
-                _aggiornaBatchToolbarPiani();
                 DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); });
                 item.classList.add('selected');
                 renderPianiDettaglio(pid);
             }
         });
-    });
-}
+    });}
+
 
 function renderPianiPanel() {
     if (!_panelViewPronto('piani')) return;
@@ -776,40 +794,22 @@ function renderPianiPanel() {
                 } else {
                     _pulisciSelezioneMultiplaPiani();
                 }
-                _aggiornaBatchToolbarPiani();
             });
         }
     }
 
-    // ---- BATCH TOOLBAR (rimuovi vecchie per evitare duplicati) ----
-    var oldToolbar = document.getElementById('pv-batch-toolbar-piani');
-    if (oldToolbar) oldToolbar.remove();
-    var oldMezziToolbar = document.getElementById('pv-batch-toolbar-mezzi');
-    if (oldMezziToolbar) oldMezziToolbar.remove();
+    // ---- NESSUNA TOOLBAR BATCH PER I PIANI ----
+    // Il bottone Elimina è unico ed è quello del dettaglio (sotto l'anteprima):
+    // elimina tutti i piani selezionati oppure il singolo piano aperto.
+    // Rimuoviamo solo eventuali toolbar residue della vista articoli.
     var oldOggettiToolbar = document.getElementById('pv-batch-toolbar');
     if (oldOggettiToolbar) oldOggettiToolbar.remove();
-    var batchToolbarHtml =
-        '<div class="pv-batch-toolbar" id="pv-batch-toolbar-piani">' +
-            '<span class="pv-batch-count">0 selezionati</span>' +
-            '<button class="btn btn-danger" id="pv-batch-delete-piani">🗑 Elimina</button>' +
-            '<button class="btn btn-sm" id="pv-batch-clear-piani" title="Cancella selezione">✕</button>' +
-        '</div>';
-    if (listHeader && listHeader.parentNode) {
-        listHeader.parentNode.insertBefore(
-            (function () { var d = document.createElement('div'); d.innerHTML = batchToolbarHtml; return d.firstElementChild; })(),
-            listHeader.nextSibling
-        );
-    }
-    var batchDelP = document.getElementById('pv-batch-delete-piani');
-    if (batchDelP) batchDelP.addEventListener('click', _eseguiEliminazioneBatchPiani);
-    var batchClearP = document.getElementById('pv-batch-clear-piani');
-    if (batchClearP) batchClearP.addEventListener('click', _pulisciSelezioneMultiplaPiani);
 
     DOM.pvListBody.innerHTML = _buildPianiListHtml();
     _wirePianiListClickHandlers();
 
-    DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Seleziona un piano per vedere i dettagli.</p>';
-}
+    DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Seleziona un piano per vedere i dettagli.</p>';}
+
 
 function renderPianiDettaglio(pianoId) {
     if (!_panelViewPronto('dettaglio piano')) return;
@@ -841,24 +841,22 @@ function renderPianiDettaglio(pianoId) {
         if (vistaEpoch !== _panelViewEpoch || richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         var pianoFull = results[0];
         var distribuzione = results[1];
-        _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta);
+        _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta, vistaEpoch);
     }).catch(function () {
         if (vistaEpoch !== _panelViewEpoch || richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
         if (DOM.pvFormBody && DOM.pvFormBody.isConnected) {
             DOM.pvFormBody.innerHTML = '<p style="color:#c0392b;text-align:center;padding:40px;">Errore caricamento dettagli.</p>';
         }
-    });
-}
+    });}
 
-function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta) {
+
+function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta, vistaEpoch) {
     var oggetti = (pianoFull.oggetti_posizionati || []);
     var contenitore = pianoFull.contenitore || {};
     var sezioniCont = (contenitore.sezioni || []);
     var pesoTot = parseFloat(pianoFull.peso_totale_kg) || 0;
     var saturazione = parseFloat(pianoFull.saturazione_volumetrica) || 0;
-    var dimsCont = contenitore.dimensioni_mm || contenitore.lunghezza_mm ? {
-        x: contenitore.lunghezza_mm || 0, y: contenitore.larghezza_mm || 0, z: contenitore.altezza_mm || 0
-    } : { x: 0, y: 0, z: 0 };
+    var dimsCont = _estraiDimensioniContenitoreAnteprima(contenitore);
     var volumeM3 = (dimsCont.x * dimsCont.y * dimsCont.z) / 1000000000;
     var mesiIt = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 
@@ -866,7 +864,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
     var riepilogo = {};
     oggetti.forEach(function (o) {
         var codice = o.codice || '???';
-        if (!riepilogo[codice]) riepilogo[codice] = { qty: 0, colore: o.colore || '#447e9b' };
+        if (!riepilogo[codice]) riepilogo[codice] = { qty: 0, colore: coloreOggetto(o) };
         riepilogo[codice].qty++;
     });
     var codici = Object.keys(riepilogo).sort();
@@ -993,8 +991,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
         '<div class="field-row" style="gap:8px;margin-top:4px;">' +
             '<button class="btn btn-primary" style="flex:1;" id="pv-piano-carica">📦 Carica nel viewport 3D</button>' +
             '<button class="btn btn-danger" id="pv-piano-delete">🗑 Elimina</button>' +
-        '</div>' +
-        '<button class="btn btn-block" id="pv-piano-seleziona" style="margin-top:4px;">🚛 Seleziona questo mezzo</button>';
+        '</div>';
 
     // --- Event listeners ---
     document.getElementById('pv-piano-carica').addEventListener('click', function () {
@@ -1010,27 +1007,45 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
 
     var deleteBtn = document.getElementById('pv-piano-delete');
     if (deleteBtn) {
+        // Unico bottone Elimina (sotto l'anteprima): se sono selezionati
+        // più piani li elimina tutti; altrimenti elimina il piano aperto.
         deleteBtn.addEventListener('click', async function (e) {
             e.stopPropagation();
-            if (!confirm('Eliminare il piano "' + escapeHtml(p.nome) + '"?\n\nQuesta operazione è irreversibile.')) return;
+            var ids = _pianiSelState.pianiSelezionati.length >= 2
+                ? _pianiSelState.pianiSelezionati.slice()
+                : [pianoId];
+            var nomi = ids.map(function (id) {
+                var pianoSel = WS.piani.find(function (x) { return x.id == id; });
+                return pianoSel ? pianoSel.nome : '';
+            }).filter(Boolean);
+            var dettaglio = ids.length === 1
+                ? 'il piano "' + (nomi[0] || '') + '"'
+                : ids.length + ' piani:\n\n' + nomi.join(', ');
+            if (!confirm('Eliminare ' + dettaglio + '?\n\nQuesta operazione è irreversibile.')) return;
             try {
-                setStatus('busy', 'Eliminazione piano...');
-                var resp = await fetch('/api/piani/' + pianoId + '/', { method: 'DELETE', headers: { 'X-CSRFToken': getCSRFToken() } });
-                if (!resp.ok) throw new Error(await _parseDeleteError(resp));
-                var idx = WS.piani.findIndex(function (x) { return x.id == pianoId; });
-                if (idx >= 0) WS.piani.splice(idx, 1);
+                setStatus('busy', 'Eliminazione piani...');
+                var eliminati = 0;
+                for (var i = 0; i < ids.length; i++) {
+                    var resp = await fetch('/api/piani/' + ids[i] + '/', {
+                        method: 'DELETE',
+                        headers: { 'X-CSRFToken': getCSRFToken() }
+                    });
+                    if (resp.ok) {
+                        var idx = WS.piani.findIndex(function (x) { return x.id == ids[i]; });
+                        if (idx >= 0) WS.piani.splice(idx, 1);
+                        eliminati++;
+                    }
+                }
+                _pulisciSelezioneMultiplaPiani();
                 renderPianiPanel();
-                showToast('🗑 Piano eliminato!', 'success');
-                setStatus('idle', 'Eliminato');
-            } catch (err) { showToast('❌ Errore eliminazione: ' + err.message, 'error'); setStatus('error', 'Errore'); }
+                showToast(ids.length === 1 ? '🗑 Piano eliminato!' : '🗑 Eliminati ' + eliminati + ' piani!', 'success');
+                setStatus('idle', 'Eliminati');
+            } catch (err) {
+                showToast('❌ Errore eliminazione: ' + err.message, 'error');
+                setStatus('error', 'Errore');
+            }
         });
     }
-
-    document.getElementById('pv-piano-seleziona').addEventListener('click', function () {
-        var mezzo = WS.contenitori.find(function (c) { return c.nome === p.container; });
-        if (mezzo) selezionaMezzo(mezzo.id);
-        showToast('Mezzo selezionato: ' + p.container, 'info');
-    });
 
     // Salva nome piano
     document.getElementById('pd-btn-salva-nome').addEventListener('click', async function () {
@@ -1071,33 +1086,89 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
         // Evita che un render ritardato di un piano precedente finisca
         // nel canvas del piano appena selezionato.
         if (vistaEpoch !== _panelViewEpoch || richiesta !== _pianiDettaglioRichiesta || _pianoDettaglioApertoId != pianoId) return;
-        _renderAnteprima3DPiano('pd-anteprima-canvas', oggetti, dimsCont);
-    }, 100);
-}
+        try {
+            _renderAnteprima3DPiano('pd-anteprima-canvas', oggetti, dimsCont);
+        } catch (err) {
+            console.error('[Anteprima Piano] Errore rendering:', err);
+            var c = document.getElementById('pd-anteprima-canvas');
+            if (c && c.parentElement) {
+                _mostraAnteprima3DOverlay(c.parentElement, 'Impossibile generare l\'anteprima 3D. (' + ((err && err.message) || 'errore') + ')', true);
+            }
+        }
+    }, 100);}
+
 
 // Ricarica dal server il dettaglio attualmente aperto dopo un salvataggio.
 // Il canvas resta statico: viene eseguito un solo render, soltanto quando serve.
 function _aggiornaAnteprimaPianoDopoSalvataggio(pianoId) {
     if (_pianoDettaglioApertoId == null || _pianoDettaglioApertoId != pianoId) return;
     if (!document.getElementById('pd-anteprima-canvas')) return;
-    renderPianiDettaglio(pianoId);
-}
+    renderPianiDettaglio(pianoId);}
+
 
 // =============================================================================
 // ANTEPRIMA 3D STATICA PIANO (canvas leggero, camera fissa)
 // =============================================================================
 
+// Mostra un messaggio sovrapposto al canvas di anteprima: stato vuoto
+// (piano senza oggetti posizionati) oppure errore di rendering. Prima il
+// riquadro restava muto e l'utente vedeva solo un rettangolo grigio.
+function _mostraAnteprima3DOverlay(wrap, messaggio, errore) {
+    if (!wrap) return;
+    var msg = wrap.querySelector('.pd-anteprima-overlay');
+    if (msg) msg.remove();
+    msg = document.createElement('div');
+    msg.className = 'pd-anteprima-overlay' + (errore ? ' pd-anteprima-overlay-errore' : '');
+    msg.textContent = messaggio || '';
+    wrap.appendChild(msg);}
+
+
+function _estraiDimensioniContenitoreAnteprima(contenitore) {
+    contenitore = contenitore || {};
+    var mm = contenitore.dimensioni_mm || {};
+    var cm = contenitore.dimensioni_cm || {};
+
+    function numeroPositivo(valore) {
+        var numero = Number(valore);
+        return Number.isFinite(numero) && numero > 0 ? numero : 0;
+    }
+
+    return {
+        x: numeroPositivo(mm.x) || numeroPositivo(contenitore.x) || numeroPositivo(contenitore.lunghezza_mm) || numeroPositivo(cm.x) * 10,
+        y: numeroPositivo(mm.y) || numeroPositivo(contenitore.y) || numeroPositivo(contenitore.larghezza_mm) || numeroPositivo(cm.y) * 10,
+        z: numeroPositivo(mm.z) || numeroPositivo(contenitore.z) || numeroPositivo(contenitore.altezza_mm) || numeroPositivo(cm.z) * 10,
+    };}
+
+
 function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     var canvas = document.getElementById(canvasId);
-    if (!canvas || typeof THREE === 'undefined') return;
-
+    if (!canvas || !canvas.parentElement) return;
     var wrap = canvas.parentElement;
+    oggetti = Array.isArray(oggetti) ? oggetti : [];
+    dimsCont = _estraiDimensioniContenitoreAnteprima(dimsCont);
+
+    // Rimuove eventuali overlay (errore/vuoto) di render precedenti.
+    var msgPrec = wrap.querySelector('.pd-anteprima-overlay');
+    if (msgPrec) msgPrec.remove();
+
+    // Libreria 3D non disponibile: segnala il problema invece di lasciare
+    // il riquadro vuoto senza spiegazione.
+    if (typeof THREE === 'undefined') {
+        _mostraAnteprima3DOverlay(wrap, 'Libreria 3D non caricata. Controlla la connessione e ricarica la pagina.', true);
+        return;
+    }
+
     var w = wrap.clientWidth || 350;
     var h = wrap.clientHeight || 180;
     if (w < 10) w = 350;
     if (h < 10) h = 180;
     canvas.width = w;
     canvas.height = h;
+
+    if (dimsCont.x <= 0 || dimsCont.y <= 0 || dimsCont.z <= 0) {
+        _mostraAnteprima3DOverlay(wrap, 'Dimensioni del contenitore non disponibili.', true);
+        return;
+    }
 
     // Libera eventuale vecchia scena sul canvas (utile anche in caso di
     // ridisegno diretto senza ricreare il markup del dettaglio).
@@ -1112,50 +1183,32 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     canvas._pdRenderer = renderer;
 
-    // Camera isometrica fissa — immagine ingrandita del 20% rispetto alla
-    // scala precedente, mantenendo invariato il canvas.
-    var maxDim = Math.max(dimsCont.x || 1000, dimsCont.y || 1000, dimsCont.z || 1000) / 10;
+    // Camera isometrica adattata alle dimensioni reali: una posizione fissa
+    // rendeva quasi invisibili i contenitori più piccoli (o tagliava quelli
+    // grandi), lasciando l'impressione di un canvas vuoto.
+    var maxDim = Math.max(dimsCont.x, dimsCont.y, dimsCont.z) / 10;
 
     // Stessa convenzione del mainview:
     // API.x = lunghezza → Three.js X,
     // API.y = larghezza → Three.js Z,
     // API.z = altezza → Three.js Y.
-    var centerX = (dimsCont.x || 100) / 20;
-    var centerY = (dimsCont.z || 100) / 20;
-    var centerZ = (dimsCont.y || 100) / 20;
-
-    // Il mainview parte da (800, 600, 1000) e guarda il contenitore.
-    // Manteniamo lo zoom +20%, ma applichiamo una piccola variazione
-    // controllata all'orientamento: più inclinazione dall'alto e una lieve
-    // rotazione laterale, senza modificare coordinate o geometrie.
+    var centerX = dimsCont.x / 20;
+    var centerY = dimsCont.z / 20;
+    var centerZ = dimsCont.y / 20;
     var zoom = 1.1;
-    var mainViewCamera = { x: 800, y: 600, z: 1000 };
-    var yaw = 10 * Math.PI / 180;     // rotazione laterale opposta, 10 gradi
-    var pitch = 8 * Math.PI / 180;    // inclinazione dall'alto, 8 gradi
-    var viewX = mainViewCamera.x - centerX;
-    var viewY = mainViewCamera.y - centerY;
-    var viewZ = mainViewCamera.z - centerZ;
-
-    // Ruota il vettore attorno all'asse verticale (yaw).
-    var yawX = viewX * Math.cos(yaw) + viewZ * Math.sin(yaw);
-    var yawZ = -viewX * Math.sin(yaw) + viewZ * Math.cos(yaw);
-    var horizontal = Math.sqrt(yawX * yawX + yawZ * yawZ);
-
-    // Inclina la vista verso il basso/alto mantenendo invariata la distanza.
-    var pitchY = viewY * Math.cos(pitch) + horizontal * Math.sin(pitch);
-    var pitchHorizontal = -viewY * Math.sin(pitch) + horizontal * Math.cos(pitch);
-    var horizontalScale = horizontal > 0 ? pitchHorizontal / horizontal : 1;
+    var viewDirection = new THREE.Vector3(800, 600, 1000).normalize();
+    var cameraDistance = Math.max(maxDim * 2.1, 160) / zoom;
 
     var camera = new THREE.PerspectiveCamera(
         45,
         w / h,
         1,
-        Math.max(10000, maxDim * 4)
+        Math.max(10000, cameraDistance * 4)
     );
     camera.position.set(
-        centerX + (yawX * horizontalScale) / zoom,
-        centerY + pitchY / zoom,
-        centerZ + (yawZ * horizontalScale) / zoom
+        centerX + viewDirection.x * cameraDistance,
+        centerY + viewDirection.y * cameraDistance,
+        centerZ + viewDirection.z * cameraDistance
     );
     camera.lookAt(centerX, centerY, centerZ);
     camera.updateProjectionMatrix();
@@ -1180,26 +1233,22 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
     contGeo.dispose();
 
     // Oggetti
-    var coloriUsati = {};
-    var colorIdx = 0;
-    var defaultColors = ['#447e9b','#e74c3c','#27ae60','#f39c12','#9b59b6','#1abc9c','#e67e22','#2980b9'];
     oggetti.forEach(function (o) {
         // Stesso mapping del mainview: API z è l'altezza verticale,
         // mentre API y è la profondità Three.js.
-        var dx = (parseFloat(o.dimensione_x_mm) || 10) / 10;
-        var dy = (parseFloat(o.dimensione_z_mm) || 10) / 10;
-        var dz = (parseFloat(o.dimensione_y_mm) || 10) / 10;
-        var px = (parseFloat(o.posizione_x_mm || o.coordinata_x_mm) || 0) / 10;
-        var py = (parseFloat(o.posizione_z_mm || o.coordinata_z_mm) || 0) / 10;
-        var pz = (parseFloat(o.posizione_y_mm || o.coordinata_y_mm) || 0) / 10;
+        var dimensioni = o.dimensioni_mm || {};
+        var posizione = o.posizione_mm || {};
+        var dx = (parseFloat(o.dimensione_x_mm || dimensioni.x) || 0) / 10;
+        var dy = (parseFloat(o.dimensione_z_mm || dimensioni.z) || 0) / 10;
+        var dz = (parseFloat(o.dimensione_y_mm || dimensioni.y) || 0) / 10;
+        var px = (parseFloat(o.posizione_x_mm || o.coordinata_x_mm || posizione.x) || 0) / 10;
+        var py = (parseFloat(o.posizione_z_mm || o.coordinata_z_mm || posizione.z) || 0) / 10;
+        var pz = (parseFloat(o.posizione_y_mm || o.coordinata_y_mm || posizione.y) || 0) / 10;
         if (dx <= 0 || dy <= 0 || dz <= 0) return;
 
-        var col = o.colore;
-        if (!col || col === '#447e9b' || col === '#4488ff') {
-            var cod = o.codice || '';
-            if (!coloriUsati[cod]) { coloriUsati[cod] = defaultColors[colorIdx % defaultColors.length]; colorIdx++; }
-            col = coloriUsati[cod];
-        }
+        // Colore sanitizzato: un valore non esadecimale (es. dati legacy)
+        // farebbe fallire THREE.Color e l'anteprima resterebbe vuota.
+        var col = coloreOggetto(o);
 
         var geo = new THREE.BoxGeometry(dx, dy, dz);
         var mat = new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: 0.85, shininess: 20 });
@@ -1214,8 +1263,33 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
         scene.add(edgeLine);
     });
 
+    // Framing automatico: usa i limiti effettivi della scena per sfruttare
+    // meglio il canvas senza tagliare contenitore o oggetti. La distanza
+    // viene limitata dall'angolo di vista più stretto (verticale/orizzontale).
+    var previewBounds = new THREE.Box3().setFromObject(scene);
+    var previewSphere = previewBounds.getBoundingSphere(new THREE.Sphere());
+    var verticalFov = camera.fov * Math.PI / 180;
+    var horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * (w / h));
+    var limitingFov = Math.min(verticalFov, horizontalFov);
+    // Aumenta del 30% la dimensione visiva dell'anteprima mantenendo
+    // invariato il canvas: avvicinando la camera, il contenitore sfrutta
+    // meglio lo spazio disponibile senza modificare il layout del pannello.
+    // Un ulteriore +15% rispetto alla scala precedente (1.30 × 1.15).
+    var scalaAnteprima = 1.3 * 1.15;
+    var fitDistance = (previewSphere.radius / Math.sin(limitingFov / 2)) * 1.08 / scalaAnteprima;
+    var fitDirection = viewDirection.clone().normalize();
+    camera.position.copy(previewSphere.center).addScaledVector(fitDirection, fitDistance);
+    camera.lookAt(previewSphere.center);
+    camera.updateProjectionMatrix();
+
     renderer.render(scene, camera);
-}
+
+    // Piano senza oggetti posizionati: il contenitore è vuoto, rendilo
+    // esplicito invece di mostrare solo il wireframe quasi invisibile.
+    if (!oggetti || oggetti.length === 0) {
+        _mostraAnteprima3DOverlay(wrap, 'Nessun oggetto posizionato: elabora il carico per vedere l\'anteprima.', false);
+    }}
+
 
 // =============================================================================
 // SELEZIONE MULTIPLA PIANI — Stato e funzioni
@@ -1223,8 +1297,8 @@ function _renderAnteprima3DPiano(canvasId, oggetti, dimsCont) {
 
 var _pianiSelState = {
     pianiSelezionati: [],
-    ultimoCliccato: null,
-};
+    ultimoCliccato: null,}
+;
 
 function _pulisciSelezioneMultiplaPiani() {
     _pianiSelState.pianiSelezionati = [];
@@ -1232,24 +1306,8 @@ function _pulisciSelezioneMultiplaPiani() {
     var items = document.querySelectorAll('#pv-list-body .pv-list-item');
     items.forEach(function (el) { el.classList.remove('selected-multi'); });
     var selAll = document.getElementById('pv-select-all-piani');
-    if (selAll) selAll.checked = false;
-    _aggiornaBatchToolbarPiani();
-}
+    if (selAll) selAll.checked = false;}
 
-function _aggiornaBatchToolbarPiani() {
-    var toolbar = document.getElementById('pv-batch-toolbar-piani');
-    if (!toolbar) return;
-    var count = _pianiSelState.pianiSelezionati.length;
-    if (count >= 2) {
-        toolbar.classList.add('visible');
-        var countEl = toolbar.querySelector('.pv-batch-count');
-        if (countEl) countEl.textContent = count + ' selezionati';
-        var delBtn = document.getElementById('pv-batch-delete-piani');
-        if (delBtn) delBtn.textContent = '🗑 Elimina ' + count;
-    } else {
-        toolbar.classList.remove('visible');
-    }
-}
 
 function _toggleSelezioneMultiplaPiani(pianoId, ctrlKey, shiftKey) {
     var items = Array.from(document.querySelectorAll('#pv-list-body .pv-list-item'));
@@ -1286,41 +1344,6 @@ function _toggleSelezioneMultiplaPiani(pianoId, ctrlKey, shiftKey) {
     }
 
     _pianiSelState.ultimoCliccato = pianoId;
-    _aggiornaBatchToolbarPiani();
 }
 
-async function _eseguiEliminazioneBatchPiani() {
-    var ids = _pianiSelState.pianiSelezionati;
-    if (ids.length === 0) return;
-
-    var piani = ids.map(function (id) {
-        return WS.piani.find(function (p) { return p.id == id; });
-    }).filter(Boolean);
-    var nomi = piani.map(function (p) { return p.nome; }).join(', ');
-
-    if (!confirm('Eliminare ' + ids.length + ' piani?\n\n' + nomi + '\n\nQuesta operazione è irreversibile.')) return;
-
-    try {
-        setStatus('busy', 'Eliminazione batch piani...');
-        var eliminati = 0;
-        for (var i = 0; i < ids.length; i++) {
-            var resp = await fetch('/api/piani/' + ids[i] + '/', {
-                method: 'DELETE',
-                headers: { 'X-CSRFToken': getCSRFToken() },
-            });
-            if (resp.ok) {
-                var idx = WS.piani.findIndex(function (p) { return p.id == ids[i]; });
-                if (idx >= 0) WS.piani.splice(idx, 1);
-                eliminati++;
-            }
-        }
-        _pulisciSelezioneMultiplaPiani();
-        renderPianiPanel();
-        showToast('🗑 Eliminati ' + eliminati + ' piani!', 'success');
-        setStatus('idle', 'Eliminati');
-    } catch (err) {
-        showToast('❌ Errore eliminazione batch: ' + err.message, 'error');
-        setStatus('error', 'Errore');
-    }
-}
 

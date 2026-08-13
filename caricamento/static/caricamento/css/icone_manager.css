@@ -6,12 +6,19 @@
 
 .modal-icon-manager {
     position: fixed;
-    width: 1500px !important;   /* 1050px originali → 1365 (+30%) → 1500 */
+    width: 1500px;              /* 1050px originali → 1365 (+30%) → 1500 */
+    height: 80vh;
+    min-width: 320px;
+    min-height: 300px;
     max-width: 98vw !important;
     max-height: 90vh !important;
     margin: 0;
     right: auto;
     bottom: auto;
+    box-sizing: border-box;
+    /* Ridimensionamento nativo dall'angolo in basso a destra. */
+    resize: both;
+    overflow: hidden;
 }
 
 /* La finestra si sposta dalla barra del titolo, senza bloccare lo scroll
@@ -36,7 +43,7 @@
 
 .modal-icon-manager .modal-body {
     padding: 0 !important;
-    max-height: calc(90vh - 140px);
+    max-height: none;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -631,7 +638,7 @@
 
 @media (max-width: 1560px) {
     .modal-icon-manager {
-        width: 95vw !important;
+        width: 95vw;
     }
     .icone-col-file {
         width: 150px;

@@ -735,12 +735,14 @@
 .settings-actions-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-bottom: 10px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid var(--color-border);
-    gap: 6px;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    /* Barra azioni in fondo al form: separatore sopra, non sotto.
+       I due bottoni stanno uno di fianco all'altro, sulla stessa riga. */
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--color-border);
+    gap: 8px;
+    flex-wrap: nowrap;
 }
 
 .settings-actions-bar .btn {
@@ -1380,6 +1382,30 @@
 
 .pd-anteprima-wrap canvas {
     display: block;
+}
+
+/* Overlay sull'anteprima piano: stato vuoto o errore di rendering.
+   Il wrap è position:relative, quindi il messaggio si sovrappone al canvas. */
+.pd-anteprima-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px;
+    font-size: 12px;
+    color: #5b6770;
+    background: rgba(232, 236, 240, 0.88);
+    z-index: 2;
+    pointer-events: none;
+    line-height: 1.4;
+}
+
+.pd-anteprima-overlay-errore {
+    color: #b33a2b;
+    background: rgba(253, 235, 232, 0.92);
+    font-weight: 500;
 }
 
 /* =============================================================================

@@ -15,7 +15,8 @@ function aggiornaColoreOggettoInScena(codice, nuovoColore) {
     if (!STATE.oggettiMesh || STATE.oggettiMesh.length === 0) return;
     if (!codice) return;
 
-    var colore = new THREE.Color(nuovoColore || '#447e9b');
+    var coloreSicuro = coloreOggetto({ id: 0, colore: nuovoColore });
+    var colore = new THREE.Color(coloreSicuro);
 
     STATE.oggettiMesh.forEach(function (group) {
         var data = group.userData;
@@ -28,7 +29,7 @@ function aggiornaColoreOggettoInScena(codice, nuovoColore) {
         });
         // Aggiorna anche il colore nei dati utente per il tooltip
         if (data) {
-            data.colore = nuovoColore || '#447e9b';
+            data.colore = coloreSicuro;
         }
     });
 }
@@ -166,34 +167,39 @@ function setupInteraction(container) {
             tooltip.style.top = (event.clientY - rect.top - 10) + 'px';
 
             const itemNumber = (data.index !== undefined ? data.index + 1 : '');
-            tooltip.innerHTML = `
-                <div class="tooltip-header" style="border-left: 4px solid ${data.colore};">
-                    <strong>#${itemNumber} – ${data.codice}</strong>
-                </div>
-                <div class="tooltip-body">
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Dimensione:</span>
-                        <span>${data.dimensione}</span>
-                    </div>
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Posizione:</span>
-                        <span>${data.posizione}</span>
-                    </div>
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Peso:</span>
-                        <span>${data.peso} kg</span>
-                    </div>
-                    ${data.pesoSopra > 0 ? `
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Peso sopra:</span>
-                        <span>${data.pesoSopra} kg</span>
-                    </div>` : ''}
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Rotazione:</span>
-                        <span>${data.rotazione}</span>
-                    </div>
-                </div>
-            `;
+            while (tooltip.firstChild) tooltip.removeChild(tooltip.firstChild);
+
+            const tooltipHeader = document.createElement('div');
+            tooltipHeader.className = 'tooltip-header';
+            tooltipHeader.style.borderLeftColor = coloreOggetto({ id: 0, colore: data.colore });
+            const tooltipTitle = document.createElement('strong');
+            tooltipTitle.textContent = '#' + itemNumber + ' – ' + (data.codice || '');
+            tooltipHeader.appendChild(tooltipTitle);
+
+            const tooltipBody = document.createElement('div');
+            tooltipBody.className = 'tooltip-body';
+            const aggiungiRigaTooltip = function (etichetta, valore) {
+                const row = document.createElement('div');
+                row.className = 'tooltip-row';
+                const label = document.createElement('span');
+                label.className = 'tooltip-label';
+                label.textContent = etichetta;
+                const value = document.createElement('span');
+                value.textContent = valore == null ? '' : String(valore);
+                row.appendChild(label);
+                row.appendChild(value);
+                tooltipBody.appendChild(row);
+            };
+
+            aggiungiRigaTooltip('Dimensione:', data.dimensione);
+            aggiungiRigaTooltip('Posizione:', data.posizione);
+            aggiungiRigaTooltip('Peso:', (data.peso == null ? '' : data.peso) + ' kg');
+            if (data.pesoSopra > 0) {
+                aggiungiRigaTooltip('Peso sopra:', data.pesoSopra + ' kg');
+            }
+            aggiungiRigaTooltip('Rotazione:', data.rotazione);
+            tooltip.appendChild(tooltipHeader);
+            tooltip.appendChild(tooltipBody);
 
             // Evidenzia l'oggetto sotto il mouse
             resetHighlights();
@@ -297,13 +303,19 @@ function mostraErrore(messaggio) {
     const container = document.getElementById('viewport-3d');
     const overlay = document.createElement('div');
     overlay.className = 'error-overlay';
-    overlay.innerHTML = `
-        <div class="error-box">
-            <span class="error-icon">⚠️</span>
-            <h3>Errore</h3>
-            <p>${messaggio}</p>
-        </div>
-    `;
+    const box = document.createElement('div');
+    box.className = 'error-box';
+    const icon = document.createElement('span');
+    icon.className = 'error-icon';
+    icon.textContent = '⚠️';
+    const title = document.createElement('h3');
+    title.textContent = 'Errore';
+    const message = document.createElement('p');
+    message.textContent = messaggio == null ? '' : String(messaggio);
+    box.appendChild(icon);
+    box.appendChild(title);
+    box.appendChild(message);
+    overlay.appendChild(box);
     container.appendChild(overlay);
 }
 
