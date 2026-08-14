@@ -296,6 +296,16 @@ def homepage(request):
     # resta utilizzabile da qualunque dispositivo: il fingerprint controlla
     # soltanto la richiesta di un nuovo trial.
     next_url = _safe_next(request)
+
+    # Usato dalla landing per mostrare la conferma password solo quando lo
+    # username non appartiene ancora a un account. La validazione definitiva
+    # resta comunque nel ramo di registrazione qui sotto.
+    if request.method == "POST" and request.POST.get("action") == "check_username":
+        username = request.POST.get("username", "").strip()
+        return JsonResponse({
+            "exists": bool(username and User.objects.filter(username=username).exists()),
+        })
+
     if request.user.is_authenticated:
         profile = _setup_trial_for_user(request.user)
         if not profile.is_trial_active and not request.user.is_staff:
@@ -316,6 +326,8 @@ def homepage(request):
         return _attach_demo_cookie(request, redirect(next_url))
 
     login_error = False
+    password_confirmation_error = False
+    show_password_confirmation = False
     trial_expired = request.GET.get("trial") == "expired"
     trial_used = request.GET.get("trial") == "used"
     account_disabled = request.GET.get("account") == "disabled"
@@ -325,6 +337,7 @@ def homepage(request):
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "").strip()
+        password_confirm = request.POST.get("password_confirm", "")
 
         if not username or not password:
             login_error = True
@@ -335,9 +348,11 @@ def homepage(request):
                 # Account esistente: nessun blocco fingerprint. Il trial già
                 # scaduto resta scaduto, mentre un account pagante passa sempre.
                 profile = _setup_trial_for_user(user)
-                if not imp.demo_attiva and not user.is_staff and not profile.is_paying:
-                    login_error = True
-                elif not profile.is_trial_active and not user.is_staff:
+                # ``demo_attiva`` controlla solo la creazione di nuovi
+                # account demo. Un account già esistente deve poter accedere
+                # finché è attivo e il suo trial non è scaduto (come già
+                # avviene per un'identità Google esistente).
+                if not profile.is_trial_active and not user.is_staff:
                     trial_expired = True
                 else:
                     auth_login(request, user)
@@ -358,27 +373,34 @@ def homepage(request):
                 elif not imp.demo_attiva:
                     login_error = True
                 else:
-                    # Serializza il controllo e la registrazione locale: senza
-                    # questo lock due POST simultanei potrebbero superare
-                    # entrambi il controllo prima del salvataggio fingerprint.
-                    with transaction.atomic():
-                        ImpostazioniSistema.objects.select_for_update().get(pk=1)
-                        if _check_demo_abuse(request):
-                            trial_used = True
-                            logger.warning("Demo auto-create blocked: username=%s", username)
-                        else:
-                            user = User.objects.create_user(
-                                username=username,
-                                password=password,
-                            )
-                            _setup_trial_for_user(user)
-                            auth_login(
-                                request, user,
-                                backend="django.contrib.auth.backends.ModelBackend",
-                            )
-                            _save_demo_fingerprints(request, user)
-                            logger.info("Demo auto-created: user=%s", username)
-                            return _attach_demo_cookie(request, redirect(_safe_next(request)))
+                    # Un nuovo account richiede sempre la conferma password.
+                    # Non fidarti del solo campo mostrato dal frontend: il
+                    # controllo server-side evita account creati con un refuso.
+                    show_password_confirmation = True
+                    if not password_confirm or password != password_confirm:
+                        password_confirmation_error = True
+                    else:
+                        # Serializza il controllo e la registrazione locale:
+                        # senza questo lock due POST simultanei potrebbero
+                        # superare entrambi il controllo prima del salvataggio.
+                        with transaction.atomic():
+                            ImpostazioniSistema.objects.select_for_update().get(pk=1)
+                            if _check_demo_abuse(request):
+                                trial_used = True
+                                logger.warning("Demo auto-create blocked: username=%s", username)
+                            else:
+                                user = User.objects.create_user(
+                                    username=username,
+                                    password=password,
+                                )
+                                _setup_trial_for_user(user)
+                                auth_login(
+                                    request, user,
+                                    backend="django.contrib.auth.backends.ModelBackend",
+                                )
+                                _save_demo_fingerprints(request, user)
+                                logger.info("Demo auto-created: user=%s", username)
+                                return _attach_demo_cookie(request, redirect(_safe_next(request)))
 
     # GET: prepara il contesto per la landing page
 
@@ -413,6 +435,8 @@ def homepage(request):
 
     return render(request, "caricamento/landing.html", {
         "login_error": login_error,
+        "password_confirmation_error": password_confirmation_error,
+        "show_password_confirmation": show_password_confirmation,
         "trial_expired": trial_expired,
         "trial_used": trial_used,
         "account_disabled": account_disabled,

@@ -222,6 +222,9 @@
                         {% if login_error %}
                         <div class="login-error">❌ Credenziali non valide. Riprova.</div>
                         {% endif %}
+                        {% if password_confirmation_error %}
+                        <div class="login-error">❌ Per una nuova registrazione inserisci due volte la stessa password.</div>
+                        {% endif %}
                         {% if account_disabled %}
                         <div class="login-warning">🔒 Questo account è stato disattivato.<br>Contatta l'amministratore per richiedere la riattivazione.</div>
                         {% elif trial_used %}
@@ -252,6 +255,12 @@
                                 <label for="id_password">Password</label>
                                 <input type="password" name="password" id="id_password"
                                        placeholder="Scegli una password" required>
+                            </div>
+                            <div class="login-field" id="password-confirm-field" {% if not show_password_confirmation %}style="display:none;"{% endif %}>
+                                <label for="id_password_confirm">Conferma password</label>
+                                <input type="password" name="password_confirm" id="id_password_confirm"
+                                       placeholder="Ripeti la password" {% if show_password_confirmation %}required{% endif %}>
+                                <div style="font-size:11px;color:#999;margin-top:4px;">Richiesta solo alla prima registrazione.</div>
                             </div>
                             <button type="submit" class="login-submit">🔓 Accedi / Registrati</button>
                         </form>
@@ -409,6 +418,63 @@ function makeContainer(l,w,h,px,py,pz){
   scene.add(grp);
   return{group:grp,l:l,w:w,h:h,center:new THREE.Vector3(px+l/2,py+h/2,pz+w/2)};
 }
+})();
+</script>
+
+<!-- Conferma password solo per username nuovi -->
+<script>
+(function () {
+  var form = document.querySelector('#login-card form');
+  var username = document.getElementById('id_username');
+  var confirmField = document.getElementById('password-confirm-field');
+  var confirmInput = document.getElementById('id_password_confirm');
+  if (!form || !username || !confirmField || !confirmInput) return;
+
+  var checkSerial = 0;
+  var timer = null;
+
+  function mostraConferma(mostra) {
+    confirmField.style.display = mostra ? '' : 'none';
+    confirmInput.required = mostra;
+    if (!mostra) confirmInput.value = '';
+  }
+
+  function verificaUsername() {
+    var valore = username.value.trim();
+    if (!valore) {
+      mostraConferma(false);
+      return;
+    }
+
+    var serial = ++checkSerial;
+    var csrf = form.querySelector('[name="csrfmiddlewaretoken"]');
+    var body = new URLSearchParams();
+    body.set('action', 'check_username');
+    body.set('username', valore);
+    if (csrf) body.set('csrfmiddlewaretoken', csrf.value);
+
+    fetch(form.action || '/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'X-Requested-With': 'XMLHttpRequest'},
+      body: body
+    }).then(function (response) {
+      if (!response.ok) throw new Error('username check failed');
+      return response.json();
+    }).then(function (data) {
+      if (serial === checkSerial) mostraConferma(!data.exists);
+    }).catch(function () {
+      // Fail closed per le nuove registrazioni: il server richiede comunque
+      // la conferma se lo username non esiste.
+      if (serial === checkSerial && !confirmInput.value) mostraConferma(true);
+    });
+  }
+
+  username.addEventListener('blur', verificaUsername);
+  username.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(verificaUsername, 350);
+  });
 })();
 </script>
 

@@ -2226,6 +2226,58 @@ class TestDemoTrialFingerprint(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "/workspace/")
 
+    def test_new_account_requires_matching_password_confirmation(self):
+        response = self.client.post(
+            "/",
+            {"username": "new-demo-confirm", "password": "password-demo"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "inserisci due volte la stessa password")
+        self.assertFalse(User.objects.filter(username="new-demo-confirm").exists())
+
+        response = self.client.post(
+            "/",
+            {
+                "username": "new-demo-confirm",
+                "password": "password-demo",
+                "password_confirm": "password-demo",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/workspace/")
+        self.assertTrue(User.objects.filter(username="new-demo-confirm").exists())
+
+    def test_username_check_reports_existing_and_new_accounts(self):
+        self._active_user("known-demo")
+
+        existing = self.client.post(
+            "/",
+            {"action": "check_username", "username": "known-demo"},
+        )
+        new = self.client.post(
+            "/",
+            {"action": "check_username", "username": "unknown-demo"},
+        )
+
+        self.assertEqual(existing.json(), {"exists": True})
+        self.assertEqual(new.json(), {"exists": False})
+
+    def test_existing_account_can_login_when_new_demo_signups_are_disabled(self):
+        user = self._active_user("existing-demo-disabled-signups")
+        impostazioni = ImpostazioniSistema.get()
+        impostazioni.demo_attiva = False
+        impostazioni.save()
+
+        response = self.client.post(
+            "/",
+            {"username": user.username, "password": "password-demo"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/workspace/")
+
     def test_expired_trial_api_returns_json_403(self):
         user = User.objects.create_user(username="expired-demo", password="password-demo")
         profile = user.profile

@@ -205,7 +205,12 @@ function inizializza() {
         // Ignora se l'utente sta scrivendo in un input
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-        console.log('[KEY]', e.key, '| treSceneLoaded:', WS.treSceneLoaded, '| controls:', typeof STATE !== 'undefined' && STATE.controls ? 'OK' : 'MISSING');
+        // Log diagnostico solo per gli shortcut gestiti: F12 e gli altri tasti
+        // del browser non devono produrre falsi allarmi "controls: MISSING".
+        var cameraShortcut = ['+', '=', '-', 'f', 'F', 'r', 'R', '[', ']', '\\'].indexOf(e.key) !== -1;
+        if (cameraShortcut) {
+            console.log('[KEY]', e.key, '| treSceneLoaded:', WS.treSceneLoaded, '| controls:', typeof STATE !== 'undefined' && STATE.controls ? 'OK' : 'MISSING');
+        }
 
         switch (e.key) {
             case '+':
