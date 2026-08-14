@@ -1,7 +1,7 @@
 # Report — Passaggio in Produzione
 
 **Target:** server Linux · Docker · PostgreSQL · nginx
-**Data report:** agosto 2026 (aggiornato dopo l'implementazione del pacchetto deploy)
+**Data report:** agosto 2026 (ultimo aggiornamento: pulizia file morti + conferma password nuovi account, commit `92d7020`/`1f33b90` pushati su `origin/main`)
 
 ---
 
@@ -14,6 +14,8 @@
 - [x] Config icone dal server (json_script inline): niente flash, niente cache localStorage.
 - [x] Anti-flash icone via CSS (`icons-not-ready`) con fallback noscript.
 - [x] **94 test verdi su PostgreSQL**.
+- [x] **Conferma password per i nuovi account demo**: validazione server-side (`password_confirm` obbligatorio) e endpoint JSON `check_username` per mostrare il campo solo quando lo username non esiste; un account esistente può accedere anche con `demo_attiva=False` (commit `1f33b90`).
+- [x] **Pulizia file morti**: packer legacy (`packer_prima_della_modifica.py`, `old_packer_3d.py`), `old_workspace.css`, template orfani (`homepage.html`, `login.html`), script push personali e icone trash orfane rimossi (commit `92d7020`).
 
 ### 1. Web server
 - [x] `gunicorn==23.0.0` in `requirements.txt` (versioni pinnate).
@@ -49,8 +51,7 @@
 ## 🔴 DA FARE PRIMA DEL DEPLOY (manuale)
 
 - [ ] **0. ROTAZIONE CREDENZIALI** (bloccante): la password PostgreSQL precedentemente presente nella guida va revocata/rigenerata. Se il repository è stato pubblicato, valutare anche la bonifica della storia Git e dei cloni/cache.
-- [ ] **1. COMMIT E PUSH DI TUTTO** (bloccante): `git add -A && git commit && git push`.
-  Verificare che il checkout contenga tutti i moduli `engine/tre_d/`, le migrazioni `0017_*.py` e `0018_aggiunto_owner_dati.py`, oltre alle immagini nuove.
+- [x] **1. COMMIT E PUSH DI TUTTO**: commit `92d7020` (pulizia) e `1f33b90` (conferma password) pushati su `origin/main`. Verificato che il checkout contenga i moduli `engine/tre_d/`, le migrazioni `0017_*.py` e `0018_aggiunto_owner_dati.py` e le immagini nuove.
 - [ ] **2. .env di produzione**: copiare `.env.example` → valorizzare `SECRET_KEY`, `DB_PASSWORD`, `ALLOWED_HOSTS` (dominio reale), `CSRF_TRUSTED_ORIGINS`, cookie secure.
 - [ ] **3. Primo avvio**: `docker compose up -d --build`, poi:
   - `docker compose exec web python manage.py createsuperuser`
