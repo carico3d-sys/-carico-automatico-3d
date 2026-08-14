@@ -51,7 +51,6 @@
 - [ ] **0. ROTAZIONE CREDENZIALI** (bloccante): la password PostgreSQL precedentemente presente nella guida va revocata/rigenerata. Se il repository è stato pubblicato, valutare anche la bonifica della storia Git e dei cloni/cache.
 - [ ] **1. COMMIT E PUSH DI TUTTO** (bloccante): `git add -A && git commit && git push`.
   Verificare che il checkout contenga tutti i moduli `engine/tre_d/`, le migrazioni `0017_*.py` e `0018_aggiunto_owner_dati.py`, oltre alle immagini nuove.
-  - Eliminare `packer_prima_della_modifica.py` (residuo legacy).
 - [ ] **2. .env di produzione**: copiare `.env.example` → valorizzare `SECRET_KEY`, `DB_PASSWORD`, `ALLOWED_HOSTS` (dominio reale), `CSRF_TRUSTED_ORIGINS`, cookie secure.
 - [ ] **3. Primo avvio**: `docker compose up -d --build`, poi:
   - `docker compose exec web python manage.py createsuperuser`
