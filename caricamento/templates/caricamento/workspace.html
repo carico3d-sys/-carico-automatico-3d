@@ -179,7 +179,7 @@
             ],
             vincoliTraOggetti: [
                 {% for vt in vincoli_tra_oggetti %}
-                { id: {{ vt.v.id }}, oggetto_a: {{ vt.v.oggetto_a_id }}, oggetto_a_codice: "{{ vt.v.oggetto_a.codice|escapejs }}", oggetto_b: {{ vt.v.oggetto_b_id }}, oggetto_b_codice: "{{ vt.v.oggetto_b.codice|escapejs }}", tipo_relazione: "{{ vt.v.tipo_relazione }}", tipo_relazione_display: "{{ vt.v.get_tipo_relazione_display|escapejs }}", attivo: {% if vt.v.attivo %}true{% else %}false{% endif %}, note: "{{ vt.v.note|escapejs|default:"" }}", dettagli_posizionamento: {{ vt.dettagli_json|safe }} },
+                { id: {{ vt.v.id }}, oggetto_a: {{ vt.v.oggetto_a_id }}, oggetto_a_codice: "{{ vt.v.oggetto_a.codice|escapejs }}", oggetto_b: {{ vt.v.oggetto_b_id }}, oggetto_b_codice: "{{ vt.v.oggetto_b.codice|escapejs }}", tipo_relazione: "{{ vt.v.tipo_relazione|escapejs }}", tipo_relazione_display: "{{ vt.v.get_tipo_relazione_display|escapejs }}", attivo: {% if vt.v.attivo %}true{% else %}false{% endif %}, note: "{{ vt.v.note|escapejs|default:"" }}", dettagli_posizionamento: JSON.parse("{{ vt.dettagli_json|escapejs }}") },
                 {% endfor %}
             ],
             activePianoId: {{ piano_id|default:"null" }},

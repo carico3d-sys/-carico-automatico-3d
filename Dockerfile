@@ -27,6 +27,20 @@ RUN mkdir -p /opt && \
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+# ---------------------------------------------------------------------------
+# Utente non-root (hardening): gunicorn/qcluster non devono girare come root.
+# Le directory scrivibili (/data per i volumi icone, /app/staticfiles per il
+# collectstatic) vengono pre-create e rese di proprietà dell'utente. Il file
+# .keep evita il caso "directory vuota nell'immagine → volume named root":
+# Docker copia il contenuto dell'immagine nel volume la prima volta e ne
+# preserva la proprietà.
+# ---------------------------------------------------------------------------
+RUN useradd -r -m app \
+    && mkdir -p /data /app/staticfiles \
+    && touch /data/.keep /app/staticfiles/.keep \
+    && chown -R app:app /app /data /opt
+USER app
+
 EXPOSE 8000
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

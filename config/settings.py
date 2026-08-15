@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -40,6 +42,10 @@ SECRET_KEY = os.environ['SECRET_KEY']
 # solo se necessario. In sviluppo locale il .env lo mette a True.
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
+# True durante `manage.py test`: usato per disabilitare i controlli che non
+# devono interferire con la suite di test (es. lockout login di django-axes).
+TESTING = 'test' in sys.argv
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else []
 
 
@@ -58,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_q',  # Coda task asincroni
+    'axes',  # Protezione brute-force sul login
 
     # Autenticazione social (Google OAuth2)
     'allauth',
@@ -77,6 +84,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # django-allauth: richiesto per il funzionamento corretto
@@ -206,7 +214,27 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     # allauth
     "allauth.account.auth_backends.AuthenticationBackend",
+    # axes: blocca il login quando il lockout è attivo (senza eseguire l'auth)
+    "axes.backends.AxesStandaloneBackend",
 ]
+
+# ---------------------------------------------------------------------------
+# django-axes — protezione brute-force sul login
+# ---------------------------------------------------------------------------
+# Disattivato durante `manage.py test`: i test effettuano molti login con
+# credenziali errate intenzionalmente e non devono innescare lockout.
+AXES_ENABLED = not TESTING
+AXES_FAILURE_LIMIT = 10              # tentativi falliti prima del lockout
+AXES_COOLOFF_TIME = timedelta(hours=1)  # durata del lockout
+AXES_RESET_ON_SUCCESS = True         # un login riuscito azzera i tentativi
+# Lockout per coppia username+IP: evita di bloccare intere reti NAT condivise.
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+# IP reale del client risolto da caricamento.client_ip.get_client_ip: dietro
+# nginx l'IP affidabile arriva in X-Real-IP (sovrascritto da nginx con
+# $remote_addr), non in X-Forwarded-For (falsificabile). Lo stesso resolver è
+# usato dall'anti-abuso demo, così i due controlli vedono lo stesso indirizzo.
+AXES_CLIENT_IP_CALLABLE = "caricamento.client_ip.get_client_ip"
+
 
 # django-allauth: social account settings
 SOCIALACCOUNT_PROVIDERS = {
@@ -239,14 +267,17 @@ TRIAL_EXEMPT_PATHS = ["/logout/", "/admin/", "/accounts/"]
 # Django REST Framework
 # ---------------------------------------------------------------------------
 
+# Browsable API disponibile solo in sviluppo: in produzione si espone solo JSON,
+# evitando di renderizzare pagine HTML navigabili degli endpoint.
+_REST_RENDERERS = ["rest_framework.renderers.JSONRenderer"]
+if DEBUG:
+    _REST_RENDERERS.append("rest_framework.renderers.BrowsableAPIRenderer")
+
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "caricamento.api_errors.custom_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
-    "DEFAULT_RENDERER_CLASSES": [
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer",
-    ],
+    "DEFAULT_RENDERER_CLASSES": _REST_RENDERERS,
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.AcceptHeaderVersioning",
     "COERCE_DECIMAL_TO_STRING": True,
     # --- Rate Limiting (Throttling) ---
@@ -302,6 +333,16 @@ SECURE_SSL_REDIRECT = (
 
 # Dietro nginx: Django deve sapere che la richiesta originale era HTTPS
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Proxy fidati da cui accettare l'header X-Real-IP (vedi caricamento.client_ip).
+# Elenco di IP o CIDR separati da virgola. Se vuoto, vengono fidati solo i peer
+# privati/loopback (es. nginx sul bridge Docker): un client diretto da Internet
+# (IP pubblico) non può falsificare X-Real-IP.
+TRUSTED_PROXY_IPS = [
+    ip.strip()
+    for ip in os.environ.get('TRUSTED_PROXY_IPS', '').split(',')
+    if ip.strip()
+]
 
 # Header di sicurezza indipendenti dal certificato: vengono applicati anche
 # quando TLS è terminato da un proxy esterno.

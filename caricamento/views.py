@@ -143,14 +143,13 @@ def _calcola_distribuzione_pesi(piano):
 # ---------------------------------------------------------------------------
 
 def _client_ip(request):
-    """Restituisce l'IP reale quando la richiesta passa dal reverse proxy fidato."""
-    real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
-    if real_ip:
-        return real_ip
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "").strip()
+    """Restituisce l'IP reale del client dietro il reverse proxy nginx.
+
+    La logica vive in caricamento.client_ip ed è condivisa con django-axes
+    (AXES_CLIENT_IP_CALLABLE): entrambi i controlli usano lo stesso IP.
+    """
+    from .client_ip import get_client_ip
+    return get_client_ip(request)
 
 
 def _demo_cookie_token(request):
@@ -297,15 +296,6 @@ def homepage(request):
     # soltanto la richiesta di un nuovo trial.
     next_url = _safe_next(request)
 
-    # Usato dalla landing per mostrare la conferma password solo quando lo
-    # username non appartiene ancora a un account. La validazione definitiva
-    # resta comunque nel ramo di registrazione qui sotto.
-    if request.method == "POST" and request.POST.get("action") == "check_username":
-        username = request.POST.get("username", "").strip()
-        return JsonResponse({
-            "exists": bool(username and User.objects.filter(username=username).exists()),
-        })
-
     if request.user.is_authenticated:
         profile = _setup_trial_for_user(request.user)
         if not profile.is_trial_active and not request.user.is_staff:
@@ -327,7 +317,6 @@ def homepage(request):
 
     login_error = False
     password_confirmation_error = False
-    show_password_confirmation = False
     trial_expired = request.GET.get("trial") == "expired"
     trial_used = request.GET.get("trial") == "used"
     account_disabled = request.GET.get("account") == "disabled"
@@ -374,9 +363,8 @@ def homepage(request):
                     login_error = True
                 else:
                     # Un nuovo account richiede sempre la conferma password.
-                    # Non fidarti del solo campo mostrato dal frontend: il
-                    # controllo server-side evita account creati con un refuso.
-                    show_password_confirmation = True
+                    # Il controllo server-side evita account creati con un refuso,
+                    # indipendentemente da quanto mostrato dal frontend.
                     if not password_confirm or password != password_confirm:
                         password_confirmation_error = True
                     else:
@@ -436,7 +424,6 @@ def homepage(request):
     return render(request, "caricamento/landing.html", {
         "login_error": login_error,
         "password_confirmation_error": password_confirmation_error,
-        "show_password_confirmation": show_password_confirmation,
         "trial_expired": trial_expired,
         "trial_used": trial_used,
         "account_disabled": account_disabled,
@@ -825,14 +812,15 @@ class OggettoViewSet(viewsets.ModelViewSet):
         for oid in ids:
             vincolo = vincoli_map.get(oid)
             if vincolo is None:
-                vincolo, _ = VincoloOggetto.objects.get_or_create(
-                    oggetto_id=oid,
-                )
-            # Applica i campi
-            for campo, valore in vincoli_data.items():
-                if hasattr(vincolo, campo):
-                    setattr(vincolo, campo, valore)
-            vincolo.save()
+                vincolo = VincoloOggetto(oggetto_id=oid)
+            # Il serializer applica SOLO i campi della whitelist (vincoli fisici).
+            # I campi strutturali inviati da un client malevolo (oggetto_id, id, ...)
+            # vengono ignorati, impedendo la riassegnazione cross-tenant del vincolo.
+            ser = VincoloOggettoUpdateSerializer(
+                vincolo, data=vincoli_data, partial=True
+            )
+            ser.is_valid(raise_exception=True)
+            ser.save()
             aggiornati += 1
 
         return Response({"aggiornati": aggiornati})
@@ -1428,6 +1416,10 @@ ICON_UPLOAD_DIR = os.environ.get(
     os.path.join(settings.BASE_DIR, "caricamento", "static", "caricamento", "img"),
 )
 
+# Firma binaria di un PNG valido (8 byte iniziali). Usata per verificare il
+# contenuto reale degli upload, oltre alla sola estensione del nome file.
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
 
 def _load_icon_config():
     """Carica la configurazione icone dal file JSON."""
@@ -1685,6 +1677,12 @@ def api_icone_upload(request):
     filename = uploaded_file.name.lower()
     if not filename.endswith(".png"):
         return _json_api_error(request, "Solo file PNG accettati.", 400, "invalid_file_type")
+
+    # Verifica il contenuto reale: magic bytes PNG. L'estensione da sola non
+    # basta: un file non-PNG rinominato .png verrebbe comunque servito da nginx.
+    if uploaded_file.read(8) != PNG_SIGNATURE:
+        return _json_api_error(request, "Il file non è un PNG valido.", 400, "invalid_file_type")
+    uploaded_file.seek(0)
 
     # Sanitizza il nome file con la stessa regola usata dalla configurazione
     safe_name = _normalizza_nome_file_icona(uploaded_file.name)

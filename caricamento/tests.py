@@ -10,16 +10,19 @@ Copre:
 
 import copy
 import random
+import tempfile
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from caricamento.client_ip import get_client_ip
 from caricamento.views import _check_demo_abuse, _save_demo_fingerprints
 
 from caricamento.engine.common import (
@@ -2249,21 +2252,6 @@ class TestDemoTrialFingerprint(TestCase):
         self.assertEqual(response["Location"], "/workspace/")
         self.assertTrue(User.objects.filter(username="new-demo-confirm").exists())
 
-    def test_username_check_reports_existing_and_new_accounts(self):
-        self._active_user("known-demo")
-
-        existing = self.client.post(
-            "/",
-            {"action": "check_username", "username": "known-demo"},
-        )
-        new = self.client.post(
-            "/",
-            {"action": "check_username", "username": "unknown-demo"},
-        )
-
-        self.assertEqual(existing.json(), {"exists": True})
-        self.assertEqual(new.json(), {"exists": False})
-
     def test_existing_account_can_login_when_new_demo_signups_are_disabled(self):
         user = self._active_user("existing-demo-disabled-signups")
         impostazioni = ImpostazioniSistema.get()
@@ -2361,3 +2349,122 @@ class TestDemoTrialFingerprint(TestCase):
 
         with self.assertRaises(ValidationError):
             impostazioni.full_clean()
+
+
+class TestSecurityHardening(TestCase):
+    """Test delle correzioni di sicurezza (IP reale, magic bytes PNG, XSS)."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_client_ip_prefers_x_real_ip_over_forwarded(self):
+        request = self.factory.get("/")
+        request.META["REMOTE_ADDR"] = "10.0.0.5"
+        request.META["HTTP_X_FORWARDED_FOR"] = "1.2.3.4, 10.0.0.5"
+        request.META["HTTP_X_REAL_IP"] = "203.0.113.9"
+
+        self.assertEqual(get_client_ip(request), "203.0.113.9")
+
+    def test_client_ip_ignores_spoofed_forwarded_and_uses_remote_addr(self):
+        request = self.factory.get("/")
+        request.META["REMOTE_ADDR"] = "10.0.0.5"
+        request.META["HTTP_X_FORWARDED_FOR"] = "1.2.3.4"
+
+        self.assertEqual(get_client_ip(request), "10.0.0.5")
+
+    def test_icon_upload_rejects_non_png_content(self):
+        staff = User.objects.create_user(
+            username="staff-icons", password="password-demo", is_staff=True
+        )
+        self.client.force_login(staff)
+
+        fake = SimpleUploadedFile(
+            "finto.png", b"MZ not a real png", content_type="image/png"
+        )
+        response = self.client.post("/api/icone-upload/", {"file": fake})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["code"], "invalid_file_type")
+
+    def test_icon_upload_accepts_real_png_signature(self):
+        staff = User.objects.create_user(
+            username="staff-icons-ok", password="password-demo", is_staff=True
+        )
+        self.client.force_login(staff)
+
+        png = SimpleUploadedFile(
+            "ok.png",
+            b"\x89PNG\r\n\x1a\n" + b"payload",
+            content_type="image/png",
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "caricamento.views.ICON_UPLOAD_DIR", tmp
+        ):
+            response = self.client.post("/api/icone-upload/", {"file": png})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["success"], True)
+        self.assertEqual(response.json()["filename"], "ok.png")
+
+    def test_workspace_escapes_dettagli_posizionamento(self):
+        user = User.objects.create_user(username="xss-user", password="password-demo")
+        self.client.force_login(user)
+
+        a = Oggetto.objects.create(
+            owner=user, codice="XSS-A", lunghezza_mm=10, larghezza_mm=10,
+            altezza_mm=10, peso_kg=Decimal("1.00"),
+        )
+        b = Oggetto.objects.create(
+            owner=user, codice="XSS-B", lunghezza_mm=10, larghezza_mm=10,
+            altezza_mm=10, peso_kg=Decimal("1.00"),
+        )
+        payload = "</script><script>alert('XSS-SEC')</script>"
+        VincoloTraOggetti.objects.create(
+            oggetto_a=a,
+            oggetto_b=b,
+            tipo_relazione="sopra",
+            dettagli_posizionamento={"note": payload},
+        )
+
+        response = self.client.get("/workspace/")
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertNotIn(payload, content)
+        # escapejs trasforma '<' e '>' in \u003C / \u003E: niente breakout dello script.
+        self.assertIn("\\u003C/script\\u003E", content)
+
+    def test_client_ip_rejects_spoofed_x_real_ip_from_public_peer(self):
+        request = self.factory.get("/")
+        request.META["REMOTE_ADDR"] = "203.0.113.50"  # IP pubblico: peer non fidato
+        request.META["HTTP_X_REAL_IP"] = "10.0.0.7"
+
+        self.assertEqual(get_client_ip(request), "203.0.113.50")
+
+    def test_bulk_vincoli_ignores_structural_fields(self):
+        user = User.objects.create_user(username="bulk-user", password="password-demo")
+        other = User.objects.create_user(username="bulk-other", password="password-demo")
+
+        o1 = Oggetto.objects.create(
+            owner=user, codice="BULK-1", lunghezza_mm=10, larghezza_mm=10,
+            altezza_mm=10, peso_kg=Decimal("1.00"),
+        )
+        o2 = Oggetto.objects.create(
+            owner=other, codice="BULK-2", lunghezza_mm=10, larghezza_mm=10,
+            altezza_mm=10, peso_kg=Decimal("1.00"),
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.post(
+            "/api/oggetti/bulk_vincoli/",
+            {"ids": [o1.id], "vincoli": {"oggetto_id": o2.id, "fragile": True}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        vincolo = VincoloOggetto.objects.get(oggetto=o1)
+        # Il campo strutturale oggetto_id è ignorato: nessuna riassegnazione cross-tenant.
+        self.assertEqual(vincolo.oggetto_id, o1.id)
+        # Il campo della whitelist viene comunque applicato.
+        self.assertTrue(vincolo.fragile)

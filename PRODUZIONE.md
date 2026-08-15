@@ -102,4 +102,4 @@ curl -I https://tuodominio/static/caricamento/css/base.css   # 200
 | **Logging/monitoring** | Logging stdout configurato; restano da collegare raccolta centralizzata e alert operativi. |
 | **`staticfiles/` locale** | Creata dal collectstatic di verifica: è in `.gitignore`, innocua. |
 | **Proxy e HTTPS** | Se il TLS è terminato da un proxy diverso dal nginx fornito, deve inoltrare `X-Forwarded-Proto: https` (altrimenti, con `SECURE_SSL_REDIRECT=True`, redirect loop). L'attuale nginx incluso nel repository non contiene ancora i certificati/blocco `listen 443 ssl`. |
-| **Container come root** | Il Dockerfile non definisce un utente non-root: accettabile per il primo deploy; per hardening futuro aggiungere `USER` (gestendo i permessi dei volumi). |
+| **Container come root** | Risolto: il Dockerfile ora esegue gunicorn/qcluster come utente non-root `app` (volumi `/data` e `/app/staticfiles` pre-creati con `.keep` per preservare la proprietà). Nota: volumi esistenti creati da un run precedente come root vanno ricreati o ri-possessati. |

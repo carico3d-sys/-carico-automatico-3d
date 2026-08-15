@@ -50,6 +50,8 @@ services:
       SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-0}
       SECURE_HSTS_INCLUDE_SUBDOMAINS: ${SECURE_HSTS_INCLUDE_SUBDOMAINS:-False}
       SECURE_HSTS_PRELOAD: ${SECURE_HSTS_PRELOAD:-False}
+      # Proxy fidati per X-Real-IP (opzionale: vuoto = fidati solo peer privati)
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ICON_CONFIG_PATH: /data/icon_config.json
       ICON_UPLOAD_DIR: /data/img_uploads
@@ -98,6 +100,11 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - staticfiles:/static:ro
       - appdata:/data:ro
+      # --- TLS (attivare insieme a nginx-https.conf.example) ---
+      # Certificati Let's Encrypt (creati da ops/certbot.sh) e webroot ACME.
+      # Creare prima sul server: mkdir -p /etc/letsencrypt /var/www/certbot
+      # - /etc/letsencrypt:/etc/letsencrypt:ro
+      # - /var/www/certbot:/var/www/certbot:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz/ || exit 1"]
       interval: 30s
