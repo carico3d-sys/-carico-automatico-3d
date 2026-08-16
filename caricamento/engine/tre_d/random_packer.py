@@ -15,6 +15,7 @@ Leggero: solo 1 chiamata load_truck_v2 per restart, adatto a VPS.
 
 import copy
 import random
+import time
 from typing import List, Optional
 
 from .packer_3d_v2 import filter_unfitted, _e_una_base
@@ -104,6 +105,7 @@ def run_packing_random(
     container_dim=None,
     tracker=None,
     compattazione_aggressiva: bool = False,
+    deadline: Optional[float] = None,
 ) -> List:
     """Esegue N restart con shuffle per tipo e load_truck_v2 (senza backtracking).
 
@@ -133,6 +135,11 @@ def run_packing_random(
     best_score = None
 
     for _ in range(num_restarts):
+        # Time-budget: se la scadenza è stata superata, restituisci la
+        # migliore soluzione trovata finora invece di avviare un altro restart.
+        if deadline is not None and time.monotonic() >= deadline:
+            break
+
         # Shuffle per tipo (con priorità e ordinamento logico)
         # Ogni restart lavora su proprie istanze: load_truck_v2 modifica
         # coordinate e dimensioni durante le prove di orientamento.
@@ -170,6 +177,11 @@ def run_packing_random(
 
     # Fallback: nessun restart ha piazzato oggetti
     if best_solution is None:
+        # Se il budget è già scaduto senza completare alcun restart, non
+        # avviare un'ennesima esecuzione completa: una soluzione vuota è
+        # valida e il chiamante ibrido userà l'altra strategia.
+        if deadline is not None and time.monotonic() >= deadline:
+            return []
         best_solution = load_truck_v2(
             copy.deepcopy(objects), vincoli_sopra=vincoli_sopra,
             container_dim=container_dim, tracker=tracker,

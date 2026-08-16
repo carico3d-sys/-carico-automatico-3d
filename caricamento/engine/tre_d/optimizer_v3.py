@@ -14,6 +14,7 @@ File separato per facilità di manutenzione/rimozione.
 import copy
 import itertools
 import random
+import time
 from typing import Dict, List, Optional, Tuple
 
 from .packer_3d_v2 import (
@@ -493,6 +494,7 @@ def optimize_solution_v3(
     tracker=None,
     compattazione_aggressiva: bool = False,
     random_mode: bool = False,
+    deadline: Optional[float] = None,
 ) -> List[Obj]:
     """Backtracking a blocchi con rilevazione buchi 3D.
 
@@ -551,6 +553,11 @@ def optimize_solution_v3(
     strategie = strategie[:iterations]
 
     for strategia, arg in strategie:
+        # Time-budget: interrompe l'esplorazione quando la scadenza è stata
+        # superata, conservando la migliore soluzione trovata finora.
+        if deadline is not None and time.monotonic() >= deadline:
+            break
+
         fresh_objects = copy.deepcopy(objects)
 
         if strategia == 'coda':
@@ -588,6 +595,8 @@ def optimize_solution_v3(
 
     # Backtracking ricorsivo finale
     if container_dim and not random_mode:
+        if deadline is not None and time.monotonic() >= deadline:
+            return best_solution
         best_solution = _backtracking_ricorsivo(
             best_solution, list(objects), container_dim, vincoli_sopra,
             compattazione_aggressiva=compattazione_aggressiva,
@@ -610,6 +619,7 @@ def run_packing_v3(
     container_dim: Optional[tuple] = None,
     tracker=None,
     compattazione_aggressiva: bool = False,
+    deadline: Optional[float] = None,
 ) -> List[Obj]:
     """Entry point per optimizer v3 (singola esecuzione)."""
     return optimize_solution_v3(
@@ -619,6 +629,7 @@ def run_packing_v3(
         container_dim=container_dim,
         tracker=tracker,
         compattazione_aggressiva=compattazione_aggressiva,
+        deadline=deadline,
     )
 
 

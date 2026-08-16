@@ -23,6 +23,7 @@ class HybridStrategy(PackingStrategy):
         container_dim,
         tracker=None,
         compattazione_aggressiva=False,
+        deadline=None,
     ):
         backtracking_result = self.backtracking.execute(
             objects,
@@ -30,6 +31,7 @@ class HybridStrategy(PackingStrategy):
             container_dim,
             tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
         monte_carlo_result = self.monte_carlo.execute(
             objects,
@@ -37,6 +39,7 @@ class HybridStrategy(PackingStrategy):
             container_dim,
             tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
 
         backtracking_placed, _ = filter_unfitted(backtracking_result)

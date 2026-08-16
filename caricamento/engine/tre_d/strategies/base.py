@@ -17,6 +17,12 @@ class PackingStrategy(ABC):
         container_dim: tuple,
         tracker=None,
         compattazione_aggressiva: bool = False,
+        deadline: Optional[float] = None,
     ) -> List:
-        """Restituisce gli oggetti posizionati/non posizionati del motore."""
+        """Restituisce gli oggetti posizionati/non posizionati del motore.
+
+        ``deadline`` è un timestamp ``time.monotonic()`` oltre il quale la
+        strategia si interrompe e restituisce la soluzione migliore trovata
+        finora. ``None`` = nessun limite di tempo.
+        """
         raise NotImplementedError

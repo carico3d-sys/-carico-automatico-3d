@@ -16,7 +16,10 @@ class DeterministicStrategy(PackingStrategy):
         container_dim,
         tracker=None,
         compattazione_aggressiva=False,
+        deadline=None,
     ):
+        # Singolo passaggio: il deadline non è necessario qui (stage 0 è
+        # già veloce), ma il parametro mantiene l'interfaccia uniforme.
         return optimize_deterministic_groups(
             objects,
             constraints=constraints,

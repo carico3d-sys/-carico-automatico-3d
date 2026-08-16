@@ -11,6 +11,7 @@ Implementa la stessa interfaccia di CustomPacker:
 """
 
 from decimal import Decimal
+import time
 from typing import Dict, List, Optional
 
 from django.db import transaction
@@ -27,7 +28,10 @@ from .priority_policy import (
     valida_priorita,
     valida_vincoli_sopra,
 )
-from .strategies import strategy_for_config
+from .strategies import (
+    strategy_for_config,
+    OPTIMIZATION_TIME_BUDGET_SECONDS,
+)
 
 
 class TreDPacker:
@@ -174,13 +178,18 @@ class TreDPacker:
         # Esegue la strategia selezionata con i limiti del contenitore.
         # La factory mantiene la precedenza storica delle configurazioni,
         # mentre ogni algoritmo concreto vive nel proprio adattatore.
+        # Il time-budget garantisce il rientro entro il timeout di 20s del
+        # frontend: la strategia restituisce la migliore soluzione trovata
+        # prima della scadenza.
         strategia = strategy_for_config(self.config)
+        deadline = time.monotonic() + OPTIMIZATION_TIME_BUDGET_SECONDS
         risultati = strategia.execute(
             objs,
             vincoli_sopra,
             container_dim,
             tracker=tracker,
             compattazione_aggressiva=self.config.compattazione_aggressiva,
+            deadline=deadline,
         )
 
         # Converte i risultati in ItemPacked (mm) — solo oggetti posizionati

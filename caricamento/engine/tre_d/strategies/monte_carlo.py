@@ -19,6 +19,7 @@ class MonteCarloStrategy(PackingStrategy):
         container_dim,
         tracker=None,
         compattazione_aggressiva=False,
+        deadline=None,
     ):
         return run_packing_random(
             objects,
@@ -27,4 +28,5 @@ class MonteCarloStrategy(PackingStrategy):
             container_dim=container_dim,
             tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
