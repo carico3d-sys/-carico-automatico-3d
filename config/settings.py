@@ -109,7 +109,7 @@ Q_CLUSTER = {
     "cpu_affinity": 1,
     "label": "Ottimizzazione Carico 3D",
     # Usa il DB Django come backend (non richiede Redis)
-    "django_db": True,
+    "orm": "default",
 }
 
 
