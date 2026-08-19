@@ -18,6 +18,7 @@ class PackingStrategy(ABC):
         tracker=None,
         compattazione_aggressiva: bool = False,
         deadline: Optional[float] = None,
+        telemetria: Optional[dict] = None,
     ) -> List:
         """Restituisce gli oggetti posizionati/non posizionati del motore.
 

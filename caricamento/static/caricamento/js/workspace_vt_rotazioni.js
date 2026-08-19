@@ -161,45 +161,94 @@ function _vtTrovaVincoloEsistente(oggettoAId, oggettoBId) {
 }
 
 /**
+ * Restituisce i vincoli "sopra" esistenti su tutte le coppie A×B della
+ * selezione corrente (supporta selezione multipla su un lato). Ogni vincolo
+ * compare una sola volta anche se raggiunto da più combinazioni.
+ */
+function _vtTrovaVincoliSelezione() {
+    var idsA = (_vtState.oggettiASelezionati || []).slice();
+    var idsB = (_vtState.oggettiBSelezionati || []).slice();
+    if (!idsA.length && _vtState.oggettoAId) idsA = [_vtState.oggettoAId];
+    if (!idsB.length && _vtState.oggettoBId) idsB = [_vtState.oggettoBId];
+
+    var trovati = [];
+    var seen = {};
+    function aggiungi(v) {
+        if (v && !seen[v.id]) {
+            seen[v.id] = true;
+            trovati.push(v);
+        }
+    }
+    idsA.forEach(function (aId) {
+        idsB.forEach(function (bId) {
+            if (!aId || !bId) return;
+            // Cerca in entrambe le direzioni: il vincolo "sopra" può essere
+            // stato salvato con A/B invertiti rispetto alla selezione attuale.
+            aggiungi(_vtTrovaVincoloEsistente(aId, bId));
+            if (aId !== bId) aggiungi(_vtTrovaVincoloEsistente(bId, aId));
+        });
+    });
+    return trovati;
+}
+
+/**
  * Dopo che A e B sono selezionati, controlla se esiste già un vincolo
  * e in caso positivo lo carica automaticamente (stato valida/esclusa dei canvas).
+ * Con selezione multipla mostra/abilita il pulsante Elimina per tutti i
+ * vincoli della selezione.
  */
 function _vtControllaVincoloEsistente() {
     var aId = _vtState.oggettoAId;
     var bId = _vtState.oggettoBId;
-    if (!aId || !bId) return;
 
-    var esistente = _vtTrovaVincoloEsistente(aId, bId);
-    if (!esistente) return;
-
-    // Carica lo stato salvato del vincolo esistente
-    _vtState.editingVincoloId = esistente.id;
-    _vtState.editingVincolo = esistente;
-
-    var dettagli = esistente.dettagli_posizionamento;
-    if (dettagli && dettagli.configurazioni) {
-        dettagli.configurazioni.forEach(function (dc) {
-            if (dc.posizioni && dc.posizioni.length > 0) {
-                // Backward compat: old format with posizioni array — flatten
-                dc.posizioni.forEach(function (pos) {
-                    var matched = _vtMatchConfig({ rotA: dc.rotA, rotB: dc.rotB, offsetX: pos.offsetX, offsetZ: pos.offsetZ });
-                    if (matched) matched.valida = (dc.valida !== false);
-                });
-            } else {
-                // New format: scalar offsetX/offsetZ
-                var matched = _vtMatchConfig(dc);
-                if (matched) matched.valida = (dc.valida !== false);
-            }
-        });
-    }
-
-    // Mostra pulsanti aggiorna/elimina, nascondi crea
     var btnCreate = document.getElementById('vt-btn-create');
     var btnUpdate = document.getElementById('vt-btn-update');
     var btnDelete = document.getElementById('vt-btn-delete');
-    if (btnCreate) btnCreate.style.display = 'none';
-    if (btnUpdate) btnUpdate.style.display = '';
-    if (btnDelete) btnDelete.style.display = '';
+
+    var vincoliSelezione = _vtTrovaVincoliSelezione();
+
+    if (!aId || !bId) {
+        if (btnDelete) btnDelete.style.display = (vincoliSelezione.length > 0) ? '' : 'none';
+        return;
+    }
+
+    var esistente = _vtTrovaVincoloEsistente(aId, bId);
+
+    // Carica lo stato salvato del vincolo esistente della coppia primaria
+    if (esistente) {
+        _vtState.editingVincoloId = esistente.id;
+        _vtState.editingVincolo = esistente;
+
+        var dettagli = esistente.dettagli_posizionamento;
+        if (dettagli && dettagli.configurazioni) {
+            dettagli.configurazioni.forEach(function (dc) {
+                if (dc.posizioni && dc.posizioni.length > 0) {
+                    // Backward compat: old format with posizioni array — flatten
+                    dc.posizioni.forEach(function (pos) {
+                        var matched = _vtMatchConfig({ rotA: dc.rotA, rotB: dc.rotB, offsetX: pos.offsetX, offsetZ: pos.offsetZ });
+                        if (matched) matched.valida = (dc.valida !== false);
+                    });
+                } else {
+                    // New format: scalar offsetX/offsetZ
+                    var matched = _vtMatchConfig(dc);
+                    if (matched) matched.valida = (dc.valida !== false);
+                }
+            });
+        }
+    }
+
+    // Bottoni: Crea/Aggiorna seguono il comportamento storico sulla coppia
+    // primaria; Elimina compare se esistono vincoli da eliminare nella
+    // selezione corrente (coppia primaria in selezione singola, oppure tutte
+    // le coppie in selezione multipla).
+    if (esistente) {
+        if (btnCreate) btnCreate.style.display = 'none';
+        if (btnUpdate) btnUpdate.style.display = '';
+    } else {
+        if (btnCreate) btnCreate.style.display = '';
+        if (btnUpdate) btnUpdate.style.display = 'none';
+    }
+    if (btnDelete) btnDelete.style.display = (vincoliSelezione.length > 0) ? '' : 'none';
 
     // Aggiorna hint dopo le modifiche alle validità
     _vtAggiornaValidazione();

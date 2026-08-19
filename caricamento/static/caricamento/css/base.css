@@ -39,6 +39,19 @@
     --radius: 6px;
     --radius-sm: 4px;
     --transition: 0.15s ease;
+
+    /* Altezze header configurabili (Gestione Icone → tab Header) */
+    --header-tab-h: 44px;
+    --header-panel-destro-h: 45px;
+    --header-pv-list-h: 45px;
+    --header-pv-list-articoli-h: 45px;
+    --header-pv-list-trasporti-h: 45px;
+    --header-pv-list-impostazioni-h: 45px;
+    --header-pv-form-h: 45px;
+    --header-pv-form-articoli-h: 45px;
+    --header-pv-form-vincoli-h: 45px;
+    --header-pv-form-trasporti-h: 45px;
+    --header-pv-form-impostazioni-h: 45px;
 }
 
 body {
@@ -253,7 +266,7 @@ body {
     font-size: 10px;
     color: #999;
     outline: none;
-    min-height: 44px;
+    min-height: var(--header-tab-h, 44px);
 }
 .sidebar-tab:hover {
     background: #eee;

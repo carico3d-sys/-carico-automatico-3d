@@ -54,7 +54,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 0 16px;
+    min-height: var(--header-pv-form-vincoli-h, 45px);
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
     background: #fafafa;

@@ -991,6 +991,43 @@ function _svuotaViewportPrimaDiElaborare() {
     }
 }
 
+/**
+ * Attende il completamento di un'ottimizzazione asincrona (coda Django Q2)
+ * effettuando polling sullo stato del piano.
+ * @param {number} pianoId
+ * @param {string} taskId
+ * @returns {Promise<Object>} stato finale del piano
+ */
+async function _attendiOttimizzazioneAsync(pianoId, taskId) {
+    var attesaMassimaMs = 300000; // 5 minuti (allineato al timeout del worker Q2)
+    var intervalloMs = 2000;
+    var inizio = Date.now();
+    var statiFinali = ['completato', 'parziale', 'fallito', 'errore'];
+
+    while (Date.now() - inizio < attesaMassimaMs) {
+        await new Promise(function (resolve) { setTimeout(resolve, intervalloMs); });
+        var resp = await fetch('/api/piani/' + pianoId + '/stato/', {
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!resp.ok) continue;
+        var stato = await resp.json();
+        if (statiFinali.indexOf(stato.stato) >= 0) {
+            return stato;
+        }
+        setStatus('busy', 'Elaborazione in coda...');
+        mostraTaskStatus('busy', 'Elaborazione in coda... (' + (stato.oggetti_posizionati || 0) + ' pezzi)');
+    }
+
+    // Timeout di attesa: restituisci l'ultimo stato disponibile.
+    try {
+        var ultimoResp = await fetch('/api/piani/' + pianoId + '/stato/', {
+            headers: { 'Accept': 'application/json' }
+        });
+        if (ultimoResp.ok) return await ultimoResp.json();
+    } catch (e) { /* ignora */ }
+    return { stato: 'errore', messaggio_errore: 'Attesa ottimizzazione scaduta.' };
+}
+
 async function elaboraOttimizzazione(salvaRisultato) {
     if (WS.ottimizzazioneInCorso) return;
     // "Elabora" è sempre una preview; il salvataggio definitivo è esplicito
@@ -1099,9 +1136,14 @@ async function elaboraOttimizzazione(salvaRisultato) {
             });
         }
 
-        // 3. Prepara la configurazione dell'ottimizzatore
+        // 3. Configurazione dell'ottimizzatore.
+        // Entrambi i flussi (Elabora e Ottimizza e Salva) passano dalla coda
+        // asincrona Django Q2: niente limite dei 20s del browser e niente
+        // taglio per tempo nel motore. L'anteprima salva sul piano temporaneo
+        // (poi eliminato): il piano reale non viene mai toccato.
         var payloadOttimizzazione = {
-            asincrono: false,
+            asincrono: true,
+            salva_risultato: true,
         };
 
         // Invia anche le impostazioni correnti dell'ottimizzatore
@@ -1120,7 +1162,6 @@ async function elaboraOttimizzazione(salvaRisultato) {
 
         setStatus('busy', 'Elaborazione 3D...');
         mostraTaskStatus('busy', 'Calcolo posizionamento...');
-        payloadOttimizzazione.salva_risultato = salvaRisultato;
         var ottimizzaResp = await fetch('/api/piani/' + pianoId + '/ottimizza/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
@@ -1136,65 +1177,90 @@ async function elaboraOttimizzazione(salvaRisultato) {
         }
         var risultato = await ottimizzaResp.json();
 
-        // Aggiorna stato piano in cache
-        var pIdx = WS.piani.findIndex(function (p) { return p.id == pianoId; });
-        if (pIdx >= 0) {
-            WS.piani[pIdx].stato = risultato.successo ? 'completato' : 'parziale';
-            WS.piani[pIdx].stato_display = risultato.successo ? 'Completato' : 'Parziale';
+        // Il workspace usa sempre la coda asincrona (risposta 202).
+        if (!risultato.asincrono) {
+            throw new Error('Il backend non ha accodato l\'elaborazione asincrona.');
         }
 
-        if (risultato.successo) {
-            showToast(
-                (salvaRisultato ? '✅ Ottimizzazione completata e salvata! ' : '👁️ Preview elaborata! ') +
-                (risultato.oggetti_posizionati || 0) + ' oggetti. Saturazione: ' +
-                (risultato.saturazione || 0).toFixed(1) + '%',
-                'success'
-            );
-            setStatus('success', 'Completato');
-            mostraTaskStatus('done', 'Completata (' + risultato.oggetti_posizionati + ' pezzi)');
-            var nomePiano = salvaRisultato
-                ? (risultato.piano_nome || ('Piano #' + pianoId))
-                : 'Anteprima ottimizzazione';
-            _setHeaderCaricoLabel(nomePiano);
-            if (salvaRisultato) {
-                await caricaScena3D(pianoId);
-            } else {
-                var datiPreview = _costruisciDatiPreviewOttimizzazione(risultato, pianoId);
-                _salvaSnapshotPreviewOttimizzazione(datiPreview);
-                // renderizzaDati3D ricostruisce completamente il viewport:
-                // qui il risultato ottimizzato sostituisce la scena vuota e
-                // diventa la sola fonte per il successivo Salva.
-                renderizzaDati3D(datiPreview);
-                WS.treSceneLoaded = true;
-                pianoPreviewId = pianoId;
-            }
-            // Aggiorna sidebar riepilogo con i nuovi mt lineari (dopo caricamento scena 3D)
-            _refreshSidebarLineari();
-            if (risultato.metriche && risultato.metriche.distribuzione_pesi) {
-                await caricaEDisegnaDistribuzionePesi();
-            } else {
-                nascondiDistribuzionePesi();
-            }
-            if (risultato.soluzioni_alternative && risultato.soluzioni_alternative.length > 0) {
-                mostraSoluzioniAlternative(risultato.soluzioni_alternative);
-            } else {
-                nascondiSoluzioniAlternative();
-            }
-        } else {
-            showToast('⚠️ ' + (risultato.messaggio || 'Ottimizzazione parziale o fallita'), 'warning');
-            setStatus('idle', 'Parziale');
-            mostraTaskStatus('fail', risultato.messaggio || 'Fallita');
-            if (risultato.oggetti_posizionati > 0) {
-                if (salvaRisultato) {
-                    await caricaScena3D(pianoId);                    } else {
-                    var datiPreviewParziale = _costruisciDatiPreviewOttimizzazione(risultato, pianoId);
-                    _salvaSnapshotPreviewOttimizzazione(datiPreviewParziale);
-                    renderizzaDati3D(datiPreviewParziale);
-                    WS.treSceneLoaded = true;
-                    pianoPreviewId = pianoId;
-                }
-            }
+        // Attesa del completamento (polling sullo stato del piano: quello
+        // reale per "Ottimizza e Salva", quello temporaneo per "Elabora").
+        var statoFinale = await _attendiOttimizzazioneAsync(pianoId, risultato.task_id);
+        var completato = statoFinale && statoFinale.stato === 'completato';
+
+        // Aggiorna lo stato nella lista dei piani
+        var pIdxAsync = WS.piani.findIndex(function (p) { return p.id == pianoId; });
+        if (pIdxAsync >= 0) {
+            WS.piani[pIdxAsync].stato = statoFinale.stato;
+            WS.piani[pIdxAsync].stato_display = completato ? 'Completato' : 'Parziale';
         }
+
+        if (!salvaRisultato) {
+            // Anteprima: il risultato è stato salvato sul piano temporaneo.
+            // Lo si usa per costruire lo snapshot immutabile della preview
+            // (stesso flusso di sempre per il successivo "Salva").
+            var dati3dResp = await fetch('/api/piani/' + pianoId + '/dati_3d/', {
+                headers: { 'Accept': 'application/json' },
+            });
+            var dati3d = dati3dResp.ok ? await dati3dResp.json() : null;
+            var oggettiDati = (dati3d && Array.isArray(dati3d.oggetti)) ? dati3d.oggetti : [];
+            var risultatoPreview = {
+                successo: completato,
+                oggetti_posizionati: ((dati3d && dati3d.metriche && dati3d.metriche.oggetti_posizionati) || oggettiDati.length),
+                saturazione: (dati3d && dati3d.metriche && dati3d.metriche.saturazione) || 0,
+                messaggio: (statoFinale && statoFinale.messaggio_errore) || '',
+                metriche: (dati3d && dati3d.metriche) || {},
+                posizioni_preview: oggettiDati.map(function (o) {
+                    return {
+                        oggetto_id: o.oggetto_id || null,
+                        codice: o.codice,
+                        posizione_mm: o.posizione_mm,
+                        dimensioni_mm: o.dimensioni_mm,
+                        rotazione: o.rotazione || 'XYZ',
+                        colore: o.colore,
+                        peso_kg: o.peso_kg || 0,
+                        peso_sopra_kg: o.peso_sopra_kg || 0,
+                    };
+                }),
+            };
+            var datiPreview = _costruisciDatiPreviewOttimizzazione(risultatoPreview, pianoId);
+            _salvaSnapshotPreviewOttimizzazione(datiPreview);
+            renderizzaDati3D(datiPreview);
+            WS.treSceneLoaded = true;
+            pianoPreviewId = pianoId;
+            _setHeaderCaricoLabel('Anteprima ottimizzazione');
+        } else {
+            await caricaScena3D(pianoId);
+            var nomePianoAsync = WS.piani.find(function (p) { return p.id == pianoId; });
+            _setHeaderCaricoLabel(nomePianoAsync ? nomePianoAsync.nome : ('Piano #' + pianoId));
+        }
+        _refreshSidebarLineari();
+
+        if (completato) {
+            setStatus('success', 'Completato');
+            mostraTaskStatus('done', 'Completata');
+            showToast(salvaRisultato
+                ? '✅ Ottimizzazione completata e salvata!'
+                : '👁️ Preview elaborata! Clicca "Salva" per salvare il carico.', 'success');
+        } else if (statoFinale && (statoFinale.stato === 'errore' || statoFinale.stato === 'fallito')) {
+            setStatus('error', 'Errore');
+            mostraTaskStatus('fail', 'Elaborazione non riuscita');
+            showToast('❌ ' + ((statoFinale && statoFinale.messaggio_errore) || 'Elaborazione non riuscita.'), 'error');
+        } else {
+            setStatus('idle', 'Parziale');
+            mostraTaskStatus('fail', 'Parziale');
+            showToast('⚠️ Risultato parziale: i rimanenti oggetti non trovano spazio nel contenitore.', 'warning');
+        }
+
+        // Il grafico pesi NON si apre da solo dopo l'ottimizzazione: resta
+        // chiuso e si apre solo premendo l'apposito bottone (che fa anche toggle).
+        nascondiDistribuzionePesi();
+        // Mostra le soluzioni alternative (es. Monte Carlo) se il backend le ha prodotte.
+        if (statoFinale && Array.isArray(statoFinale.soluzioni_alternative) && statoFinale.soluzioni_alternative.length) {
+            mostraSoluzioniAlternative(statoFinale.soluzioni_alternative);
+        } else {
+            nascondiSoluzioniAlternative();
+        }
+
     } catch (error) {
         console.error('Errore ottimizzazione:', error);
         showToast('❌ Errore: ' + error.message, 'error');

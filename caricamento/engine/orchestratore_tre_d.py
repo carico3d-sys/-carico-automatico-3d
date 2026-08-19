@@ -34,6 +34,7 @@ from .common import (
     _genera_colore_da_oggetto,
 )
 from .tre_d import TreDPacker
+from .tre_d.constants import OPTIMIZATION_TIME_BUDGET_SECONDS
 
 
 def _piano_e_parziale(oggetti_richiesti: int, oggetti_posizionati: int) -> bool:
@@ -50,6 +51,7 @@ def esegui_ottimizzazione_tre_d(
     piano_id: int,
     config: Optional[ConfigurazioneOttimizzazione] = None,
     salva_risultato: bool = True,
+    budget_seconds: float = OPTIMIZATION_TIME_BUDGET_SECONDS,
 ) -> OptimizerResult:
     """Esegue l'ottimizzazione con TreDPacker.
 
@@ -124,6 +126,7 @@ def esegui_ottimizzazione_tre_d(
         configurazione=config,
         vincoli_tra_lookup=vincoli_tra_lookup,
         sezioni=sezioni,
+        budget_seconds=budget_seconds,
     )
     _popola_tre_d(packer, oggetti_da_caricare)
 
@@ -153,6 +156,12 @@ def esegui_ottimizzazione_tre_d(
     volume_totale = sum(
         r.dimensione_x_mm * r.dimensione_y_mm * r.dimensione_z_mm
         for r in packer.results
+    )
+    alternative_raw = getattr(packer, "soluzioni_alternative", None)
+    soluzioni_alternative = (
+        list(alternative_raw)
+        if isinstance(alternative_raw, (list, tuple))
+        else []
     )
 
     if salva_risultato:
@@ -221,13 +230,53 @@ def esegui_ottimizzazione_tre_d(
         saturazione_percentuale=round(saturazione, 1),
         metriche=metriche,
         messaggio=(
-            f"Piano parziale: {len(packer.results)} di "
-            f"{oggetti_richiesti} oggetti posizionati."
+            f"Parziale: {len(packer.results)} di {oggetti_richiesti} oggetti "
+            f"posizionati: i rimanenti non trovano spazio nel contenitore."
             if piano_parziale else
             f"Completato: {len(packer.results)} oggetti posizionati."
         ),
         report_priorita=report_priorita,
+        telemetria=getattr(packer, "telemetria", None),
+        soluzioni_alternative=soluzioni_alternative,
     )
+
+
+def stima_ops_piano(piano) -> int:
+    """Stima il numero di operazioni di piazzamento (``ops``) di un piano.
+
+    ``ops`` = somma di (quantità × orientamenti consentiti) per ogni oggetto
+    nella lista del piano. È la stessa metrica calcolata da ``TreDPacker``
+    durante l'esecuzione, qui riusata a monte per decidere sync vs async.
+    """
+    from .common import conteggio_orientazioni
+
+    ops = 0
+    entries = OggettoDaCaricare.objects.filter(
+        piano_di_carico=piano
+    ).select_related("oggetto__vincoli")
+    for entry in entries:
+        oggetto = entry.oggetto
+        try:
+            vincoli = oggetto.vincoli
+        except VincoloOggetto.DoesNotExist:
+            vincoli = None
+
+        orientation_allowed = vincoli.rotazione_consentita if vincoli else True
+        rot_x = vincoli.rotazione_su_x if vincoli else True
+        rot_y = vincoli.rotazione_su_y if vincoli else True
+        rot_z = vincoli.rotazione_su_z if vincoli else True
+
+        orientamenti = conteggio_orientazioni(
+            oggetto.lunghezza_mm / 10.0,
+            oggetto.larghezza_mm / 10.0,
+            oggetto.altezza_mm / 10.0,
+            orientation_allowed,
+            rot_x,
+            rot_y,
+            rot_z,
+        )
+        ops += max(0, int(entry.quantita or 0)) * orientamenti
+    return ops
 
 
 def _popola_tre_d(packer, oggetti_da_caricare) -> None:

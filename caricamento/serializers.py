@@ -418,9 +418,12 @@ class ConfigurazioneOttimizzazioneSerializer(serializers.Serializer):
 class AvviaOttimizzazioneSerializer(serializers.Serializer):
     """Serializzatore per l'endpoint di avvio ottimizzazione."""
     asincrono = serializers.BooleanField(
-        default=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="Se True, esegue in coda asincrona (Django Q2). "
-                  "Se False, esegue in tempo reale (solo per test).",
+                  "Se False, esegue in tempo reale. "
+                  "Se omesso/null, il backend decide in base alla stima dei tempi.",
     )
     salva_risultato = serializers.BooleanField(
         default=True,

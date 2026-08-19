@@ -477,33 +477,33 @@ def _self_constraints_valid(solution: Sequence, constraints: Optional[dict]) -> 
     return True
 
 
-def _compactness_key(solution: Sequence) -> Tuple[float, int, int, int]:
+def _compactness_key(solution: Sequence) -> Tuple[float, int, float, int, int, int]:
     """Calcola una misura CPU-leggera della regolarità geometrica.
 
     La misura è volutamente locale al deterministico: non cambia il criterio
-    usato da Monte Carlo o v3. Per ogni piano ``(X, Z)`` considera gli
-    intervalli occupati su Y e somma i vuoti interni tra intervalli adiacenti.
-    A parità di vuoti, penalizza le fasce Y e le orientazioni differenti.
+    usato da Monte Carlo o v3. Misura i vuoti interni in Y (dentro ogni sezione
+    X,Z) e in X (dentro ogni sezione Y,Z), oltre alla frammentazione, alla
+    varietà di orientamenti e alle fasce Y.
 
     Restituisce valori da minimizzare:
-    ``(vuoti_y, frammentazione_y, orientamenti, fasce_y)``.
+    ``(vuoti_y, frammentazione_y, vuoti_x, frammentazione_x, orientamenti, fasce_y)``.
     """
     fitted = [obj for obj in solution if getattr(obj, "z", -1) >= 0]
     if not fitted:
-        return (0, 0, 0, 0)
+        return (0, 0, 0, 0, 0, 0)
 
     # Gli oggetti con la stessa X e Z condividono una sezione del carico.
     # L'arrotondamento evita che piccoli errori floating creino fasce fantasma.
-    sezioni = {}
+    sezioni_y = {}
     for obj in fitted:
         key = (round(obj.x, 3), round(obj.z, 3))
-        sezioni.setdefault(key, []).append(
+        sezioni_y.setdefault(key, []).append(
             (round(obj.y, 3), round(obj.y + obj.depth, 3))
         )
 
     vuoti_y = 0
     frammentazione_y = 0
-    for intervalli in sezioni.values():
+    for intervalli in sezioni_y.values():
         intervalli.sort()
         ultimo_fine = None
         for inizio, fine in intervalli:
@@ -511,6 +511,29 @@ def _compactness_key(solution: Sequence) -> Tuple[float, int, int, int]:
                 if inizio > ultimo_fine:
                     vuoti_y += round(inizio - ultimo_fine, 3)
                     frammentazione_y += 1
+                ultimo_fine = max(ultimo_fine, fine)
+            else:
+                ultimo_fine = fine
+
+    # Simmetrico al caso Y: vuoti in X dentro ogni sezione (Y, Z). Cattura i
+    # buchi laterali (es. la metà destra di un basamento largo lasciata vuota).
+    sezioni_x = {}
+    for obj in fitted:
+        key = (round(obj.y, 3), round(obj.z, 3))
+        sezioni_x.setdefault(key, []).append(
+            (round(obj.x, 3), round(obj.x + obj.width, 3))
+        )
+
+    vuoti_x = 0
+    frammentazione_x = 0
+    for intervalli in sezioni_x.values():
+        intervalli.sort()
+        ultimo_fine = None
+        for inizio, fine in intervalli:
+            if ultimo_fine is not None:
+                if inizio > ultimo_fine:
+                    vuoti_x += round(inizio - ultimo_fine, 3)
+                    frammentazione_x += 1
                 ultimo_fine = max(ultimo_fine, fine)
             else:
                 ultimo_fine = fine
@@ -536,7 +559,7 @@ def _compactness_key(solution: Sequence) -> Tuple[float, int, int, int]:
     # righe perfettamente contigue. Conserviamo il dato solo diagnostico;
     # l'accettazione usa i vuoti reali e le orientazioni miste.
     fasce_y = len({round(obj.y, 3) for obj in fitted})
-    return (vuoti_y, frammentazione_y, orientamenti, fasce_y)
+    return (vuoti_y, frammentazione_y, vuoti_x, frammentazione_x, orientamenti, fasce_y)
 
 
 def _score(solution, container_dim, all_objects):
@@ -553,13 +576,22 @@ def _score(solution, container_dim, all_objects):
     # miste per lo stesso codice restano invece un criterio di regolarità
     # prima di X.
     priority_vector, fitted_count, _old_max_x, _old_singles = base
-    vuoti_y, frammentazione_y, orientamenti, _fasce_y = _compactness_key(fitted)
+    (
+        vuoti_y,
+        frammentazione_y,
+        vuoti_x,
+        frammentazione_x,
+        orientamenti,
+        _fasce_y,
+    ) = _compactness_key(fitted)
     max_x = max((obj.x + obj.width for obj in fitted), default=0)
     return (
         priority_vector,
         fitted_count,
         -vuoti_y,
         -frammentazione_y,
+        -vuoti_x,
+        -frammentazione_x,
         -orientamenti,
         -max_x,
         _old_singles,
@@ -572,6 +604,8 @@ def optimize_deterministic_groups(
     container_dim: tuple,
     tracker=None,
     compattazione_aggressiva: bool = False,
+    deadline: Optional[float] = None,
+    telemetria: Optional[dict] = None,
 ) -> List:
     """Esegue il 3D deterministico e valuta blocchi ruotati promettenti.
 
@@ -589,6 +623,7 @@ def optimize_deterministic_groups(
         container_dim=container_dim,
         tracker=base_tracker,
         compattazione_aggressiva=compattazione_aggressiva,
+        deadline=deadline,
     )
     best_score = _score(best_solution, container_dim, source)
     best_tracker = base_tracker
@@ -630,6 +665,7 @@ def optimize_deterministic_groups(
             tracker=candidate_tracker,
             preserve_order=True,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
         fitted_candidate, _ = filter_unfitted(candidate_solution)
         constraint_report = valida_vincoli_sopra(
@@ -721,6 +757,7 @@ def optimize_deterministic_groups(
                 tracker=candidate_tracker,
                 preserve_order=True,
                 compattazione_aggressiva=compattazione_aggressiva,
+                deadline=deadline,
             )
             if not _has_spatial_block(
                 candidate_solution,
@@ -751,6 +788,17 @@ def optimize_deterministic_groups(
                     original_dims[2],
                     rotated_count,
                 )
+
+    if telemetria is not None:
+        telemetria["passate_max"] = 1 + MAX_GROUP_TRIALS
+        telemetria["passate_eseguite"] = 1 + trials
+        telemetria.setdefault("tempo_per_passata_s", [])
+        placed_count = len(filter_unfitted(best_solution)[0])
+        telemetria["motivo_stop"] = (
+            "soluzione_completa"
+            if placed_count >= len(objects)
+            else "max_tentativi"
+        )
 
     _restore_tracker(tracker, best_tracker)
     _copy_solution_state(best_solution, objects)

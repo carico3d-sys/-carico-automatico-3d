@@ -17,6 +17,8 @@ import random
 import time
 from typing import Dict, List, Optional, Tuple
 
+from .constants import EARLY_STOP_STALL
+from .group_optimizer import optimize_deterministic_groups
 from .packer_3d_v2 import (
     Obj,
     filter_unfitted,
@@ -298,6 +300,7 @@ def _valuta_soluzione(
 def _prova_a_piazzare_ovunque(
     obj: Obj, placed: List[Obj], container_dim: tuple,
     vincoli_sopra: dict, compattazione_aggressiva: bool = False,
+    deadline: Optional[float] = None,
 ) -> bool:
     """Prova a piazzare obj in TUTTE le posizioni candidate (pavimento, colonne)."""
     cw, cd, ch = container_dim
@@ -307,6 +310,8 @@ def _prova_a_piazzare_ovunque(
     x_candidates = [x for x in x_candidates if cw is None or x + obj.width <= cw]
 
     for try_x in x_candidates:
+        if deadline is not None and time.monotonic() >= deadline:
+            return False
         # Posizioni Y candidate a questo X
         y_candidates = sorted(set([0] + [
             o.y + o.depth for o in placed
@@ -326,6 +331,8 @@ def _prova_a_piazzare_ovunque(
     # allineamenti traslati attorno alla base, usando la stessa regola del
     # percorso principale v2.
     for base in placed:
+        if deadline is not None and time.monotonic() >= deadline:
+            return False
         z_top = base.z + base.height
         if ch is not None and z_top + obj.height > ch:
             continue
@@ -352,6 +359,7 @@ def _backtracking_ricorsivo(
     placed: List[Obj], all_objects: List[Obj], container_dim: tuple,
     vincoli_sopra: dict, depth: int = 0, max_depth: int = 2,
     compattazione_aggressiva: bool = False,
+    deadline: Optional[float] = None,
 ) -> List[Obj]:
     """Backtracking ricorsivo con deferimento simulato.
 
@@ -372,6 +380,9 @@ def _backtracking_ricorsivo(
     if depth >= max_depth:
         return placed
 
+    if deadline is not None and time.monotonic() >= deadline:
+        return placed
+
     buchi = _trova_buchi_verticali(placed, container_dim)
     if not buchi:
         return placed
@@ -388,6 +399,8 @@ def _backtracking_ricorsivo(
     )
 
     for buco in buchi[:2]:  # esplora fino a 2 buchi
+        if deadline is not None and time.monotonic() >= deadline:
+            break
         # Trova l'oggetto SOTTO il buco (il "colpevole")
         colpevole = None
         for o in best_placed:
@@ -438,6 +451,8 @@ def _backtracking_ricorsivo(
                 candidati.append(cand)
 
         for cand in candidati:
+            if deadline is not None and time.monotonic() >= deadline:
+                break
             is_unfitted = cand.id in unfitted_ids
             # Rimuovi il candidato dalla sua posizione corrente (se piazzato)
             test_resto = (
@@ -462,6 +477,7 @@ def _backtracking_ricorsivo(
                 if _prova_a_piazzare_ovunque(
                     rimosso, test_placed, container_dim, vincoli_sopra,
                     compattazione_aggressiva=compattazione_aggressiva,
+                    deadline=deadline,
                 ):
                     test_placed.append(rimosso)
 
@@ -470,6 +486,7 @@ def _backtracking_ricorsivo(
                     test_placed, all_objects, container_dim, vincoli_sopra,
                     depth + 1, max_depth,
                     compattazione_aggressiva=compattazione_aggressiva,
+                    deadline=deadline,
                 )
 
                 score = _valuta_soluzione(
@@ -495,6 +512,8 @@ def optimize_solution_v3(
     compattazione_aggressiva: bool = False,
     random_mode: bool = False,
     deadline: Optional[float] = None,
+    telemetria: Optional[dict] = None,
+    stall_limit: int = EARLY_STOP_STALL,
 ) -> List[Obj]:
     """Backtracking a blocchi con rilevazione buchi 3D.
 
@@ -505,26 +524,55 @@ def optimize_solution_v3(
     if vincoli_sopra is None:
         vincoli_sopra = {}
 
+    if telemetria is not None:
+        telemetria["passate_max"] = 1 + max(0, int(iterations))
+        telemetria["passate_eseguite"] = 0
+        telemetria.setdefault("tempo_per_passata_s", [])
+        telemetria["motivo_stop"] = "max_tentativi"
+
     def _fresh_tracker():
         if tracker is not None:
             from ..sezione_weight_tracker import SezioneWeightTracker
             return SezioneWeightTracker(tracker.sezioni)
         return None
 
-    # Iterazione 0: ordine standard
+    # Iterazione 0: baseline deterministico con blocchi ruotati (group
+    # optimizer). È ciò che satura al massimo i carichi omogenei (es. un solo
+    # tipo con rotazione): MC/V3 partono da qui e provano a migliorare lo
+    # score solo se il tempo lo consente.
+    t0 = time.monotonic()
     original_objects = copy.deepcopy(objects)
-    best_solution = load_truck_v2(
-        original_objects, vincoli_sopra,
-        container_dim=container_dim, tracker=_fresh_tracker(),
-        preserve_order=False,
+    best_solution = optimize_deterministic_groups(
+        original_objects,
+        constraints=vincoli_sopra,
+        container_dim=container_dim,
+        tracker=_fresh_tracker(),
         compattazione_aggressiva=compattazione_aggressiva,
+        deadline=deadline,
     )
-    # Backtracking ricorsivo sulla soluzione base
+    if telemetria is not None:
+        telemetria["passate_eseguite"] += 1
+        telemetria["tempo_per_passata_s"].append(round(time.monotonic() - t0, 3))
+
+    # Early-stop: la passata base (group optimizer) ha già piazzato tutti gli
+    # oggetti. Il punteggio è già massimo e né il backtracking ricorsivo né le
+    # iterazioni successive possono aggiungere istanze: saltarli evita di
+    # bruciare l'intero budget (90s nell'asincrono) su lavoro inutile, che è
+    # ciò che faceva sembrare "piantato" Ottimizza e Salva rispetto a Elabora.
+    best_placed, _ = filter_unfitted(best_solution)
+    if len(best_placed) >= len(objects):
+        if telemetria is not None:
+            telemetria["motivo_stop"] = "soluzione_completa"
+        return best_solution
+
+    # Backtracking ricorsivo sulla soluzione base (solo se ancora incompleta)
     if container_dim and not random_mode:
         best_solution = _backtracking_ricorsivo(
             best_solution, original_objects, container_dim, vincoli_sopra,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
+
     best_score = _valuta_soluzione(
         best_solution, container_dim, all_objects=objects
     )
@@ -552,12 +600,17 @@ def optimize_solution_v3(
 
     strategie = strategie[:iterations]
 
+    stall_count = 0
+    motivo_stop = "max_tentativi"
+
     for strategia, arg in strategie:
         # Time-budget: interrompe l'esplorazione quando la scadenza è stata
         # superata, conservando la migliore soluzione trovata finora.
         if deadline is not None and time.monotonic() >= deadline:
+            motivo_stop = "deadline"
             break
 
+        t_iter = time.monotonic()
         fresh_objects = copy.deepcopy(objects)
 
         if strategia == 'coda':
@@ -576,6 +629,7 @@ def optimize_solution_v3(
             container_dim=container_dim, tracker=_fresh_tracker(),
             preserve_order=True,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
 
         # VERO BACKTRACKING RICORSIVO
@@ -583,27 +637,51 @@ def optimize_solution_v3(
             new_solution = _backtracking_ricorsivo(
                 new_solution, candidate, container_dim, vincoli_sopra,
                 compattazione_aggressiva=compattazione_aggressiva,
+                deadline=deadline,
+            )
+
+        if telemetria is not None:
+            telemetria["passate_eseguite"] += 1
+            telemetria["tempo_per_passata_s"].append(
+                round(time.monotonic() - t_iter, 3)
             )
 
         new_score = _valuta_soluzione(
             new_solution, container_dim, all_objects=objects
         )
 
-        if new_score >= best_score:
+        if new_score > best_score:
             best_solution = new_solution
             best_score = new_score
+            stall_count = 0
+        else:
+            stall_count += 1
+
+        best_placed, _ = filter_unfitted(best_solution)
+        if len(best_placed) >= len(objects):
+            motivo_stop = "soluzione_completa"
+            break
+        if stall_count >= max(1, int(stall_limit)):
+            motivo_stop = "convergente"
+            break
 
     # Backtracking ricorsivo finale
     if container_dim and not random_mode:
         if deadline is not None and time.monotonic() >= deadline:
+            if telemetria is not None:
+                telemetria["motivo_stop"] = motivo_stop
             return best_solution
         best_solution = _backtracking_ricorsivo(
             best_solution, list(objects), container_dim, vincoli_sopra,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
         # Il backtracking finale può aver mutato la soluzione scelta; il
         # confronto è già stato protetto dallo scoring lessicografico, quindi
         # non la sostituiamo con una soluzione peggiore senza rivalutazione.
+
+    if telemetria is not None:
+        telemetria["motivo_stop"] = motivo_stop
 
     return best_solution
 
@@ -620,6 +698,7 @@ def run_packing_v3(
     tracker=None,
     compattazione_aggressiva: bool = False,
     deadline: Optional[float] = None,
+    telemetria: Optional[dict] = None,
 ) -> List[Obj]:
     """Entry point per optimizer v3 (singola esecuzione)."""
     return optimize_solution_v3(
@@ -630,6 +709,7 @@ def run_packing_v3(
         tracker=tracker,
         compattazione_aggressiva=compattazione_aggressiva,
         deadline=deadline,
+        telemetria=telemetria,
     )
 
 

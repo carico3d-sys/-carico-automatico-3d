@@ -75,6 +75,11 @@ from .serializers import (
     VincoloTraOggettiSerializer,
 )
 from .tasks import accoda_ottimizzazione, esegui_ottimizzazione_sincrona
+from .engine.orchestratore_tre_d import stima_ops_piano
+from .engine.tre_d.constants import (
+    OPTIMIZATION_TIME_BUDGET_ASYNC_SECONDS,
+    OPTIMIZATION_TIME_BUDGET_SECONDS,
+)
 
 
 # ===========================================================================
@@ -435,6 +440,19 @@ def homepage(request):
         "demo_attiva": imp.demo_attiva,
         "switch_account": switch_account,
     })
+
+
+def check_username(request):
+    """Endpoint JSON per il form login/registrazione della landing.
+
+    Restituisce {"exists": true/false}: il frontend usa il risultato per
+    mostrare il campo "Conferma password" solo quando lo username non esiste
+    ancora (registrazione) e renderlo opaco/opzionale per l'accesso a un
+    account esistente.
+    """
+    username = (request.GET.get("username") or "").strip()
+    exists = bool(username) and User.objects.filter(username=username).exists()
+    return JsonResponse({"exists": exists})
 
 
 def logout_completo(request):
@@ -905,9 +923,22 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             logger.warning("OTTIMIZZA validazione fallita — errori=%s", serializer.errors)
             raise ValidationError(serializer.errors)
         validated = serializer.validated_data
-        asincrono = validated["asincrono"]
+        asincrono = validated.get("asincrono")  # None = decisione automatica
         salva_risultato = validated["salva_risultato"]
         config = validated.get("config", None)  # dict o None
+
+        # Stima del costo (ops = quantità × orientamenti) per decidere
+        # sync/async: i carichi pesanti finiscono in coda per non sforare
+        # il timeout del browser.
+        ops = stima_ops_piano(piano)
+        ms_per_op = float(getattr(settings, "OPTIMIZZATORE_MS_PER_OP", 20.0))
+        soglia_sync_s = float(getattr(settings, "OPTIMIZZATORE_SOGLIA_SYNC_S", 15.0))
+        tempo_stimato_s = (ops * ms_per_op) / 1000.0
+
+        if asincrono is None:
+            asincrono = bool(
+                salva_risultato and tempo_stimato_s > soglia_sync_s
+            )
 
         if asincrono and not salva_risultato:
             raise ValidationError(
@@ -916,7 +947,11 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
 
         if asincrono:
             # Task asincrono via Django Q2
-            task_id = accoda_ottimizzazione(piano.id, config=config)
+            task_id = accoda_ottimizzazione(
+                piano.id,
+                config=config,
+                budget_seconds=OPTIMIZATION_TIME_BUDGET_ASYNC_SECONDS,
+            )
 
             piano.task_id = task_id
             piano.stato = StatoPiano.IN_ELABORAZIONE
@@ -928,6 +963,9 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                     "piano_id": piano.id,
                     "task_id": task_id,
                     "config_applicata": config is not None,
+                    "asincrono": True,
+                    "ops": ops,
+                    "tempo_stimato_s": round(tempo_stimato_s, 2),
                     "messaggio": (
                         f"Ottimizzazione avviata in coda asincrona. "
                         f"Task ID: {task_id}"
@@ -941,6 +979,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 piano.id,
                 config=config,
                 salva_risultato=salva_risultato,
+                budget_seconds=OPTIMIZATION_TIME_BUDGET_SECONDS,
             )
 
             # Ricarica il piano per dati aggiornati
@@ -968,7 +1007,31 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             if risultato.get("soluzioni_alternative"):
                 response_data["soluzioni_alternative"] = risultato["soluzioni_alternative"]
 
+            # Telemetria (ops, passate, tempi, motivo di stop)
+            if risultato.get("telemetria"):
+                response_data["telemetria"] = risultato["telemetria"]
+
             return Response(response_data, status=status.HTTP_200_OK)
+
+    def _soluzioni_alternative_transitorie(self, piano):
+        """Legge le alternative dal risultato del task asincrono.
+
+        Le alternative NON sono più persistite sul piano (sono sempre
+        temporanee): per il polling del frontend vengono lette dal risultato
+        del task Django Q2 associato al piano (``piano.task_id``).
+        """
+        if not piano.task_id:
+            return []
+        try:
+            from django_q.models import Task
+            task = Task.objects.filter(id=piano.task_id).first()
+            if task and task.success:
+                risultato = task.result
+                if isinstance(risultato, dict):
+                    return risultato.get("soluzioni_alternative") or []
+        except Exception:
+            pass
+        return []
 
     @action(detail=True, methods=["get"])
     def stato(self, request, pk=None):
@@ -991,6 +1054,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 "peso_totale_kg": piano.peso_totale_kg,
                 "completato_at": piano.completato_at,
                 "messaggio_errore": piano.messaggio_errore,
+                "soluzioni_alternative": self._soluzioni_alternative_transitorie(piano),
             }
         )
 
@@ -1447,6 +1511,15 @@ COLORI_CATALOG = {
     "slider-track-start", "slider-track", "slider-thumb", "strategia-thumb",
 }
 
+# Chiavi consentite per la sezione "header" del config icone (altezze in px).
+HEADERI_CATALOG = {
+    "sidebar-tabs", "panel-destro",
+    "pv-list-header", "pv-list-articoli", "pv-list-trasporti",
+    "pv-list-impostazioni",
+    "pv-form-header", "pv-form-articoli", "pv-form-vincoli",
+    "pv-form-trasporti", "pv-form-impostazioni",
+}
+
 
 def _normalizza_nome_file_icona(nome):
     """Restituisce il nome PNG nello stesso formato usato dall'upload."""
@@ -1518,10 +1591,10 @@ def api_icone_config(request):
         if not isinstance(data, dict):
             return _json_api_error(request, "Il payload deve essere un oggetto JSON.", 400, "invalid_payload")
 
-        if "config" not in data and "bottoni" not in data and "colori" not in data:
+        if "config" not in data and "bottoni" not in data and "colori" not in data and "header" not in data:
             return _json_api_error(
                 request,
-                "Campi 'config', 'bottoni' o 'colori' richiesti.",
+                "Campi 'config', 'bottoni', 'colori' o 'header' richiesti.",
                 400,
                 "validation_error",
             )
@@ -1535,6 +1608,8 @@ def api_icone_config(request):
             data["bottoni"] = existing.get("bottoni", {})
         if "colori" not in data:
             data["colori"] = existing.get("colori", {})
+        if "header" not in data:
+            data["header"] = existing.get("header", {})
 
         # L'upload sostituisce gli spazi con underscore: applica la stessa
         # normalizzazione anche ai nomi digitati nella tabella, evitando 400
@@ -1580,6 +1655,20 @@ def api_icone_config(request):
                 if isinstance(value, str) and hex_color_re.match(value.strip()):
                     colori_validi[key] = value.strip().lower()
             data["colori"] = colori_validi
+
+        # Sanitizzazione altezze header: solo chiavi del catalogo, interi
+        # clampati nell'intervallo consentito (20-120 px).
+        header = data.get("header")
+        if isinstance(header, dict):
+            header_validi = {}
+            for key, value in header.items():
+                if key not in HEADERI_CATALOG:
+                    continue
+                try:
+                    header_validi[key] = max(20, min(120, int(value)))
+                except (TypeError, ValueError):
+                    continue
+            data["header"] = header_validi
 
         # Validazione: i file PNG referenziati devono esistere nella cartella img
         mancanti = _verifica_file_icone_esistono(data)

@@ -714,21 +714,6 @@
     background: var(--color-white);
 }
 
-/* Toolbar panel view */
-#panel-view-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 16px;
-    background: var(--color-header);
-    flex-shrink: 0;
-}
-
-#panel-view-toolbar .pv-back-link {
-    color: rgba(255,255,255,0.8);
-    font-weight: 500;
-}
-#panel-view-toolbar .pv-back-link:hover { color: #fff; text-decoration: none; }
-
 #panel-view-split {
     flex: 1;
     display: flex;
@@ -920,7 +905,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 0 16px;
+    min-height: var(--header-pv-list-h, 45px);
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
     background: #fafafa;
@@ -930,6 +916,18 @@
     font-size: 14px;
     font-weight: 700;
     color: var(--color-sidebar-active);
+}
+
+/* Altezza header lista per-vista: il data-view su #panel-view permette di
+   differenziare le finestre che condividono lo stesso .pv-list-header. */
+#panel-view[data-view="oggetti"] .pv-list-header {
+    min-height: var(--header-pv-list-articoli-h, 45px);
+}
+#panel-view[data-view="mezzi"] .pv-list-header {
+    min-height: var(--header-pv-list-trasporti-h, 45px);
+}
+#panel-view[data-view="impostazioni"] .pv-list-header {
+    min-height: var(--header-pv-list-impostazioni-h, 45px);
 }
 
 .pv-list-body {
@@ -1003,7 +1001,8 @@
 }
 
 .pv-form-header {
-    padding: 12px 16px;
+    padding: 0 16px;
+    min-height: var(--header-pv-form-h, 45px);
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
     background: #fafafa;
@@ -1016,6 +1015,18 @@
     font-size: 13px;
     font-weight: 600;
     color: #555;
+}
+
+/* Altezza header form per-vista: il data-view su #panel-view permette di
+   differenziare le finestre che condividono lo stesso .pv-form-header. */
+#panel-view[data-view="oggetti"] .pv-form-header {
+    min-height: var(--header-pv-form-articoli-h, 45px);
+}
+#panel-view[data-view="mezzi"] .pv-form-header {
+    min-height: var(--header-pv-form-trasporti-h, 45px);
+}
+#panel-view[data-view="impostazioni"] .pv-form-header {
+    min-height: var(--header-pv-form-impostazioni-h, 45px);
 }
 
 .pv-form-body {
@@ -1034,16 +1045,4 @@
 .pv-form-body .btn-block {
     align-self: stretch;
 }
-
-.pv-back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--color-accent);
-    cursor: pointer;
-    text-decoration: none;
-    padding: 4px 0;
-}
-.pv-back-link:hover { text-decoration: underline; }
 

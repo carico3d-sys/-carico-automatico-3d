@@ -101,11 +101,42 @@ class OptimizerResult:
     metriche: Optional[Dict] = None
     soluzioni_alternative: List[dict] = field(default_factory=list)
     report_priorita: Optional[Dict] = None
+    telemetria: Optional[Dict] = None
 
 
 # ---------------------------------------------------------------------------
 # Funzioni helper condivise
 # ---------------------------------------------------------------------------
+
+def conteggio_orientazioni(
+    width: float,
+    depth: float,
+    height: float,
+    orientation_allowed: bool,
+    rot_su_x: bool,
+    rot_su_y: bool,
+    rot_su_z: bool,
+) -> int:
+    """Numero di orientamenti distinti provati dal packer per un oggetto.
+
+    Replica la costruzione delle permutazioni di ``_prova_tutte_orientazioni``
+    in ``packer_3d_v2.py``: serve per stimare il numero di tentativi di
+    piazzamento (``ops``) di un piano senza eseguire il packing.
+    """
+    if not orientation_allowed:
+        return 1
+    permutazioni = [(width, depth, height)]
+    if rot_su_z:
+        permutazioni.append((depth, width, height))
+    if rot_su_x:
+        permutazioni.append((width, height, depth))
+    if rot_su_y:
+        permutazioni.append((height, depth, width))
+    if rot_su_x and rot_su_y and rot_su_z:
+        permutazioni.append((depth, height, width))
+        permutazioni.append((height, width, depth))
+    return len(set(permutazioni))
+
 
 def _genera_colore_da_oggetto(oggetto_id: int, colore_personalizzato: str = "") -> str:
     if colore_personalizzato and colore_personalizzato.strip():

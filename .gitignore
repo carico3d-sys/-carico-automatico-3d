@@ -27,6 +27,11 @@ staticfiles/
 docker-compose.override.yml
 backups/
 
+# === Report non versionati ===
+cpu_locale.txt
+spatial_indexing.txt
+riempimento_buchi.txt
+
 # === Deploy locale ===
 .env.bak
 

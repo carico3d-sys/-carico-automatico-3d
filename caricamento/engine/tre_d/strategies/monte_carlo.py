@@ -20,7 +20,9 @@ class MonteCarloStrategy(PackingStrategy):
         tracker=None,
         compattazione_aggressiva=False,
         deadline=None,
+        telemetria=None,
     ):
+        self.telemetria = telemetria
         return run_packing_random(
             objects,
             vincoli_sopra=constraints,
@@ -29,4 +31,5 @@ class MonteCarloStrategy(PackingStrategy):
             tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
             deadline=deadline,
+            telemetria=telemetria,
         )

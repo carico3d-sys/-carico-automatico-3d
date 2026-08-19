@@ -89,6 +89,9 @@ function mostraPanelView(viewType) {
 
     DOM.viewport3d.style.display = 'none';
     DOM.panelView.style.display = 'flex';
+    // Marca la vista corrente per permettere altezze header per-vista
+    // (Gestione Icone → tab Header) tramite selettori CSS scoped.
+    DOM.panelView.setAttribute('data-view', viewType);
     switch (viewType) {
         case 'mezzi': renderMezziPanel(); break;
         case 'oggetti': renderOggettiPanel(); break;
@@ -998,8 +1001,19 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
         if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         WS.activePianoId = pianoId;
         if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = false;
+        // Invalida i dati del grafico in modo che vengano scaricati per il piano appena caricato
+        _ultimaDistribuzionePesi = null;
+        _distribuzionePesiPianoId = null;
+        if (window.distribuzionePesoChart) {
+            window.distribuzionePesoChart.destroy();
+            window.distribuzionePesoChart = null;
+        }
+        // Pulisce anche il contenuto della lista sezioni-pesi per evitare dati visivi obsoleti
+        var listPesi = document.getElementById('sezioni-pesi-list');
+        if (listPesi) listPesi.innerHTML = '';
         var mezzo = WS.contenitori.find(function (c) { return c.nome === p.container; });
-        if (mezzo) selezionaMezzo(mezzo.id);
+        // true = non invalidare il piano attivo, stiamo caricando un piano salvato
+        if (mezzo) selezionaMezzo(mezzo.id, true);
         caricaScena3D(pianoId);
         mostraViewport();
         showToast('Piano #' + pianoId + ' caricato.', 'info');

@@ -114,12 +114,6 @@ function inizializza() {
         DOM.btnPanelAdd.style.display = '';
     }
 
-    // --- Back button panel view ---
-    DOM.pvBtnBack.addEventListener('click', function () {
-        mostraViewport();
-        setActiveView('carico');
-    });
-
     // --- Azioni ottimizzazione automatica ---
     if (DOM.ottimizzaBtn) {
         DOM.ottimizzaBtn.addEventListener('click', function () {

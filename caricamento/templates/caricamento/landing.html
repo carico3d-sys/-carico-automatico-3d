@@ -107,6 +107,11 @@
         .login-submit:hover { background: linear-gradient(135deg,#5095b5,#447e9b); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(68,126,155,0.3); }
         .login-submit:active { transform: translateY(0); }
 
+        /* Campo "Conferma password": opaco/disabilitato quando lo username esiste */
+        #password-confirm-field { transition: opacity 0.2s ease; }
+        #password-confirm-field.confirm-hidden { opacity: 0.45; }
+        #password-confirm-field.confirm-hidden input { pointer-events: none; background: #eef1f4; }
+
         .demo-badge { text-align: center; margin-top: 20px; padding: 12px 16px; background: #f0f6fa; border: 1px solid #d0dde8; border-radius: 10px; }
         .demo-badge-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #888; margin-bottom: 4px; }
         .demo-badge-creds { font-family: 'SF Mono','Consolas','Monaco',monospace; font-size: 16px; font-weight: 700; color: var(--color-accent); letter-spacing: 1px; }
@@ -434,6 +439,60 @@ function makeContainer(l,w,h,px,py,pz){
     var d=new Date();d.setFullYear(d.getFullYear()+1);
     document.cookie='cb_fp='+fp+'; expires='+d.toUTCString()+'; path=/; SameSite=Lax';
   }catch(e){}
+})();
+</script>
+
+<!-- Toggle campo "Conferma password" in base all'esistenza dello username -->
+<script>
+(function () {
+    var usernameInput = document.getElementById('id_username');
+    var confirmField = document.getElementById('password-confirm-field');
+    var confirmInput = document.getElementById('id_password_confirm');
+    if (!usernameInput || !confirmField || !confirmInput) return;
+
+    var checkTimer = null;
+
+    function applyState(exists) {
+        if (exists) {
+            // Account esistente: accesso. La conferma password non serve.
+            confirmField.classList.add('confirm-hidden');
+            confirmInput.disabled = true;
+            confirmInput.removeAttribute('required');
+            confirmInput.value = '';
+        } else {
+            // Nuovo account: registrazione. Serve la conferma password.
+            confirmField.classList.remove('confirm-hidden');
+            confirmInput.disabled = false;
+            confirmInput.setAttribute('required', 'required');
+        }
+    }
+
+    function checkUsername() {
+        var u = (usernameInput.value || '').trim();
+        if (!u) {
+            // Stato neutro: campo visibile ma non obbligatorio.
+            confirmField.classList.remove('confirm-hidden');
+            confirmInput.disabled = false;
+            confirmInput.removeAttribute('required');
+            return;
+        }
+        fetch('/api/check-username/?username=' + encodeURIComponent(u), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (d) {
+                // Ignora risposte arrivate dopo un'altra digitazione.
+                if ((usernameInput.value || '').trim() !== u) return;
+                applyState(!!d.exists);
+            })
+            .catch(function () { /* in caso di errore non bloccare il form */ });
+    }
+
+    usernameInput.addEventListener('blur', checkUsername);
+    usernameInput.addEventListener('input', function () {
+        clearTimeout(checkTimer);
+        checkTimer = setTimeout(checkUsername, 350);
+    });
 })();
 </script>
 </body>

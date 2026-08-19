@@ -115,14 +115,14 @@ function _aggiornaColoreQtyOriginale(itemDiv) {
     var qtyOriginale = parseInt(itemDiv.dataset.qtyOriginale, 10) || 0;
     var qtyPosizionata = parseInt(itemDiv.querySelector('.panel-qty-input')?.value, 10) || 0;
 
+    // Il campo "Qtà rich." resta sempre visibile: se non è ancora stato
+    // impostato, lo allinea alla quantità piazzata invece di nasconderlo.
     if (!qtyOriginale) {
-        badge.classList.remove('qty-incompleta');
-        badge.style.background = 'transparent';
-        badge.style.borderColor = 'transparent';
-        badge.style.color = 'transparent';
-        return;
+        qtyOriginale = qtyPosizionata;
+        itemDiv.dataset.qtyOriginale = String(qtyPosizionata);
     }
 
+    badge.textContent = qtyOriginale;
     var incompleta = qtyPosizionata < qtyOriginale;
     badge.classList.toggle('qty-incompleta', incompleta);
     badge.style.background = incompleta ? '#f8d7da' : '#fff3cd';
@@ -130,6 +130,19 @@ function _aggiornaColoreQtyOriginale(itemDiv) {
     badge.style.color = incompleta ? '#842029' : '#856404';
     badge.title = 'Quantità richiesta: ' + qtyOriginale +
         (incompleta ? ' — quantità piazzata: ' + qtyPosizionata : '');
+}
+
+// Mantiene "Qtà rich." visibile e coerente con la quantità piazzata: quando
+// l'utente modifica la quantità, la richiesta viene allineata (mai cancellata),
+// così entrambe le colonne restano visibili e aggiornate.
+function _allineaQtyRichiesta(itemDiv) {
+    if (!itemDiv) return;
+    var qtyInput = itemDiv.querySelector('.panel-qty-input');
+    if (!qtyInput) return;
+    var qty = parseInt(qtyInput.value, 10);
+    if (isNaN(qty)) qty = 0;
+    itemDiv.dataset.qtyOriginale = String(qty);
+    _aggiornaColoreQtyOriginale(itemDiv);
 }
 
 function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
@@ -146,9 +159,8 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         // Modifica manuale: invalida l'eventuale preview automatica, perché
         // la quantità del pannello non coincide più con il risultato elaborato.
         if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
-        delete esistente.dataset.qtyOriginale;
-        var badgeOrig = esistente.querySelector('.panel-qty-originale');
-        if (badgeOrig) { badgeOrig.textContent = ''; badgeOrig.title = 'Quantità richiesta: —'; }
+        // Allinea la quantità richiesta a quella piazzata (mai nasconderla).
+        _allineaQtyRichiesta(esistente);
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
         if (qtyIniziale === 1) showToast('Quantità incrementata.', 'info');
@@ -176,9 +188,9 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     div.dataset.altezza = oggetto.altezza_mm;
     div.dataset.codice = oggetto.codice;
     div.dataset.priorita = '0';
-    if (qtyOriginale) div.dataset.qtyOriginale = qtyOriginale;
+    var qtyRichiesta = qtyOriginale || qtyIniziale;
+    div.dataset.qtyOriginale = String(qtyRichiesta);
     var coloreBar = (typeof coloreOggetto === 'function') ? coloreOggetto(oggetto) : (oggetto.colore || '#447e9b');
-    var badgeStyle = qtyOriginale ? '' : 'style="background:transparent;border-color:transparent;color:transparent;"';
     div.innerHTML =
         '<div class="panel-item-color" style="background:' + coloreBar + ';"></div>' +
         '<div class="panel-item-info">' +
@@ -187,7 +199,7 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         '</div>' +
         '<div class="panel-item-qty">' +
             '<input type="number" class="panel-qty-input" value="' + qtyIniziale + '" min="' + (qtyOriginale ? '0' : '1') + '" step="1">' +
-            '<span class="panel-qty-originale" ' + badgeStyle + ' title="Quantità richiesta: ' + (qtyOriginale || '—') + '">' + (qtyOriginale || '') + '</span>' +
+            '<span class="panel-qty-originale" title="Quantità richiesta: ' + qtyRichiesta + '">' + qtyRichiesta + '</span>' +
         '</div>' +
         '<div class="panel-item-prio">' +
             '<input type="number" class="panel-prio-input" value="0" min="0" step="1" title="Priorita carico (1 = massima)">' +
@@ -208,14 +220,9 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     });
     qtyInput.addEventListener('input', function () {
         if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
-        // Modifica manuale: pulisci qty originale
-        if (div.dataset.qtyOriginale) {
-            var badge = div.querySelector('.panel-qty-originale');
-            if (badge) { badge.textContent = ''; badge.title = 'Quantità richiesta: —'; }
-            delete div.dataset.qtyOriginale;
-            // Ripristina min=1 sul campo input
-            this.min = 1;
-        }
+        // Modifica manuale: allinea la quantità richiesta a quella piazzata
+        // (mai cancellarla, così entrambe le colonne restano visibili).
+        _allineaQtyRichiesta(div);
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
         if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
@@ -714,12 +721,7 @@ function chiudiEditorOggetto(itemDiv) {
                 }
             });
             qtyInput.addEventListener('input', function () {
-                if (itemDiv.dataset.qtyOriginale) {
-                    var badge = itemDiv.querySelector('.panel-qty-originale');
-                    if (badge) { badge.textContent = ''; badge.title = 'Quantità richiesta: —'; }
-                    delete itemDiv.dataset.qtyOriginale;
-                    this.min = 1;
-                }
+                _allineaQtyRichiesta(itemDiv);
                 aggiornaRiepilogoPanel();
                 aggiornaStatoPulsante();
             });
@@ -761,10 +763,9 @@ function chiudiEditorOggetto(itemDiv) {
 
 function ricostruisciItemPanel(itemDiv, oggetto, qty) {
     itemDiv._originalHTML = null;
-    var qtyOriginale = itemDiv.dataset.qtyOriginale || undefined;
+    var qtyOriginale = parseInt(itemDiv.dataset.qtyOriginale, 10) || qty;
     var priorita = parseInt(itemDiv.dataset.priorita) || 0;
     var coloreBar = (typeof coloreOggetto === 'function') ? coloreOggetto(oggetto) : (oggetto.colore || '#447e9b');
-    var badgeStyle2 = qtyOriginale ? '' : 'style="background:transparent;border-color:transparent;color:transparent;"';
     itemDiv.innerHTML =
         '<div class="panel-item-color" style="background:' + coloreBar + ';"></div>' +
         '<div class="panel-item-info">' +
@@ -772,8 +773,8 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
             '<span>' + formatCm(oggetto.lunghezza_mm) + '×' + formatCm(oggetto.larghezza_mm) + '×' + formatCm(oggetto.altezza_mm) + ' cm</span>' +
         '</div>' +
         '<div class="panel-item-qty">' +
-            '<input type="number" class="panel-qty-input" value="' + qty + '" min="' + (qtyOriginale ? '0' : '1') + '" step="1">' +
-            '<span class="panel-qty-originale" ' + badgeStyle2 + ' title="Quantità richiesta: ' + (qtyOriginale || '—') + '">' + (qtyOriginale || '') + '</span>' +
+            '<input type="number" class="panel-qty-input" value="' + qty + '" min="0" step="1">' +
+            '<span class="panel-qty-originale" title="Quantità richiesta: ' + qtyOriginale + '">' + qtyOriginale + '</span>' +
         '</div>' +
         '<div class="panel-item-prio">' +
             '<input type="number" class="panel-prio-input" value="' + priorita + '" min="0" step="1" title="Priorità carico (1 = massima)">' +
@@ -796,12 +797,7 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
         }
     });
     qtyInput.addEventListener('input', function () {
-        if (itemDiv.dataset.qtyOriginale) {
-            var badge = itemDiv.querySelector('.panel-qty-originale');
-            if (badge) { badge.textContent = ''; badge.title = 'Quantità richiesta: —'; }
-            delete itemDiv.dataset.qtyOriginale;
-            this.min = 1;
-        }
+        _allineaQtyRichiesta(itemDiv);
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
         if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
@@ -931,20 +927,6 @@ async function popolaPanelDaPiano(pianoId) {
             prioSalvate[odc.codice] = odc.priorita || 0;
         });
 
-        // Prima di svuotare: salva l'ordine di inserimento originale (ordine utente)
-        // e le quantità dai dati salvati
-        var qtyOriginali = {};
-        var ordineInserimento = [];
-        DOM.panelItemsList.querySelectorAll('.panel-item').forEach(function (item) {
-            var cod = item.dataset.codice;
-            if (!cod) return;
-            var orig = parseInt(item.dataset.qtyOriginale) || parseInt(item.querySelector('.panel-qty-input')?.value) || 1;
-            qtyOriginali[cod] = orig;
-            if (ordineInserimento.indexOf(cod) === -1) {
-                ordineInserimento.push(cod);
-            }
-        });
-
         // Conta occorrenze per codice oggetto (solo quelli piazzati in 3D)
         var conteggio = {};
         oggetti3d.forEach(function (o) {
@@ -963,27 +945,14 @@ async function popolaPanelDaPiano(pianoId) {
             WS._manualPanelSelectedCodice = null;
         }
         DOM.panelItemsList.innerHTML = '';
-    if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
+        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
 
-        // Unisci i codici: piazzati + salvati + richiesti
-        var tuttiCodici = Object.keys(conteggio);
-        Object.keys(qtySalvate).forEach(function (cod) {
+        // La lista di oggetti del piano caricato è SOLO quella del piano stesso:
+        // NON ereditare gli oggetti del piano aperto in precedenza nel pannello.
+        // Fonti: oggetti_da_caricare (q.tà richieste) + oggetti piazzati in 3D.
+        var tuttiCodici = Object.keys(qtySalvate);
+        Object.keys(conteggio).forEach(function (cod) {
             if (tuttiCodici.indexOf(cod) === -1) tuttiCodici.push(cod);
-        });
-        Object.keys(qtyOriginali).forEach(function (cod) {
-            if (tuttiCodici.indexOf(cod) === -1) tuttiCodici.push(cod);
-        });
-
-        // Riordina tuttiCodici rispettando l'ordine di inserimento originale dell'utente.
-        // I codici già presenti nel pannello prima dell'ottimizzazione mantengono
-        // il loro ordine; eventuali nuovi codici vengono accodati in fondo.
-        tuttiCodici.sort(function (a, b) {
-            var ia = ordineInserimento.indexOf(a);
-            var ib = ordineInserimento.indexOf(b);
-            if (ia === -1 && ib === -1) return a.localeCompare(b);
-            if (ia === -1) return 1;
-            if (ib === -1) return -1;
-            return ia - ib;
         });
 
         for (var i = 0; i < tuttiCodici.length; i++) {
@@ -995,8 +964,8 @@ async function popolaPanelDaPiano(pianoId) {
             } else {
                 qty = conteggio[codice] || 0;
             }
-            // Badge "q.tà richiesta": SOLO informativo, da q.tà salvate (o fallback)
-            qtyOrig = qtySalvate.hasOwnProperty(codice) ? qtySalvate[codice] : (qtyOriginali[codice] || undefined);
+            // Badge "q.tà richiesta": SOLO informativo, da q.tà salvate
+            qtyOrig = qtySalvate.hasOwnProperty(codice) ? qtySalvate[codice] : undefined;
             var oggetto = trovaOggettoPerCodice(codice);
             if (!oggetto) continue;
             var divEl = aggiungiAlCarico(oggetto.id, qty, true, qtyOrig);

@@ -12,12 +12,14 @@ from .engine import (
     ConfigurazioneOttimizzazione,
     esegui_ottimizzazione_tre_d,
 )
+from .engine.tre_d.constants import OPTIMIZATION_TIME_BUDGET_SECONDS
 
 
 def avvia_ottimizzazione(
     piano_id: int,
     config: dict = None,
     salva_risultato: bool = True,
+    budget_seconds: float = OPTIMIZATION_TIME_BUDGET_SECONDS,
 ) -> dict:
     """Esegue l'ottimizzazione 3D per un PianoDiCarico.
 
@@ -44,6 +46,7 @@ def avvia_ottimizzazione(
         piano_id,
         config=configurazione,
         salva_risultato=salva_risultato,
+        budget_seconds=budget_seconds,
     )
 
     # Costruisci output base
@@ -86,6 +89,10 @@ def avvia_ottimizzazione(
     if risultato.soluzioni_alternative:
         output["soluzioni_alternative"] = risultato.soluzioni_alternative
 
+    # Telemetria (ops, passate, tempi, motivo di stop)
+    if risultato.telemetria:
+        output["telemetria"] = risultato.telemetria
+
     return output
 
 
@@ -93,6 +100,7 @@ def esegui_ottimizzazione_sincrona(
     piano_id: int,
     config: dict = None,
     salva_risultato: bool = True,
+    budget_seconds: float = OPTIMIZATION_TIME_BUDGET_SECONDS,
 ) -> dict:
     """Wrapper sincrono per eseguire l'ottimizzazione direttamente
     (utile per test e debugging senza coda)."""
@@ -100,6 +108,7 @@ def esegui_ottimizzazione_sincrona(
         piano_id,
         config=config,
         salva_risultato=salva_risultato,
+        budget_seconds=budget_seconds,
     )
 
 
@@ -107,6 +116,7 @@ def accoda_ottimizzazione(
     piano_id: int,
     config: dict = None,
     salva_risultato: bool = True,
+    budget_seconds: float = OPTIMIZATION_TIME_BUDGET_SECONDS,
 ) -> str:
     """Accoda un'ottimizzazione nella coda Django Q2.
 
@@ -125,5 +135,6 @@ def accoda_ottimizzazione(
         piano_id,
         config=config,  # kwargs passati come dict
         salva_risultato=salva_risultato,
+        budget_seconds=budget_seconds,
     )
     return task_id

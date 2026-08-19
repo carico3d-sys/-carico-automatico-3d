@@ -5,6 +5,7 @@ principale. Ricevono oggetti compatibili con ``Obj`` tramite il loro
 protocollo di attributi, evitando dipendenze circolari.
 """
 
+from .constants import SPATIAL_GRID_THRESHOLD
 from .geometry import intersection_area, rect
 
 
@@ -37,8 +38,12 @@ def can_stack(obj, base) -> bool:
     return True
 
 
-def check_z_collision(obj, placed) -> bool:
-    """Verifica la sovrapposizione del volume 3D con oggetti già posizionati."""
+def check_z_collision(obj, placed, grid=None) -> bool:
+    """Verifica la sovrapposizione del volume 3D con oggetti già posizionati.
+
+    ``grid`` (opzionale) è una :class:`SpatialGrid` che restringe i candidati
+    con l'uniform grid; se assente o sotto la soglia, resta la scansione lineare.
+    """
     x0 = obj.x
     x1 = obj.x + obj.width
     y0 = obj.y
@@ -46,7 +51,13 @@ def check_z_collision(obj, placed) -> bool:
     z0 = obj.z
     z1 = obj.z + obj.height
 
-    for other in placed:
+    candidati = (
+        grid.query_volume(x0, y0, z0, x1, y1, z1)
+        if grid is not None and len(placed) >= SPATIAL_GRID_THRESHOLD
+        else placed
+    )
+
+    for other in candidati:
         px0 = other.x
         px1 = other.x + other.width
         py0 = other.y

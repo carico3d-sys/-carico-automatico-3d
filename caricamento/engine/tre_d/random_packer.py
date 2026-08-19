@@ -18,10 +18,16 @@ import random
 import time
 from typing import List, Optional
 
+from .constants import EARLY_STOP_STALL_MC, DEDUP_ALTERNATIVE_PER_POSIZIONI
+from .group_optimizer import optimize_deterministic_groups
 from .packer_3d_v2 import filter_unfitted, _e_una_base
 from .packer_3d_v2 import load_truck_v2
 from .priority_policy import priorita_effettive, priorita_esplicita
 from .priority_policy import score_soluzione
+
+# Numero massimo di soluzioni alternative (oltre alla migliore) esposte
+# all'utente tramite telemetria["soluzioni_alternative"].
+MAX_ALTERNATIVE_SOLUZIONI = 3
 
 
 def _estrai_tipo(obj) -> str:
@@ -30,6 +36,31 @@ def _estrai_tipo(obj) -> str:
     Esempio: 'CART-I01-0' → 'CART-I01'
     """
     return obj.id.rsplit('-', 1)[0] if '-' in obj.id else obj.id
+
+
+def _fingerprint_soluzione(soluzione) -> tuple:
+    """Firma univoca della disposizione reale di una soluzione.
+
+    Due soluzioni sono la "stessa alternativa" solo se piazzano gli stessi
+    tipi nelle stesse posizioni con le stesse dimensioni (orientamento). La
+    firma ignora l'id di istanza (es. CART-I01-0 vs CART-I01-1): due istanze
+    dello stesso tipo scambiate di posto non cambiano la disposizione.
+    """
+    firme = []
+    for obj in soluzione:
+        if getattr(obj, "z", -1) < 0:
+            continue
+        firme.append((
+            getattr(obj, "oggetto_id", 0),
+            round(float(obj.x), 2),
+            round(float(obj.y), 2),
+            round(float(obj.z), 2),
+            round(float(obj.width), 2),
+            round(float(obj.depth), 2),
+            round(float(obj.height), 2),
+        ))
+    firme.sort()
+    return tuple(firme)
 
 
 def _shuffle_per_tipo(objects: List, vincoli_sopra=None) -> List:
@@ -106,6 +137,8 @@ def run_packing_random(
     tracker=None,
     compattazione_aggressiva: bool = False,
     deadline: Optional[float] = None,
+    telemetria: Optional[dict] = None,
+    stall_limit: int = EARLY_STOP_STALL_MC,
 ) -> List:
     """Esegue N restart con shuffle per tipo e load_truck_v2 (senza backtracking).
 
@@ -131,14 +164,54 @@ def run_packing_random(
 
     num_restarts = max(1, min(num_restarts, 50))
 
+    if telemetria is not None:
+        telemetria["passate_max"] = num_restarts + 1
+
     best_solution = None
     best_score = None
+    stall_count = 0
+    motivo_stop = "max_tentativi"
+    # Soluzioni candidate (score, soluzione) raccolte dai restart: servono
+    # per esporre le alternative (top-N distinte per score) oltre alla migliore.
+    candidati = []
+
+    # Passata 0: baseline deterministico con blocchi ruotati (group optimizer).
+    # È solo un punto di partenza (seed): anche se piazza tutti gli oggetti,
+    # NON interrompe la ricerca. "Completo" non significa "compatto": i
+    # restart casuali devono poter cercare una disposizione con X minore.
+    if deadline is None or time.monotonic() < deadline:
+        t_det = time.monotonic()
+        det_solution = optimize_deterministic_groups(
+            copy.deepcopy(objects),
+            constraints=vincoli_sopra,
+            container_dim=container_dim,
+            tracker=tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
+        )
+        if telemetria is not None:
+            telemetria["passate_eseguite"] = telemetria.get("passate_eseguite", 0) + 1
+            telemetria.setdefault("tempo_per_passata_s", []).append(
+                round(time.monotonic() - t_det, 3)
+            )
+        det_placed, _ = filter_unfitted(det_solution)
+        if det_placed:
+            best_solution = copy.deepcopy(det_solution)
+            best_score = score_soluzione(
+                det_placed,
+                container_dim[2] if container_dim else None,
+                all_objects=objects,
+            )
+            candidati.append((best_score, copy.deepcopy(best_solution)))
 
     for _ in range(num_restarts):
         # Time-budget: se la scadenza è stata superata, restituisci la
         # migliore soluzione trovata finora invece di avviare un altro restart.
         if deadline is not None and time.monotonic() >= deadline:
+            motivo_stop = "deadline"
             break
+
+        t_start = time.monotonic()
 
         # Shuffle per tipo (con priorità e ordinamento logico)
         # Ogni restart lavora su proprie istanze: load_truck_v2 modifica
@@ -162,18 +235,44 @@ def run_packing_random(
             tracker=fresh_tracker,
             preserve_order=True,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
 
-        placed, _ = filter_unfitted(solution)
-        if placed:
-            new_score = score_soluzione(
-                placed,
-                container_dim[2] if container_dim else None,
-                all_objects=objects,
+        if telemetria is not None:
+            telemetria["passate_eseguite"] = telemetria.get("passate_eseguite", 0) + 1
+            telemetria.setdefault("tempo_per_passata_s", []).append(
+                round(time.monotonic() - t_start, 3)
             )
-            if best_score is None or new_score > best_score:
-                best_solution = copy.deepcopy(solution)
-                best_score = new_score
+
+        placed, _ = filter_unfitted(solution)
+        if not placed:
+            # Nessun oggetto piazzato in questo restart: non può migliorare.
+            if best_solution is None:
+                stall_count += 1
+            continue
+
+        new_score = score_soluzione(
+            placed,
+            container_dim[2] if container_dim else None,
+            all_objects=objects,
+        )
+
+        if best_score is None or new_score > best_score:
+            best_solution = copy.deepcopy(solution)
+            best_score = new_score
+            stall_count = 0
+        else:
+            stall_count += 1
+
+        candidati.append((new_score, copy.deepcopy(solution)))
+
+        # Early-stop: nessun miglioramento per più passate consecutive.
+        # NON ci si ferma su "soluzione completa": una soluzione completa può
+        # ancora migliorare in compattezza (X minore), quindi è lo stall a
+        # decidere quando smettere di esplorare.
+        if stall_count >= max(1, int(stall_limit)):
+            motivo_stop = "convergente"
+            break
 
     # Fallback: nessun restart ha piazzato oggetti
     if best_solution is None:
@@ -181,11 +280,37 @@ def run_packing_random(
         # avviare un'ennesima esecuzione completa: una soluzione vuota è
         # valida e il chiamante ibrido userà l'altra strategia.
         if deadline is not None and time.monotonic() >= deadline:
+            motivo_stop = "deadline"
+            if telemetria is not None:
+                telemetria["motivo_stop"] = motivo_stop
             return []
         best_solution = load_truck_v2(
             copy.deepcopy(objects), vincoli_sopra=vincoli_sopra,
             container_dim=container_dim, tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
         )
+
+    if telemetria is not None:
+        telemetria["motivo_stop"] = motivo_stop
+
+    # Soluzioni da mostrare nel pannello: la migliore in testa (evidenziata
+    # come "Migliore") seguita dalle alternative distinte. La deduplica avviene
+    # per DISPOSIZIONE REALE (posizioni diverse = alternativa diversa) o per
+    # punteggio, in base a DEDUP_ALTERNATIVE_PER_POSIZIONI.
+    if telemetria is not None and candidati:
+        viste = set()
+        distinte = []
+        for score, sol in sorted(candidati, key=lambda item: item[0], reverse=True):
+            chiave = (
+                _fingerprint_soluzione(sol)
+                if DEDUP_ALTERNATIVE_PER_POSIZIONI
+                else score
+            )
+            if chiave in viste:
+                continue
+            viste.add(chiave)
+            distinte.append(sol)
+        telemetria["soluzioni_alternative"] = distinte[:MAX_ALTERNATIVE_SOLUZIONI + 1]
 
     return best_solution

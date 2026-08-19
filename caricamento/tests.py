@@ -92,6 +92,7 @@ from caricamento.engine.tre_d.group_optimizer import (
 )
 from caricamento.engine.tre_d.tre_d_packer import TreDPacker
 from caricamento.engine.tre_d.random_packer import run_packing_random
+from caricamento.engine.tre_d.grid import SpatialGrid
 
 
 # =============================================================================
@@ -2468,3 +2469,221 @@ class TestSecurityHardening(TestCase):
         self.assertEqual(vincolo.oggetto_id, o1.id)
         # Il campo della whitelist viene comunque applicato.
         self.assertTrue(vincolo.fragile)
+
+
+# =============================================================================
+# TEST: SPATIAL INDEX (uniform grid)
+# =============================================================================
+
+class TestSpatialGrid(TestCase):
+    """Regressioni per l'indice spaziale: over-approximation e ordine."""
+
+    def _obj(self, i, x, y, z, w, d, h):
+        o = Obj(f"G-{i}", w, d, h, oggetto_id=1)
+        o.x, o.y, o.z = x, y, z
+        return o
+
+    def test_query_volume_non_perde_candidati_e_preserva_ordine(self):
+        grid = SpatialGrid(cell_size=50.0)
+        specs = [
+            (0, 0, 0, 100, 80, 50),
+            (100, 0, 0, 60, 80, 100),
+            (0, 80, 50, 100, 80, 50),
+            (200, 100, 0, 50, 50, 50),
+            (250, 0, 100, 40, 40, 40),
+        ]
+        objs = [self._obj(i, *s) for i, s in enumerate(specs)]
+        for o in objs:
+            grid.add(o)
+
+        query = (25, 0, 0, 150, 120, 100)
+        x0, y0, z0, x1, y1, z1 = query
+        ref = [
+            o for o in objs
+            if o.x < x1 and o.x + o.width > x0
+            and o.y < y1 and o.y + o.depth > y0
+            and o.z < z1 and o.z + o.height > z0
+        ]
+        cand = grid.query_volume(*query)
+        # Mai candidati in meno.
+        self.assertTrue(set(ref) <= set(cand))
+        # I candidati restano nell'ordine di inserimento (== ordine di placed).
+        self.assertEqual(cand, [o for o in objs if o in cand])
+
+    def test_query_top_e_bottom_rispettano_l_epsilon(self):
+        grid = SpatialGrid(cell_size=50.0)
+        base = self._obj(0, 0, 0, 0, 100, 80, 100)
+        sopra = self._obj(1, 0, 0, 100, 60, 60, 50)
+        altro = self._obj(2, 0, 0, 150, 60, 60, 50)
+        for o in (base, sopra, altro):
+            grid.add(o)
+
+        # top == 100 -> base (e solo base)
+        self.assertEqual(grid.query_top(100), [base])
+        # bottom == 100 -> sopra
+        self.assertEqual(grid.query_bottom(100), [sopra])
+        # Nessun oggetto con top == 75 (entro epsilon)
+        self.assertEqual(grid.query_top(75), [])
+
+    def test_add_remove_simmetria(self):
+        grid = SpatialGrid(cell_size=50.0)
+        a = self._obj(0, 0, 0, 0, 100, 80, 50)
+        b = self._obj(1, 100, 0, 0, 60, 80, 100)
+        grid.add(a)
+        grid.add(b)
+        self.assertEqual(grid.size, 2)
+        grid.remove(a)
+        self.assertEqual(grid.size, 1)
+        cand = grid.query_volume(0, 0, 0, 200, 200, 200)
+        self.assertEqual(cand, [b])
+
+
+class TestParitySpatialIndex(TestCase):
+    """Parity test: con la griglia attiva il risultato e' bit-identico.
+
+    Usa i codici reali I01-I05 (non il caso 700): il piano reale n. 348 con
+    9/13/18/17 istanze e il caso deferimento 20/8/13/19.
+    """
+
+    DATI = [
+        ("CART-I03", 160, 70, 100, 9, 3),
+        ("CART-I01", 120, 100, 100, 13, 1),
+        ("CART-I02", 120, 80, 100, 18, 2),
+        ("cart-i05", 60, 80, 100, 17, 5),
+    ]
+
+    DATI_DEFERIMENTO = [
+        ("CART-I03", 70, 160, 100, 20, 3),
+        ("CART-I01", 100, 120, 100, 8, 1),
+        ("CART-I02", 80, 120, 100, 13, 2),
+        ("cart-i05", 60, 80, 100, 19, 5),
+    ]
+
+    CONTAINER = (1360, 248, 270)
+
+    def _build(self, dati):
+        objects = []
+        for codice, width, depth, height, quantita, oggetto_id in dati:
+            for indice in range(quantita):
+                objects.append(
+                    Obj(
+                        f"{codice}-{indice}",
+                        width,
+                        depth,
+                        height,
+                        oggetto_id=oggetto_id,
+                        orientation_allowed=True,
+                        rotazione_su_x=False,
+                        rotazione_su_y=False,
+                        rotazione_su_z=True,
+                    )
+                )
+        return objects
+
+    @staticmethod
+    def _snapshot(objects):
+        return [
+            (
+                o.id,
+                o.x, o.y, o.z,
+                o.width, o.depth, o.height,
+                getattr(o, "support_ratio", 1.0),
+                float(getattr(o, "_peso_kg", 0.0)),
+                float(getattr(o, "_peso_sopra_kg", 0.0)),
+            )
+            for o in objects
+        ]
+
+    def _run_deterministic(self, dati, preserve_order=False):
+        return load_truck_v2(
+            self._build(dati),
+            vincoli_sopra={},
+            container_dim=self.CONTAINER,
+            preserve_order=preserve_order,
+        )
+
+    def _assert_parity(self, run_off, run_on):
+        self.assertEqual(self._snapshot(run_off), self._snapshot(run_on))
+
+    def test_load_truck_v2_parita(self):
+        for dati in (self.DATI, self.DATI_DEFERIMENTO):
+            for preserve in (False, True):
+                with self.subTest(dati=dati[0][0], preserve=preserve):
+                    with patch(
+                        "caricamento.engine.tre_d.packer_3d_v2.SPATIAL_GRID_ENABLED",
+                        False,
+                    ):
+                        off = self._run_deterministic(dati, preserve)
+                    with _grid_on():
+                        on = self._run_deterministic(dati, preserve)
+                    self._assert_parity(off, on)
+
+    def test_deterministic_strategy_parita(self):
+        for dati in (self.DATI, self.DATI_DEFERIMENTO):
+            with self.subTest(dati=dati[0][0]):
+                with patch(
+                    "caricamento.engine.tre_d.packer_3d_v2.SPATIAL_GRID_ENABLED",
+                    False,
+                ):
+                    off = DeterministicStrategy().execute(
+                        self._build(dati), {}, self.CONTAINER
+                    )
+                with _grid_on():
+                    on = DeterministicStrategy().execute(
+                        self._build(dati), {}, self.CONTAINER
+                    )
+                self._assert_parity(off, on)
+
+    def test_random_packer_parita(self):
+        stato = random.getstate()
+        try:
+            with patch(
+                "caricamento.engine.tre_d.packer_3d_v2.SPATIAL_GRID_ENABLED",
+                False,
+            ):
+                random.seed(0)
+                off = run_packing_random(
+                    self._build(self.DATI),
+                    vincoli_sopra={},
+                    num_restarts=5,
+                    container_dim=self.CONTAINER,
+                )
+            with _grid_on():
+                random.seed(0)
+                on = run_packing_random(
+                    self._build(self.DATI),
+                    vincoli_sopra={},
+                    num_restarts=5,
+                    container_dim=self.CONTAINER,
+                )
+        finally:
+            random.setstate(stato)
+        self._assert_parity(off, on)
+
+
+class _grid_on:
+    """Attiva la griglia con soglia 0 per esercitarla fin dal primo piazzamento."""
+
+    def __enter__(self):
+        self._patches = [
+            patch(
+                "caricamento.engine.tre_d.packer_3d_v2.SPATIAL_GRID_ENABLED",
+                True,
+            ),
+            patch(
+                "caricamento.engine.tre_d.packer_3d_v2.SPATIAL_GRID_THRESHOLD",
+                0,
+            ),
+            patch(
+                "caricamento.engine.tre_d.placement_rules.SPATIAL_GRID_THRESHOLD",
+                0,
+            ),
+        ]
+        for p in self._patches:
+            p.start()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        for p in reversed(self._patches):
+            p.stop()
+        return False

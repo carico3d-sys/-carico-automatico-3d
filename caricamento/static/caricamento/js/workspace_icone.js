@@ -55,7 +55,6 @@ var ICON_CATALOG = [
     { id: 'nav-trasporti',      type: 'bootstrap', iconClass: 'bi bi-truck',             file: '', dims: [18, 18], desc: 'Sidebar Nav: Trasporti',                   location: 'Sidebar', selector: '.sidebar-nav-item[data-view="mezzi"] > i' },
     { id: 'nav-impostazioni',   type: 'bootstrap', iconClass: 'bi bi-sliders',           file: '', dims: [18, 18], desc: 'Sidebar Nav: Impostazioni',                location: 'Sidebar', selector: '.sidebar-nav-item[data-view="impostazioni"] > i' },
     { id: 'nav-admin',          type: 'bootstrap', iconClass: 'bi bi-shield-shaded',     file: '', dims: [18, 18], desc: 'Sidebar Nav: Pannello Admin',              location: 'Sidebar', selector: '#sidebar-nav-dynamic a.sidebar-nav-item > i.bi-shield-shaded' },
-    { id: 'nav-esci',           type: 'bootstrap', iconClass: 'bi bi-box-arrow-right',   file: '', dims: [18, 18], desc: 'Sidebar Nav: Esci',                        location: 'Sidebar', selector: '#sidebar-nav-dynamic a.sidebar-nav-item > i.bi-box-arrow-right' },
     { id: 'nav-strum-nuovo',    type: 'bootstrap', iconClass: 'bi bi-file-earmark',      file: '', dims: [18, 18], desc: 'Sidebar Strumenti: Nuovo Carico',           location: 'Sidebar', selector: '.sidebar-nav-item[data-action="nuovo-carico"] > i' },
     { id: 'nav-pesi',           type: 'bootstrap', iconClass: 'bi bi-speedometer2',      file: '', dims: [18, 18], desc: 'Sidebar Strumenti: Distribuzione Pesi',      location: 'Sidebar', selector: '.sidebar-nav-item[data-action="grafico-pesi"] > i' },
     { id: 'nav-vista-carico',   type: 'bootstrap', iconClass: 'bi bi-bar-chart',         file: '', dims: [18, 18], desc: 'Sidebar Strumenti: Vista Carico',            location: 'Sidebar', selector: '.sidebar-nav-item[data-action="carico"] > i' },
@@ -104,9 +103,9 @@ var ICON_CATALOG = [
 
     // --- Slider Sequenza ---
     { id: 'vp-slider-icon',     type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [15, 15], desc: 'Viewport: icona slider sequenza',           location: 'Viewport', selector: '#vp-slider-bar .vp-slider-icon > i' },
+    { id: 'vp-slider-lock',     type: 'bootstrap', iconClass: 'bi bi-lock-fill',          file: '', dims: [16, 16], desc: 'Viewport: lucchetto slider sequenza',       location: 'Viewport', selector: '#vp-slider-lock > i' },
 
     // --- Panel View ---
-    { id: 'pv-back',            type: 'bootstrap', iconClass: 'bi bi-arrow-left',        file: '', dims: [14, 14], desc: 'Panel View: torna al Carico 3D',           location: 'Panel View', selector: '#pv-btn-back > i' },
 
     // --- Panel Destro ---
     { id: 'panel-header-icon',  type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [17, 17], desc: 'Panel Destro: icona header',                location: 'Panel Destro', selector: '#panel-destro .panel-header h3 > i' },
@@ -216,12 +215,31 @@ var COLOR_CATALOG = [
 ];
 
 // =============================================================================
+// CATALOGO HEADER — altezze (px) delle barre header della sidebar e finestre
+// =============================================================================
+
+var HEADER_CATALOG = [
+    { id: 'sidebar-tabs',          variable: '--header-tab-h',                   label: 'Barra tab (sidebar sinistra)', def: 44, min: 20, max: 120 },
+    { id: 'panel-destro',          variable: '--header-panel-destro-h',          label: 'Header "Oggetti nel Carico"', def: 45, min: 20, max: 120 },
+    { id: 'pv-list-header',        variable: '--header-pv-list-h',               label: 'Header lista Piani di carico', def: 45, min: 20, max: 120 },
+    { id: 'pv-list-articoli',      variable: '--header-pv-list-articoli-h',      label: 'Header lista Articoli',        def: 45, min: 20, max: 120 },
+    { id: 'pv-list-trasporti',     variable: '--header-pv-list-trasporti-h',     label: 'Header lista Trasporti',       def: 45, min: 20, max: 120 },
+    { id: 'pv-list-impostazioni',  variable: '--header-pv-list-impostazioni-h',  label: 'Header lista Impostazioni',    def: 45, min: 20, max: 120 },
+    { id: 'pv-form-header',        variable: '--header-pv-form-h',               label: 'Header form Piani di carico',  def: 45, min: 20, max: 120 },
+    { id: 'pv-form-articoli',      variable: '--header-pv-form-articoli-h',      label: 'Header form Articoli',         def: 45, min: 20, max: 120 },
+    { id: 'pv-form-vincoli',       variable: '--header-pv-form-vincoli-h',       label: 'Header Vincoli',               def: 45, min: 20, max: 120 },
+    { id: 'pv-form-trasporti',     variable: '--header-pv-form-trasporti-h',     label: 'Header form Trasporti',        def: 45, min: 20, max: 120 },
+    { id: 'pv-form-impostazioni',  variable: '--header-pv-form-impostazioni-h',  label: 'Header form Impostazioni',     def: 45, min: 20, max: 120 }
+];
+
+// =============================================================================
 // STATO ICONE / BOTTONI / COLORI
 // =============================================================================
 
 var ICON_CONFIG = {};      // { 'header-documenti': { type: 'png', file: 'folder.png', dims: [40, 40] }, ... }
 var BOTTONI_CONFIG = {};   // { 'auto-ottimizza': { type, file, dims_px, label, label_size, label_pos, color }, ... }
 var COLOR_CONFIG = {};     // { 'header': '#1a1a2e', ... }
+var HEADER_CONFIG = {};    // { 'sidebar-tabs': 44, 'pv-list-header': 45, 'pv-form-header': 45 }
 
 // Snapshot dell'HTML originale dei bottoni (prima di ogni applicazione config)
 var _btnSnapshot = {};
@@ -273,6 +291,7 @@ function _applicaConfigInline() {
         ICON_CONFIG = inlineData.config || {};
         BOTTONI_CONFIG = inlineData.bottoni || {};
         COLOR_CONFIG = inlineData.colori || {};
+        HEADER_CONFIG = inlineData.header || {};
         return true;
     } catch (e) {
         console.warn('Icon config: dati inline non validi, uso la fetch', e.message);
@@ -302,10 +321,11 @@ function _mostraIcone() {
  * In entrambi i casi, al termine rende visibili le icone (_mostraIcone).
  */
 async function _loadIconConfig() {
-    if (_applicaConfigInline()) {
+    if(_applicaConfigInline()) {
         _applyIconConfig();
         _applyButtonConfig();
         _applyColorConfig();
+        _applyHeaderConfig();
         _mostraIcone();
         return;
     }
@@ -316,6 +336,7 @@ async function _loadIconConfig() {
             ICON_CONFIG = data.config || {};
             BOTTONI_CONFIG = data.bottoni || {};
             COLOR_CONFIG = data.colori || {};
+            HEADER_CONFIG = data.header || {};
         }
     } catch (e) {
         console.warn('Icon config: using defaults (could not load from server)', e.message);
@@ -323,6 +344,7 @@ async function _loadIconConfig() {
     _applyIconConfig();
     _applyButtonConfig();
     _applyColorConfig();
+    _applyHeaderConfig();
     _mostraIcone();
 }
 
@@ -656,10 +678,11 @@ function apriModaleIcone() {
             '<button type="button" class="icone-tab" data-icone-tab="bottoni"><i class="bi bi-ui-radios"></i> Bottoni</button>' +
             '<button type="button" class="icone-tab" data-icone-tab="finestre"><i class="bi bi-window"></i> Bottoni Finestre</button>' +
             '<button type="button" class="icone-tab" data-icone-tab="colori"><i class="bi bi-palette2"></i> Colori</button>' +
+            '<button type="button" class="icone-tab" data-icone-tab="header"><i class="bi bi-arrows-expand-vertical"></i> Header</button>' +
         '</div>' +
         '<div class="icone-toolbar">' +
             '<div class="icone-toolbar-info">' +
-                '<span class="icone-toolbar-count" id="icone-toolbar-count">' + ICON_CATALOG.length + ' icone · ' + _countCatalogButtons('tab') + ' bottoni · ' + _countCatalogButtons('finestre') + ' finestre · ' + COLOR_CATALOG.length + ' colori</span>' +
+                '<span class="icone-toolbar-count" id="icone-toolbar-count">' + ICON_CATALOG.length + ' icone · ' + _countCatalogButtons('tab') + ' bottoni · ' + _countCatalogButtons('finestre') + ' finestre · ' + COLOR_CATALOG.length + ' colori · ' + HEADER_CATALOG.length + ' header</span>' +
             '</div>' +
             '<div class="icone-toolbar-actions">' +
                 '<button class="btn btn-sm" id="icone-btn-refresh" title="Ripristina i valori predefiniti della tabella (poi clicca Salva)"><i class="bi bi-arrow-repeat"></i> Ricarica default</button>' +
@@ -750,6 +773,18 @@ function apriModaleIcone() {
             '</div>' +
             '<div class="colori-subpanel active" data-colori-subpanel="aree" id="colori-list-aree"></div>' +
             '<div class="colori-subpanel" data-colori-subpanel="slider" id="colori-list-slider"></div>' +
+        '</div>' +
+        '<div class="icone-tab-panel" data-icone-panel="header">' +
+            '<div class="icone-table-wrap">' +
+                '<table class="icone-table">' +
+                    '<thead><tr>' +
+                        '<th class="hdr-col-desc">Elemento</th>' +
+                        '<th class="hdr-col-height">Altezza (px)</th>' +
+                        '<th class="hdr-col-reset"></th>' +
+                    '</tr></thead>' +
+                    '<tbody id="icone-table-body-header"></tbody>' +
+                '</table>' +
+            '</div>' +
         '</div>';
 
     DOM.modalTitle.textContent = 'Gestione Icone';
@@ -777,11 +812,12 @@ function apriModaleIcone() {
         });
     });
 
-    // Popola le tre tabelle
+    // Popola le tabelle
     _popolaTabellaIcone();
     _popolaTabellaBottoni('icone-table-body-bottoni', 'tab');
     _popolaTabellaBottoni('icone-table-body-bottoni-finestre', 'finestre');
     _popolaTabellaColori();
+    _popolaTabellaHeader();
 
     // Sotto-tab Aree | Slider del tab Colori
     document.querySelectorAll('#colori-subtabs .colori-subtab').forEach(function (st) {
@@ -1381,6 +1417,30 @@ function _findCatalogColor(id) {
     return null;
 }
 
+function _findCatalogHeader(id) {
+    for (var i = 0; i < HEADER_CATALOG.length; i++) {
+        if (HEADER_CATALOG[i].id === id) return HEADER_CATALOG[i];
+    }
+    return null;
+}
+
+/**
+ * Applica le altezze header configurate come CSS variables su <html>.
+ * I valori numerici validi (px) sovrascrivono i default del CSS; se un'altezza
+ * non è configurata la variabile torna al default del :root.
+ */
+function _applyHeaderConfig() {
+    HEADER_CATALOG.forEach(function (h) {
+        var val = HEADER_CONFIG[h.id];
+        var num = parseInt(val, 10);
+        if (isFinite(num)) {
+            document.documentElement.style.setProperty(h.variable, num + 'px');
+        } else {
+            document.documentElement.style.removeProperty(h.variable);
+        }
+    });
+}
+
 /**
  * Mescola due colori esadecimali: amount 0 → colore1, 1 → colore2.
  * Usato per derivare tonalità coordinate dalla base.
@@ -1608,6 +1668,86 @@ function _raccogliConfigColoriDallaTabella() {
     return config;
 }
 
+/**
+ * Popola la tabella del tab Header con le altezze configurabili (px).
+ */
+function _popolaTabellaHeader() {
+    var body = document.getElementById('icone-table-body-header');
+    if (!body) return;
+    var rowsHtml = '';
+    HEADER_CATALOG.forEach(function (h) {
+        var val = (typeof HEADER_CONFIG[h.id] === 'number' && isFinite(HEADER_CONFIG[h.id]))
+            ? HEADER_CONFIG[h.id] : h.def;
+        rowsHtml += '' +
+            '<tr class="icone-row" data-header-id="' + h.id + '">' +
+                '<td class="hdr-col-desc"><label class="hdr-label">' + escapeHtml(h.label) + '</label></td>' +
+                '<td class="hdr-col-height"><input type="number" class="form-input hdr-h-input" value="' + val + '" min="' + h.min + '" max="' + h.max + '" step="1" title="Altezza in px"></td>' +
+                '<td class="hdr-col-reset"><button type="button" class="colori-reset hdr-reset" title="Ripristina l\'altezza predefinita"><i class="bi bi-arrow-counterclockwise"></i></button></td>' +
+            '</tr>';
+    });
+    body.innerHTML = rowsHtml;
+
+    body.querySelectorAll('.hdr-h-input').forEach(function (input) {
+        // Durante la digitazione non clampare: altrimenti digitare "64"
+        // (prima "6") produce valori intermedi errati.
+        input.addEventListener('input', function () {
+            var row = this.closest('.icone-row');
+            var h = _findCatalogHeader(row.dataset.headerId);
+            if (!h) return;
+            var val = parseInt(this.value, 10);
+            if (!isFinite(val)) {
+                delete HEADER_CONFIG[h.id];
+            } else {
+                HEADER_CONFIG[h.id] = val;
+            }
+            _applyHeaderConfig();
+        });
+        // Al rilascio del campo (blur/Invio) normalizza al range consentito.
+        input.addEventListener('change', function () {
+            var row = this.closest('.icone-row');
+            var h = _findCatalogHeader(row.dataset.headerId);
+            if (!h) return;
+            var val = parseInt(this.value, 10);
+            if (!isFinite(val)) {
+                this.value = h.def;
+                delete HEADER_CONFIG[h.id];
+            } else {
+                val = Math.max(h.min, Math.min(h.max, val));
+                this.value = val;
+                HEADER_CONFIG[h.id] = val;
+            }
+            _applyHeaderConfig();
+        });
+    });
+
+    body.querySelectorAll('.hdr-reset').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var row = this.closest('.icone-row');
+            var h = _findCatalogHeader(row.dataset.headerId);
+            if (!h) return;
+            row.querySelector('.hdr-h-input').value = h.def;
+            delete HEADER_CONFIG[h.id];
+            _applyHeaderConfig();
+        });
+    });
+}
+
+/**
+ * Raccoglie le altezze header personalizzate (diverse dal default) dalla tabella.
+ */
+function _raccogliConfigHeaderDallaTabella() {
+    var config = {};
+    HEADER_CATALOG.forEach(function (h) {
+        var input = document.querySelector('#icone-table-body-header .icone-row[data-header-id="' + h.id + '"] .hdr-h-input');
+        if (!input) return;
+        var val = parseInt(input.value, 10);
+        if (isFinite(val) && val >= h.min && val <= h.max && val !== h.def) {
+            config[h.id] = val;
+        }
+    });
+    return config;
+}
+
 // =============================================================================
 // VERIFICA / UPLOAD / CANCELLAZIONE FILE PNG
 // =============================================================================
@@ -1776,22 +1916,25 @@ async function _salvaIconConfig() {
     var config = _raccogliConfigDallaTabella();
     var bottoni = _raccogliConfigBottoniDallaTabella();
     var colori = _raccogliConfigColoriDallaTabella();
+    var header = _raccogliConfigHeaderDallaTabella();
     try {
         var resp = await fetch('/api/icone-config/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ config: config, bottoni: bottoni, colori: colori })
+            body: JSON.stringify({ config: config, bottoni: bottoni, colori: colori, header: header })
         });
         var data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);        var bottoniDaForzare = _bottoniConfigurazioneModificati(BOTTONI_CONFIG, bottoni);
         ICON_CONFIG = config;
         BOTTONI_CONFIG = bottoni;
         COLOR_CONFIG = colori;
+        HEADER_CONFIG = header;
         // Applica subito: niente reload (punto 1). Forza solo i bottoni
         // realmente cambiati, così un PNG già visibile non viene ricreato.
         _applyIconConfig();
         _applyButtonConfig(bottoniDaForzare);
     _applyColorConfig();
+    _applyHeaderConfig();
     showToast('Configurazione salvata e applicata!', 'success');
     } catch (e) {
         showToast('Errore salvataggio: ' + e.message, 'error');
@@ -1806,20 +1949,23 @@ function _aggiornaIconeLive() {
     var config = _raccogliConfigDallaTabella();
     var bottoni = _raccogliConfigBottoniDallaTabella();
     var colori = _raccogliConfigColoriDallaTabella();
+    var header = _raccogliConfigHeaderDallaTabella();
     var bottoniDaForzare = _bottoniConfigurazioneModificati(BOTTONI_CONFIG, bottoni);
     ICON_CONFIG = config;
     BOTTONI_CONFIG = bottoni;
     COLOR_CONFIG = colori;
+    HEADER_CONFIG = header;
     _applyIconConfig();
     // È un aggiornamento richiesto dall'utente: forza solo i bottoni cambiati,
     // compreso man-annulla, senza ricreare gli altri PNG già visibili.
     _applyButtonConfig(bottoniDaForzare);
     _applyColorConfig();
-    showToast('Icone, bottoni e colori aggiornati!', 'success');
+    _applyHeaderConfig();
+    showToast('Icone, bottoni, colori e header aggiornati!', 'success');
 }
 
 function _resetIconConfig() {
-    if (!confirm('Ripristinare tutte le icone, i bottoni e i colori ai valori predefiniti?')) return;
+    if (!confirm('Ripristinare tutte le icone, i bottoni, i colori e le altezze header ai valori predefiniti?')) return;
 
     // Tab Icone
     document.querySelectorAll('#icone-table-body .icone-toggle-input').forEach(function (t) {
@@ -1874,6 +2020,14 @@ function _resetIconConfig() {
     var baseSwatch = document.getElementById('colori-base-swatch');
     if (baseSwatch) baseSwatch.style.background = COLOR_BASE_DEFAULT;
     _applyColorConfig();
+
+    // Tab Header: ripristina le altezze di default e applica subito
+    HEADER_CONFIG = {};
+    HEADER_CATALOG.forEach(function (h) {
+        var input = document.querySelector('#icone-table-body-header .icone-row[data-header-id="' + h.id + '"] .hdr-h-input');
+        if (input) input.value = h.def;
+    });
+    _applyHeaderConfig();
 
     showToast('Configurazione ripristinata ai default. Clicca "Salva" o "Aggiorna icone" per renderla effettiva.', 'info');
 }

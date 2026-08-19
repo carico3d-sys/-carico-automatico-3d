@@ -21,9 +21,16 @@ GAP 3: calcolo peso_posato_sopra_kg a fine packing.
 
 import copy
 import random
+import time
 from typing import Optional
 
 from .compattazione import _c_e_sbalzo_sopra
+from .constants import (
+    SPATIAL_GRID_CELL_SIZE,
+    SPATIAL_GRID_ENABLED,
+    SPATIAL_GRID_THRESHOLD,
+)
+from .grid import SpatialGrid
 from .geometry import (
     center_of_mass,
     compute_overhang,
@@ -140,7 +147,7 @@ class Obj:
 # PESO CUMULATIVO SOPRA (GAP 2 & GAP 3)
 # ============================
 
-def _calcola_peso_sopra(placed, target):
+def _calcola_peso_sopra(placed, target, grid=None):
     """Calcola il peso cumulativo (kg) degli oggetti sopra *target*.
 
     Ricorsivo: somma il peso degli oggetti direttamente sopra target
@@ -150,20 +157,30 @@ def _calcola_peso_sopra(placed, target):
     z_top = target.z + target.height
     x0, x1 = target.x, target.x + target.width
     y0, y1 = target.y, target.y + target.depth
-    for p in placed:
+    candidati = (
+        grid.query_bottom(z_top)
+        if grid is not None and len(placed) >= SPATIAL_GRID_THRESHOLD
+        else placed
+    )
+    for p in candidati:
         if p is target:
             continue
         if abs(p.z - z_top) < 0.001:
             if p.x < x1 and p.x + p.width > x0 and p.y < y1 and p.y + p.depth > y0:
-                peso += float(getattr(p, '_peso_kg', 0)) + _calcola_peso_sopra(placed, p)
+                peso += float(getattr(p, '_peso_kg', 0)) + _calcola_peso_sopra(placed, p, grid)
     return peso
 
 
-def _trova_base_sotto(placed, obj):
+def _trova_base_sotto(placed, obj, grid=None):
     """Trova l'oggetto direttamente sotto *obj* nella colonna."""
     x0, x1 = obj.x, obj.x + obj.width
     y0, y1 = obj.y, obj.y + obj.depth
-    for p in placed:
+    candidati = (
+        grid.query_top(obj.z)
+        if grid is not None and len(placed) >= SPATIAL_GRID_THRESHOLD
+        else placed
+    )
+    for p in candidati:
         if p is obj:
             continue
         if abs(p.z + p.height - obj.z) < 0.001:
@@ -172,17 +189,17 @@ def _trova_base_sotto(placed, obj):
     return None
 
 
-def _check_peso_massimo_tetto_cascade(placed, obj):
+def _check_peso_massimo_tetto_cascade(placed, obj, grid=None):
     """GAP 2: verifica che il nuovo oggetto non superi il peso_massimo_tetto
     di nessuna base nella colonna sottostante."""
     peso_nuovo = float(getattr(obj, '_peso_kg', 0))
-    base = _trova_base_sotto(placed, obj)
+    base = _trova_base_sotto(placed, obj, grid)
     while base is not None:
         if base.peso_massimo_tetto > 0:
-            peso_corrente = _calcola_peso_sopra(placed, base)
+            peso_corrente = _calcola_peso_sopra(placed, base, grid)
             if peso_corrente + peso_nuovo > base.peso_massimo_tetto:
                 return False
-        base = _trova_base_sotto(placed, base)
+        base = _trova_base_sotto(placed, base, grid)
     return True
 
 
@@ -246,7 +263,7 @@ def _y_candidate_at_x_v2(placed, try_x, container_d):
 
 def _prova_volume(
     obj, x, y, z, placed, container_dim, vincoli_sopra, tracker=None,
-    compattazione_aggressiva=False,
+    compattazione_aggressiva=False, grid=None,
 ):
     """Prova a posizionare obj a (x, y, z).
 
@@ -292,7 +309,12 @@ def _prova_volume(
     # Per stacking, verifica supporto del sotto-oggetto piu' alto
     if z > 0:
         sotto = None
-        for p in placed:
+        candidati = (
+            grid.query_top(z)
+            if grid is not None and len(placed) >= SPATIAL_GRID_THRESHOLD
+            else placed
+        )
+        for p in candidati:
             if abs(p.z + p.height - z) < 0.001:
                 px0 = p.x
                 px1 = p.x + p.width
@@ -356,56 +378,103 @@ def _prova_volume(
                 return False
 
     # Controllo collisione volume
-    if _check_z_collision(obj, placed):
+    if _check_z_collision(obj, placed, grid):
         return False
 
     return True
 
 
-def _prova_tutte_orientazioni(
-    obj, x, y, z, placed, container_dim, vincoli_sopra, tracker=None,
-    compattazione_aggressiva=False,
-):
-    """Prova a posizionare obj a (x, y, z) con TUTTE le orientazioni
-    disponibili (fino a 6 permutazioni)."""
-    orig_w, orig_d, orig_h = obj.width, obj.depth, obj.height
+def _permutazioni_orientamenti(obj):
+    """Permutazioni di dimensioni consentite, deduplicate e ordinate per X.
 
+    Replica la costruzione delle orientazioni usata dal packer: il numero di
+    permutazioni dipende dai flag di rotazione; l'ordine per larghezza X
+    crescente e' condiviso da first-fit e best-fill.
+    """
+    orig_w, orig_d, orig_h = obj.width, obj.depth, obj.height
     if not obj.orientation_allowed:
-        if _prova_volume(
-            obj, x, y, z, placed, container_dim, vincoli_sopra,
-            tracker=tracker,
-            compattazione_aggressiva=compattazione_aggressiva,
-        ):
-            return True
-        return False
+        return [(orig_w, orig_d, orig_h)]
 
     permutations = [(orig_w, orig_d, orig_h)]
-
     if obj.rotazione_su_z:
         permutations.append((orig_d, orig_w, orig_h))
     if obj.rotazione_su_x:
         permutations.append((orig_w, orig_h, orig_d))
     if obj.rotazione_su_y:
         permutations.append((orig_h, orig_d, orig_w))
-
     if obj.rotazione_su_x and obj.rotazione_su_y and obj.rotazione_su_z:
         permutations.append((orig_d, orig_h, orig_w))
         permutations.append((orig_h, orig_w, orig_d))
 
     permutations = list(dict.fromkeys(permutations))
     permutations.sort(key=lambda p: p[0])
+    return permutations
 
-    for w, d, h in permutations:
+
+def _prova_tutte_orientazioni(
+    obj, x, y, z, placed, container_dim, vincoli_sopra, tracker=None,
+    compattazione_aggressiva=False, grid=None,
+):
+    """Prova a posizionare obj a (x, y, z) con TUTTE le orientazioni
+    disponibili (fino a 6 permutazioni), accettando la prima che entra."""
+    orig_w, orig_d, orig_h = obj.width, obj.depth, obj.height
+
+    for w, d, h in _permutazioni_orientamenti(obj):
         obj.width, obj.depth, obj.height = w, d, h
         if _prova_volume(
             obj, x, y, z, placed, container_dim, vincoli_sopra,
             tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
+            grid=grid,
         ):
             return True
 
     obj.width, obj.depth, obj.height = orig_w, orig_d, orig_h
     return False
+
+
+def _prova_tutte_orientazioni_best_fill(
+    obj, x, y, z, placed, container_dim, vincoli_sopra, base,
+    tracker=None, compattazione_aggressiva=False, grid=None,
+):
+    """Prova tutte le orientazioni e sceglie quella che copre meglio la base.
+
+    A differenza del first-fit valuta TUTTI gli orientamenti che entrano e
+    tiene quello con la massima area di intersezione con ``base`` (l'oggetto
+    direttamente sotto). Chiude il caso "in piedi vs disteso": l'orientamento
+    largo quanto la base vince su quello stretto. A parita' di copertura vince
+    il primo in ordine (larghezza X crescente), preservando il determinismo.
+    """
+    orig_w, orig_d, orig_h = obj.width, obj.depth, obj.height
+    best_fill = -1.0
+    best_dims = None
+
+    for w, d, h in _permutazioni_orientamenti(obj):
+        obj.width, obj.depth, obj.height = w, d, h
+        if _prova_volume(
+            obj, x, y, z, placed, container_dim, vincoli_sopra,
+            tracker=tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
+            grid=grid,
+        ):
+            fill = intersection_area(rect(obj), rect(base))
+            if fill > best_fill:
+                best_fill = fill
+                best_dims = (w, d, h)
+
+    if best_dims is None:
+        obj.width, obj.depth, obj.height = orig_w, orig_d, orig_h
+        return False
+
+    w, d, h = best_dims
+    obj.width, obj.depth, obj.height = w, d, h
+    _prova_volume(
+        obj, x, y, z, placed, container_dim, vincoli_sopra,
+        tracker=tracker,
+        compattazione_aggressiva=compattazione_aggressiva,
+        grid=grid,
+    )
+    return True
 
 
 def _orientamenti_xy(obj):
@@ -673,7 +742,8 @@ def load_truck(objects, vincoli_sopra=None, container_dim=None, tracker=None):
 
 def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                   preserve_order=False, compattazione_aggressiva=False,
-                  _defer_internal_singles=True, _run_postprocessing=True):
+                  _defer_internal_singles=True, _run_postprocessing=True,
+                  deadline=None):
     """Versione migliorata di load_truck con best Y-fill per oggetti AR >= 1.5.
 
     La Passata 1 prova TUTTE le orientazioni permesse dai flag di rotazione
@@ -724,8 +794,25 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
 
     placed = []
     unfitted_ids = []
+    deadline_exceeded = False
+
+    # Indice spaziale (uniform grid) per la passata corrente. E' mantenuto solo
+    # durante il ciclo principale di piazzamento; le fasi di deferral e
+    # post-processing restano su scansione lineare (grid=None) e non lo usano.
+    grid = (
+        SpatialGrid(cell_size=SPATIAL_GRID_CELL_SIZE)
+        if SPATIAL_GRID_ENABLED else None
+    )
 
     for obj in objects:
+        # Time-budget: se la scadenza è stata superata, interrompi il packing
+        # e tratta gli oggetti rimanenti come non posizionati. Il chiamante
+        # (strategie) restituisce la soluzione parziale migliore trovata.
+        if deadline is not None and time.monotonic() >= deadline:
+            deadline_exceeded = True
+            unfitted_ids.append(obj.id)
+            continue
+
         posizionato = False
 
         # ================================================================
@@ -754,32 +841,46 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                 ):
                     continue
 
+                base = col['top_item']
                 stack_positions = [(col_x, col_y)]
+                # P2: quando l'oggetto è più stretto/corto della base, prova
+                # anche l'allineamento al bordo destro e al fondo, per chiudere
+                # interstizi quando la posizione naturale è occupata. Bounded:
+                # pochi offset per larghezza/profondità consentite.
+                for w in sorted({p[0] for p in _permutazioni_orientamenti(obj)}):
+                    stack_positions.append((round(base.x + base.width - w, 6), col_y))
+                for d in sorted({p[1] for p in _permutazioni_orientamenti(obj)}):
+                    stack_positions.append((col_x, round(base.y + base.depth - d, 6)))
                 if (
                     compattazione_aggressiva
                     and obj.oggetto_id in vincoli_sopra
                 ):
                     stack_positions.extend(
                         _coordinate_stacking_aggressivo(
-                            col['top_item'], obj, placed, container_dim,
+                            base, obj, placed, container_dim,
                             orientamenti=_orientamenti_xy(obj),
                         )
                     )
-                    stack_positions = list(dict.fromkeys(stack_positions))
+                stack_positions = list(dict.fromkeys(stack_positions))
 
                 for stack_x, stack_y in stack_positions:
-                    if _prova_tutte_orientazioni(
+                    if _prova_tutte_orientazioni_best_fill(
                         obj, stack_x, stack_y, z_top,
-                        placed, container_dim, vincoli_sopra, tracker=tracker,
+                        placed, container_dim, vincoli_sopra,
+                        base=base,
+                        tracker=tracker,
                         compattazione_aggressiva=compattazione_aggressiva,
+                        grid=grid,
                     ):
                         # GAP 2: verifica peso_massimo_tetto a cascata
-                        if not _check_peso_massimo_tetto_cascade(placed, obj):
+                        if not _check_peso_massimo_tetto_cascade(placed, obj, grid):
                             obj.width, obj.depth, obj.height = (
                                 _orig_f1_w, _orig_f1_d, _orig_f1_h
                             )
                             continue
                         placed.append(obj)
+                        if grid is not None:
+                            grid.add(obj)
                         if tracker is not None:
                             x_start_mm = int(obj.x * 10)
                             x_end_mm = int((obj.x + obj.width) * 10)
@@ -868,6 +969,7 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                                 placed, container_dim, vincoli_sopra,
                                 tracker=tracker,
                                 compattazione_aggressiva=compattazione_aggressiva,
+                                grid=grid,
                             ):
                                 y_end = try_y + d
                                 if y_end > best_y_end:
@@ -882,10 +984,13 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                                 placed, container_dim, vincoli_sopra,
                                 tracker=tracker,
                                 compattazione_aggressiva=compattazione_aggressiva,
+                                grid=grid,
                             )
                             if _posizione_sotto_sbalzo(obj.x, obj.y, obj.width, obj.depth):
                                 continue
                             placed.append(obj)
+                            if grid is not None:
+                                grid.add(obj)
                             if tracker is not None:
                                 x_start_mm = int(obj.x * 10)
                                 x_end_mm = int((obj.x + obj.width) * 10)
@@ -912,11 +1017,14 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                             placed, container_dim, vincoli_sopra,
                             tracker=tracker,
                             compattazione_aggressiva=compattazione_aggressiva,
+                            grid=grid,
                         ):
                             if _posizione_sotto_sbalzo(obj.x, obj.y, obj.width, obj.depth):
                                 obj.width, obj.depth, obj.height = orig_w, orig_d, orig_h
                                 continue
                             placed.append(obj)
+                            if grid is not None:
+                                grid.add(obj)
                             if tracker is not None:
                                 x_start_mm = int(obj.x * 10)
                                 x_end_mm = int((obj.x + obj.width) * 10)
@@ -938,6 +1046,7 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
     internal_repack_attempted = False
     if (
         _defer_internal_singles
+        and not deadline_exceeded
         and container_h is not None
         and placed
     ):
@@ -1068,6 +1177,7 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                     compattazione_aggressiva=compattazione_aggressiva,
                     _defer_internal_singles=False,
                     _run_postprocessing=False,
+                    deadline=deadline,
                 )
                 # I deferiti sono già stati elaborati alla fine della
                 # propria fase; non devono essere spostati nella coda globale
@@ -1143,6 +1253,7 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
     if (
         _run_postprocessing
         and not internal_repack_attempted
+        and not deadline_exceeded
         and container_h is not None
         and len(placed) > 0
     ):

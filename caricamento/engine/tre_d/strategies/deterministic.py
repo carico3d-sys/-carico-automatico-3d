@@ -17,7 +17,9 @@ class DeterministicStrategy(PackingStrategy):
         tracker=None,
         compattazione_aggressiva=False,
         deadline=None,
+        telemetria=None,
     ):
+        self.telemetria = telemetria
         # Singolo passaggio: il deadline non è necessario qui (stage 0 è
         # già veloce), ma il parametro mantiene l'interfaccia uniforme.
         return optimize_deterministic_groups(
@@ -26,4 +28,6 @@ class DeterministicStrategy(PackingStrategy):
             container_dim=container_dim,
             tracker=tracker,
             compattazione_aggressiva=compattazione_aggressiva,
+            deadline=deadline,
+            telemetria=telemetria,
         )

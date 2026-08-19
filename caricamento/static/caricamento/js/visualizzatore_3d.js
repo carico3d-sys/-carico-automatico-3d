@@ -737,13 +737,41 @@ function impostaVisibilitaEtichettaContenitore(visible) {
 // =============================================================================
 
 var _sliderCaricoInizializzato = false;
+// Effetto molla (auto-reset su "Tutti" al rilascio). Default: attivo.
+var _sliderAutoReset = true;
+
+function _loadSliderAutoReset() {
+    try {
+        var v = localStorage.getItem('carico3d.slider-auto-reset');
+        if (v === '0') _sliderAutoReset = false;
+        else if (v === '1') _sliderAutoReset = true;
+    } catch (e) { /* localStorage non disponibile */ }
+}
+
+function _salvaSliderAutoReset() {
+    try {
+        localStorage.setItem('carico3d.slider-auto-reset', _sliderAutoReset ? '1' : '0');
+    } catch (e) { /* localStorage non disponibile */ }
+}
+
+function _aggiornaSliderLockUI() {
+    var btn = document.getElementById('vp-slider-lock');
+    if (!btn) return;
+    btn.classList.toggle('locked', !_sliderAutoReset);
+    btn.title = _sliderAutoReset
+        ? 'Blocca sequenza: lo slider non torna più su "Tutti" al rilascio'
+        : 'Sblocca sequenza: riattiva l\'auto-reset su "Tutti"';
+}
 
 function _initSliderCarico() {
-    if (_sliderCaricoInizializzato) return;
+    if(_sliderCaricoInizializzato) return;
     _sliderCaricoInizializzato = true;
+
+    _loadSliderAutoReset();
 
     var slider = document.getElementById('vp-slider-carico');
     var countEl = document.getElementById('vp-slider-count');
+    var lockBtn = document.getElementById('vp-slider-lock');
     if (!slider) return;
 
     slider.addEventListener('input', function () {
@@ -768,8 +796,9 @@ function _initSliderCarico() {
         }
     });
 
-    // Auto-reset al rilascio: riporta a "Tutti" e rende visibili tutti gli oggetti
+    // Auto-reset al rilascio (solo se l'effetto molla è attivo)
     slider.addEventListener('change', function () {
+        if (!_sliderAutoReset) return;
         var total = parseInt(slider.max) || 0;
         slider.value = total;
         STATE.oggettiMesh.forEach(function (group) {
@@ -780,6 +809,17 @@ function _initSliderCarico() {
             STATE.renderer.render(STATE.scene, STATE.camera);
         }
     });
+
+    // Lucchetto: attiva/disattiva l'effetto molla
+    if (lockBtn) {
+        lockBtn.addEventListener('click', function () {
+            _sliderAutoReset = !_sliderAutoReset;
+            _salvaSliderAutoReset();
+            _aggiornaSliderLockUI();
+        });
+    }
+
+    _aggiornaSliderLockUI();
 }
 
 // =============================================================================

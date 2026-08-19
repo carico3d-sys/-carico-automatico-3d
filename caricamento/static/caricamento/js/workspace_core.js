@@ -121,7 +121,6 @@ function cacheDom() {
     DOM.pvListBody = document.getElementById('pv-list-body');
     DOM.pvFormTitle = document.getElementById('pv-form-title');
     DOM.pvFormBody = document.getElementById('pv-form-body');
-    DOM.pvBtnBack = document.getElementById('pv-btn-back');
 
     // Modal
     DOM.modalOverlay = document.getElementById('modal-overlay');
@@ -655,10 +654,7 @@ function _renderSidebarNavigazione(cat) {
                     '<i class="bi bi-shield-shaded sidebar-icon"></i> Pannello Admin' +
                 '</a>';
             }
-            html += '<a href="/logout/" class="sidebar-nav-item" style="color:#c0392b;text-decoration:none;">' +
-                '<i class="bi bi-box-arrow-right sidebar-icon"></i> Esci' +
-            '</a>' +
-            strumentiRapidiHtml;
+            html += strumentiRapidiHtml;
             break;
 
         case 'report':

@@ -456,6 +456,14 @@
         20
       ]
     },
+    "vp-slider-lock": {
+      "type": "bootstrap",
+      "file": "icons8-lock-96.png",
+      "dims": [
+        16,
+        16
+      ]
+    },
     "panel-header-icon": {
       "type": "png",
       "file": "icons8-object-94.png",
@@ -709,39 +717,39 @@
       "height_px": 35
     },
     "win-vincoli-escludi": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-unavailable-96.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Escludi tutti",
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
       "width_pct": 100,
-      "height_px": 33
+      "height_px": 36
     },
     "win-vincoli-nuovo": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-new-file-96.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Nuovo",
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
       "width_pct": 100,
-      "height_px": 33
+      "height_px": 36
     },
     "win-vincoli-crea": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-new-file-96.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Crea Vincolo",
       "label_size": 12,
@@ -751,11 +759,11 @@
       "height_px": 36
     },
     "win-vincoli-aggiorna": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-save-64.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Aggiorna Vincolo",
       "label_size": 12,
@@ -765,11 +773,11 @@
       "height_px": 36
     },
     "win-vincoli-delete": {
-      "type": "bootstrap",
-      "file": "",
+      "type": "png",
+      "file": "icons8-trash-48.png",
       "dims_px": [
-        18,
-        18
+        30,
+        30
       ],
       "label": "Elimina",
       "label_size": 12,
@@ -831,7 +839,7 @@
       "label_size": 12,
       "label_pos": "row",
       "color": "#6c757d",
-      "width_pct": 45,
+      "width_pct": 40,
       "height_px": 35
     },
     "win-trasp-salva": {
@@ -845,7 +853,7 @@
       "label_size": 12,
       "label_pos": "row",
       "color": "#447e9b",
-      "width_pct": 45,
+      "width_pct": 40,
       "height_px": 35
     },
     "win-trasp-delete-mezzo": {
@@ -859,7 +867,7 @@
       "label_size": 12,
       "label_pos": "row",
       "color": "#e74c3c",
-      "width_pct": 10,
+      "width_pct": 20,
       "height_px": 35
     }
   },
@@ -871,5 +879,17 @@
     "main-bg": "#e9f0f3",
     "accent-hover": "#6998af",
     "slider-track-start": "#c7d8e1"
+  },
+  "header": {
+    "panel-destro": 64,
+    "pv-list-header": 64,
+    "pv-list-articoli": 64,
+    "pv-list-trasporti": 64,
+    "pv-list-impostazioni": 64,
+    "pv-form-header": 64,
+    "pv-form-articoli": 64,
+    "pv-form-vincoli": 64,
+    "pv-form-trasporti": 64,
+    "pv-form-impostazioni": 64
   }
 }

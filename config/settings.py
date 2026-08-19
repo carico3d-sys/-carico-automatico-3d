@@ -18,10 +18,14 @@ from pathlib import Path
 
 BASE_LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
-# Carica variabili d'ambiente dal file .env (solo in sviluppo)
+# Carica variabili d'ambiente dal file .env (solo in sviluppo).
+# ``override=True``: in sviluppo il .env è la fonte autorevole. Senza override,
+# una variabile d'ambiente obsoleta già presente nella shell (es. un SECRET_KEY
+# vecchio) resterebbe in vigore e firmerebbe i task Django Q2 con una chiave
+# diversa da quella del .env, facendo fallire la coda con BadSignature.
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -111,6 +115,21 @@ Q_CLUSTER = {
     # Usa il DB Django come backend (non richiede Redis)
     "orm": "default",
 }
+
+
+# ---------------------------------------------------------------------------
+# Ottimizzatore 3D — stima tempi e soglia sync/async
+# ---------------------------------------------------------------------------
+
+# Millisecondi stimati per "operazione" (un tentativo di piazzamento con una
+# singola orientazione). Default conservativo per una vCPU condivisa (es.
+# Contabo entry-level): la telemetria restituisce il valore reale (ms_per_op)
+# per calibrare questo parametro.
+OPTIMIZZATORE_MS_PER_OP = 20.0
+
+# Soglia (secondi) sotto la quale l'ottimizzazione resta sincrona. Oltre,
+# il backend la accoda in modo asincrono per non sforare il timeout browser.
+OPTIMIZZATORE_SOGLIA_SYNC_S = 15.0
 
 
 ROOT_URLCONF = 'config.urls'

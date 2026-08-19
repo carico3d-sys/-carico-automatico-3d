@@ -202,15 +202,15 @@ function _ripristinaPannelloDaSnapshot(snapshot) {
         var qty = item.querySelector('.panel-qty-input');
         if (qty) {
             qty.value = dati.quantita;
-            qty.min = dati.qtyOriginale ? '0' : '1';
+            qty.min = '0';
         }
         item.dataset.priorita = dati.priorita || '0';
-        if (dati.qtyOriginale) item.dataset.qtyOriginale = dati.qtyOriginale;
-        else delete item.dataset.qtyOriginale;
+        var richiesta = dati.qtyOriginale || dati.quantita;
+        item.dataset.qtyOriginale = String(richiesta);
         var badge = item.querySelector('.panel-qty-originale');
         if (badge) {
-            badge.textContent = dati.qtyOriginale || '';
-            badge.title = dati.qtyOriginale ? 'Quantità richiesta: ' + dati.qtyOriginale : 'Quantità richiesta: —';
+            badge.textContent = richiesta;
+            badge.title = 'Quantità richiesta: ' + richiesta;
         }
         var prio = item.querySelector('.panel-prio-input');
         if (prio) prio.value = dati.priorita || '0';

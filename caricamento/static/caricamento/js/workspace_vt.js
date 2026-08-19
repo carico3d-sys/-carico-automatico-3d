@@ -88,17 +88,25 @@ function _vtBuildLoadSelectOptions() {
 // VINCOLI ESISTENTI
 // =============================================================================
 
-function _vtPopolaVincoliEsistenti() {
-    var container = document.getElementById('vt-existing-list');
-    var count = document.getElementById('vt-existing-count');
-    if (!container) return;
-    if (count) count.textContent = WS.vincoliTra.length;
-
-    // Aggiorna anche la select "Carica vincolo" nell'header
+function _vtAggiornaSelectCaricaVincolo() {
+    // La select "Carica vincolo" deve riflettere creazioni/aggiornamenti/
+    // eliminazioni senza ricaricare la pagina. Nel layout v6 (3 colonne) la
+    // lista "esistenti" legacy non è più presente, quindi questo va fatto in
+    // modo indipendente dalla presenza di #vt-existing-list.
     var loadSelect = document.getElementById('vt-load-select');
     if (loadSelect) {
         loadSelect.innerHTML = _vtBuildLoadSelectOptions();
     }
+}
+
+function _vtPopolaVincoliEsistenti() {
+    var container = document.getElementById('vt-existing-list');
+    var count = document.getElementById('vt-existing-count');
+    if (count) count.textContent = WS.vincoliTra.length;
+
+    _vtAggiornaSelectCaricaVincolo();
+
+    if (!container) return;
 
     var html = '';
     WS.vincoliTra.forEach(function (v) {
@@ -584,28 +592,41 @@ async function _vtSalvaVincolo() {
 }
 
 async function _vtEliminaVincolo() {
-    if (!_vtState.editingVincoloId) return;
-    if (!confirm('Eliminare questo vincolo?')) return;
+    // Con selezione multipla (più A o più B) elimina TUTTI i vincoli delle
+    // coppie selezionate, non solo quello della coppia primaria A↔ultimo B.
+    var daEliminare = _vtTrovaVincoliSelezione();
+    if (!daEliminare.length) {
+        showToast('⚠️ Nessun vincolo da eliminare tra gli oggetti selezionati.', 'warning');
+        return;
+    }
 
-    var vincoloId = _vtState.editingVincoloId;
+    var msg = daEliminare.length === 1
+        ? 'Eliminare questo vincolo?'
+        : 'Eliminare ' + daEliminare.length + ' vincoli selezionati?';
+    if (!confirm(msg)) return;
+
+    var eliminati = 0;
     try {
         setStatus('busy', 'Eliminazione...');
-        var resp = await fetch('/api/vincoli-tra-oggetti/' + vincoloId + '/', {
-            method: 'DELETE', headers: { 'X-CSRFToken': getCSRFToken() }
-        });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
-        WS.vincoliTra = WS.vincoliTra.filter(function (x) { return x.id != vincoloId; });
+        for (var i = 0; i < daEliminare.length; i++) {
+            var vincoloId = daEliminare[i].id;
+            var resp = await fetch('/api/vincoli-tra-oggetti/' + vincoloId + '/', {
+                method: 'DELETE', headers: { 'X-CSRFToken': getCSRFToken() }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            WS.vincoliTra = WS.vincoliTra.filter(function (x) { return x.id != vincoloId; });
+            eliminati++;
+        }
 
         var badge = document.getElementById('vt-count-badge');
         if (badge) badge.textContent = WS.vincoliTra.length;
 
         _vtPopolaVincoliEsistenti();
         _vtResettaForm();
-        showToast('\u{1F5D1}\uFE0F Vincolo eliminato.', 'info');
+        showToast('🗑️ ' + eliminati + (eliminati === 1 ? ' vincolo eliminato.' : ' vincoli eliminati.'), 'info');
         setStatus('idle', 'Eliminato');
     } catch (err) {
-        showToast('\u274c Errore: ' + err.message, 'error');
+        showToast('❌ Errore: ' + err.message, 'error');
         setStatus('error', 'Errore');
     }
 }

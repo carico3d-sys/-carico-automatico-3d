@@ -134,12 +134,8 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
 
     var gap = 3;
     var maxD = Math.max(ax + Math.abs(offX), ay + Math.abs(offZ), bx, by);
-    var stackH = bz + gap + az;
-    var dist = Math.max(maxD * 2.2, stackH * 1.8, 35);
     var midX = offX / 2;
     var midZ = offZ / 2;
-    camera.position.set(dist * 0.5 + midX, dist * 0.45, dist * 0.65 + midZ);
-    camera.lookAt(midX, stackH / 2, midZ);
 
     // Luci
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -267,6 +263,35 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
         scene.add(hlLine);
     }
 
+    // --- Inquadratura: centra e scala la scena per farla rientrare tutta
+    // dentro il canvas. Il GridHelper viene escluso dal calcolo perché si
+    // estende molto oltre i box e farebbe rimpicciolire troppo gli oggetti.
+    var labelHalf = 7; // metà larghezza dello sprite etichetta (scala 14)
+    var bMinX = Math.min(-bx / 2, offX - ax / 2, offX - labelHalf);
+    var bMaxX = Math.max(bx / 2, offX + ax / 2, offX + labelHalf);
+    var bMinY = 0;
+    var bMaxY = bz + gap + az + 8;   // include l'etichetta sopra A
+    var bMinZ = Math.min(-by / 2, offZ - ay / 2);
+    var bMaxZ = Math.max(by / 2, offZ + ay / 2);
+    var bCx = (bMinX + bMaxX) / 2;
+    var bCy = (bMinY + bMaxY) / 2;
+    var bCz = (bMinZ + bMaxZ) / 2;
+    var bDx = (bMaxX - bMinX) / 2;
+    var bDy = (bMaxY - bMinY) / 2;
+    var bDz = (bMaxZ - bMinZ) / 2;
+    var radius = Math.sqrt(bDx * bDx + bDy * bDy + bDz * bDz) || 1;
+
+    var fovRad = camera.fov * Math.PI / 180;
+    var aspect = w / h;
+    var distV = radius / Math.sin(fovRad / 2);
+    var hFovHalf = Math.atan(Math.tan(fovRad / 2) * aspect);
+    var distH = radius / Math.sin(hFovHalf);
+    var distCam = Math.max(distV, distH) * 1.12;
+
+    var camDir = new THREE.Vector3(0.5, 0.45, 0.65).normalize();
+    camera.position.set(bCx + camDir.x * distCam, bCy + camDir.y * distCam, bCz + camDir.z * distCam);
+    camera.lookAt(bCx, bCy, bCz);
+
     // Render statico nel renderer condiviso. Il canvas della card è 2D: così
     // ogni card conserva la propria immagine senza creare un contesto WebGL.
     renderer.render(scene, camera);
@@ -285,6 +310,30 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
     }
 }
 
+/**
+ * Conta il totale delle configurazioni per la selezione corrente.
+ * Con selezione multipla (più A o più B) somma le configurazioni di ogni
+ * coppia A×B; con selezione singola coincide con la coppia primaria.
+ */
+function _vtContaConfigurazioniTotali() {
+    var idsA = (_vtState.oggettiASelezionati || []).slice();
+    var idsB = (_vtState.oggettiBSelezionati || []).slice();
+    if (!idsA.length) idsA = [_vtState.oggettoAId];
+    if (!idsB.length) idsB = [_vtState.oggettoBId];
+
+    var totale = 0;
+    idsA.forEach(function (aId) {
+        idsB.forEach(function (bId) {
+            if (!aId || !bId) return;
+            var configs = (aId === _vtState.oggettoAId && bId === _vtState.oggettoBId)
+                ? _vtState.configurazioni
+                : _vtCalcolaConfigurazioni(aId, bId);
+            totale += configs.length;
+        });
+    });
+    return totale;
+}
+
 function _vtPopolaGrigliaConfigurazioni() {
     _vtDistruggiCanvases();
 
@@ -295,7 +344,7 @@ function _vtPopolaGrigliaConfigurazioni() {
     if (!grid) return;
 
     var configs = _vtState.configurazioni;
-    if (count) count.textContent = configs.length + ' config';
+    if (count) count.textContent = _vtContaConfigurazioniTotali() + ' config';
 
     // Colonne dinamiche: 1 col per 1-2 config, 2 col per 3-4, 3 col per 5-6, auto per >6
     var cols;

@@ -931,3 +931,31 @@
 .colori-reset:active {
     transform: scale(0.94);
 }
+
+/* =============================================================================
+   TAB HEADER — altezze configurabili
+   ============================================================================= */
+
+.icone-table .hdr-col-desc {
+    width: 60%;
+}
+
+.icone-table .hdr-col-height {
+    width: 28%;
+}
+
+.icone-table .hdr-col-reset {
+    width: 12%;
+    text-align: center;
+}
+
+.hdr-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.hdr-h-input {
+    width: 88px;
+    text-align: right;
+}

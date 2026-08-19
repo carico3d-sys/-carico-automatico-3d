@@ -20,6 +20,7 @@ from django.utils import timezone
 from ..common import (
     ConfigurazioneOttimizzazione,
     ItemPacked,
+    conteggio_orientazioni,
 )
 
 from .data_adapter import _mm_to_cm, _cm_to_mm
@@ -49,12 +50,15 @@ class TreDPacker:
         configurazione: Optional[ConfigurazioneOttimizzazione] = None,
         vincoli_tra_lookup: Optional[Dict] = None,
         sezioni: Optional[List] = None,
+        budget_seconds: float = OPTIMIZATION_TIME_BUDGET_SECONDS,
     ):
         self.bin_dimensioni = bin_dimensioni  # (lunghezza_mm, larghezza_mm, altezza_mm)
         self.peso_max_kg = peso_max_kg
         self.config = configurazione or ConfigurazioneOttimizzazione()
         self.vincoli_tra_lookup = vincoli_tra_lookup or {}
         self.sezioni = sezioni or []
+        self.budget_seconds = budget_seconds
+        self.telemetria: Dict = {}
 
         # Collezione interna: lista di (oggetto, vincoli, colore)
         self._items: List = []
@@ -62,6 +66,7 @@ class TreDPacker:
         # Output (popolati da esegui())
         self.results: List[ItemPacked] = []
         self.unfitted_codes: List[str] = []
+        self.soluzioni_alternative: List[dict] = []
         self.priority_report: Dict = {
             "prioritari_richiesti": [],
             "prioritari_caricati": [],
@@ -175,25 +180,64 @@ class TreDPacker:
             from ..sezione_weight_tracker import SezioneWeightTracker
             tracker = SezioneWeightTracker(list(self.sezioni))
 
+        # Conteggio operazioni: sommatoria dei tentativi di piazzamento attesi
+        # (quantità × orientamenti). Dimensiona i tentativi adattivi e viene
+        # esposto in telemetria per la stima sync/async.
+        ops = sum(
+            conteggio_orientazioni(
+                obj.width,
+                obj.depth,
+                obj.height,
+                obj.orientation_allowed,
+                obj.rotazione_su_x,
+                obj.rotazione_su_y,
+                obj.rotazione_su_z,
+            )
+            for obj in objs
+        )
+
+        telemetria: Dict = {
+            "ops": int(ops),
+            "strategia": "",
+            "passate_eseguite": 0,
+            "passate_max": 0,
+            "tempo_totale_s": 0.0,
+            "tempo_per_passata_s": [],
+            "motivo_stop": "max_tentativi",
+            "deadline_raggiunta": False,
+            "ms_per_op": 0.0,
+        }
+
         # Esegue la strategia selezionata con i limiti del contenitore.
         # La factory mantiene la precedenza storica delle configurazioni,
         # mentre ogni algoritmo concreto vive nel proprio adattatore.
-        # Il time-budget garantisce il rientro entro il timeout di 20s del
-        # frontend: la strategia restituisce la migliore soluzione trovata
-        # prima della scadenza.
-        strategia = strategy_for_config(self.config)
-        deadline = time.monotonic() + OPTIMIZATION_TIME_BUDGET_SECONDS
+        # NESSUN taglio per tempo: l'algoritmo gira fino alla risposta
+        # definitiva (tutti gli oggetti piazzati oppure euristiche esaurite).
+        # Un risultato parziale può dipendere solo dalla geometria, mai dalla
+        # deadline. L'unico tetto di emergenza è il timeout del worker Django
+        # Q2 (300s), applicato al processo, non alla soluzione.
+        strategia = strategy_for_config(self.config, ops=ops)
+        telemetria["strategia"] = getattr(strategia, "name", "")
+        t0 = time.monotonic()
         risultati = strategia.execute(
             objs,
             vincoli_sopra,
             container_dim,
             tracker=tracker,
             compattazione_aggressiva=self.config.compattazione_aggressiva,
-            deadline=deadline,
+            deadline=None,
+            telemetria=telemetria,
         )
+        tempo_totale = time.monotonic() - t0
+        telemetria["tempo_totale_s"] = round(tempo_totale, 3)
+        telemetria["deadline_raggiunta"] = False
+        if ops > 0:
+            telemetria["ms_per_op"] = round((tempo_totale * 1000.0) / ops, 3)
+        self.telemetria = telemetria
 
         # Converte i risultati in ItemPacked (mm) — solo oggetti posizionati
         placed_objs, unfitted_objs = filter_unfitted(risultati)
+        telemetria["oggetti_piazzati"] = len(placed_objs)
         self.priority_report = valida_priorita(objs, placed_objs)
         self.constraint_report = valida_vincoli_sopra(
             objs, placed_objs, vincoli_sopra
@@ -224,11 +268,66 @@ class TreDPacker:
                 colore=getattr(obj, "_colore", "#4488ff"),
                 peso_sopra_kg=Decimal(str(getattr(obj, "_peso_sopra_kg", 0))),
             ))
+        # Serializza le soluzioni prodotte dalla strategia (es. Monte Carlo)
+        # nel formato atteso dal frontend. La prima è la migliore: viene
+        # marcata con ``e_migliore`` per essere evidenziata nel pannello.
+        self.soluzioni_alternative = [
+            self._serializza_alternativa(
+                sol, codici_per_oggetto_id, e_migliore=(index == 0)
+            )
+            for index, sol in enumerate(telemetria.get("soluzioni_alternative", []))
+        ]
         self.unfitted_codes = [obj.id for obj in unfitted_objs]
         # I prioritari mancanti sono esposti separatamente per il report/API.
         for obj_id in self.priority_missing_codes:
             if obj_id not in self.unfitted_codes:
                 self.unfitted_codes.append(obj_id)
+
+    def _serializza_alternativa(
+        self, soluzione_objs, codici_per_oggetto_id, e_migliore=False
+    ) -> Dict:
+        """Converte una soluzione (lista di Obj) nel formato delle alternative.
+
+        Il formato coincide con quello atteso dal frontend
+        (``workspace_alternative.js``): oggetti piazzati con coordinate e
+        dimensioni in mm, non posizionati, saturazione e peso totale.
+        ``e_migliore`` marca la soluzione migliore (mostrata in testa).
+        """
+        placed, unfitted = filter_unfitted(soluzione_objs)
+        oggetti = []
+        for obj in placed:
+            codice = codici_per_oggetto_id.get(obj.oggetto_id, obj.id)
+            oggetti.append({
+                "oggetto_id": obj.oggetto_id,
+                "codice": codice,
+                "coordinata_x_mm": _cm_to_mm(obj.x),
+                "coordinata_y_mm": _cm_to_mm(obj.y),
+                "coordinata_z_mm": _cm_to_mm(obj.z),
+                "dimensione_x_mm": _cm_to_mm(obj.width),
+                "dimensione_y_mm": _cm_to_mm(obj.depth),
+                "dimensione_z_mm": _cm_to_mm(obj.height),
+                "rotazione_applicata": "XYZ",
+                "colore": getattr(obj, "_colore", "#4488ff"),
+                "peso_kg": float(getattr(obj, "_peso_kg", 0)),
+            })
+        volume_bin = (
+            self.bin_dimensioni[0]
+            * self.bin_dimensioni[1]
+            * self.bin_dimensioni[2]
+        )
+        volume_oggetti = sum(
+            o["dimensione_x_mm"] * o["dimensione_y_mm"] * o["dimensione_z_mm"]
+            for o in oggetti
+        )
+        saturazione = (volume_oggetti / volume_bin * 100) if volume_bin > 0 else 0
+        peso_totale = sum(o["peso_kg"] for o in oggetti)
+        return {
+            "oggetti": oggetti,
+            "oggetti_non_posizionati": [obj.id for obj in unfitted],
+            "saturazione": round(saturazione, 1),
+            "peso_totale_kg": round(peso_totale, 2),
+            "e_migliore": e_migliore,
+        }
 
     def genera_metriche(self) -> Dict:
         """Genera metriche minimali compatibili con il formato atteso."""
