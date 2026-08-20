@@ -28,6 +28,7 @@ var _dragTjsPos = new THREE.Vector3();
 var _fallbackOffsetCounter = 0;  // contatore per fallback incrementale
 var _ghostIntersectVec = new THREE.Vector3();  // riutilizzabile per ghost pointermove
 var _ghostModeEnabled = false;  // toggle Ghost ON/OFF nel pannello manuale
+var _marqueeModeEnabled = false;  // toggle Selezione Multipla ON/OFF
 
 // =============================================================================
 // CRONOLOGIA UNDO — MODALITÀ MANUALE
@@ -64,6 +65,8 @@ function _manualeSnapshotCorrente() {
             },
             orientamento: ud._orientamento || ud.rotazione || 'LxPxH',
             eccentricStep: Number(ud._eccentricStep || 0),
+            riga_id: ud.riga_id || null,
+            riga_key: ud.riga_key || null,
         };
     });
 
@@ -76,6 +79,10 @@ function _manualeSnapshotCorrente() {
                 quantita: parseInt(item.querySelector('.panel-qty-input')?.value, 10) || 0,
                 qtyOriginale: item.dataset.qtyOriginale || '',
                 priorita: item.dataset.priorita || '0',
+                colore: item.dataset.colore || '',
+                coloreCustom: item.dataset.coloreCustom === '1' ? '1' : '',
+                riga_id: item.dataset.rigaId || null,
+                riga_key: item.dataset.rigaKey || null,
             });
         });
     }
@@ -180,25 +187,38 @@ function _ripristinaPannelloDaSnapshot(snapshot) {
             item.style.opacity = '';
             item.style.transition = '';
         }
-        var key = item.dataset.oggettoId || item.dataset.codice || '';
-        if (!desiderati.some(function (d) { return String(d.oggetto_id) === String(key) || d.codice === key; })) {
-            item.remove();
-        }
+        var keep = desiderati.some(function (d) {
+            if (d.riga_key && item.dataset.rigaKey === String(d.riga_key)) return true;
+            if (d.riga_id && item.dataset.rigaId === String(d.riga_id)) return true;
+            return String(d.oggetto_id) === String(item.dataset.oggettoId) &&
+                (!d.riga_id || !item.dataset.rigaId);
+        });
+        if (!keep) item.remove();
     });
 
     desiderati.forEach(function (dati) {
         var item = Array.prototype.slice.call(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
-            return (dati.oggetto_id && row.dataset.oggettoId === String(dati.oggetto_id)) ||
-                (dati.codice && row.dataset.codice === dati.codice);
+            if (dati.riga_key && row.dataset.rigaKey === String(dati.riga_key)) return true;
+            if (dati.riga_id && row.dataset.rigaId === String(dati.riga_id)) return true;
+            return !dati.riga_id && !dati.riga_key && (
+                (dati.oggetto_id && row.dataset.oggettoId === String(dati.oggetto_id)) ||
+                (dati.codice && row.dataset.codice === dati.codice)
+            );
         });
         if (!item && typeof trovaOggetto === 'function') {
             var oggetto = dati.oggetto_id ? trovaOggetto(parseInt(dati.oggetto_id, 10)) : trovaOggettoPerCodice(dati.codice);
             if (oggetto && typeof aggiungiAlCarico === 'function') {
-                item = aggiungiAlCarico(oggetto.id, dati.quantita, true, dati.qtyOriginale || undefined);
+                item = aggiungiAlCarico(oggetto.id, dati.quantita, true, dati.qtyOriginale || undefined, dati.riga_id || undefined, dati.colore || undefined);
             }
         }
         if (!item) return;
-        desideratiKey[item.dataset.oggettoId || item.dataset.codice] = true;
+        if (dati.riga_id) item.dataset.rigaId = String(dati.riga_id);
+        if (dati.riga_key) item.dataset.rigaKey = String(dati.riga_key);
+        if (dati.colore) {
+            item.dataset.colore = dati.colore;
+            item.dataset.coloreAuto = '';
+            item.dataset.coloreCustom = dati.coloreCustom === '1' ? '1' : '';
+        }
         var qty = item.querySelector('.panel-qty-input');
         if (qty) {
             qty.value = dati.quantita;
@@ -215,6 +235,9 @@ function _ripristinaPannelloDaSnapshot(snapshot) {
         var prio = item.querySelector('.panel-prio-input');
         if (prio) prio.value = dati.priorita || '0';
     });
+
+    // Riassegna colori per i codici duplicati rimasti senza personalizzazione.
+    if (typeof _assegnaColoriAutomatici === 'function') _assegnaColoriAutomatici();
 
     var vuoto = DOM.panelItemsList.children.length === 0;
     var panelHeader = document.getElementById('panel-items-header');
@@ -259,6 +282,8 @@ function _ripristinaSnapshotManuale(snapshot) {
             nuovo.userData.rotazione = dati.orientamento || 'LxPxH';
             nuovo.userData._eccentricStep = dati.eccentricStep || 0;
             nuovo.userData.oggetto_id = dati.oggetto_id || (item && item.id) || null;
+            nuovo.userData.riga_id = dati.riga_id || null;
+            nuovo.userData.riga_key = dati.riga_key || null;
             STATE.scene.add(nuovo);
             STATE.oggettiMesh.push(nuovo);
         });
@@ -369,6 +394,37 @@ function _setGhostMode(enabled) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// SELEZIONE RETTANGOLARE (MARQUEE) — Toggle in toolbar
+// ---------------------------------------------------------------------------
+
+function _aggiornaMarqueeToggleUI() {
+    var btn = document.getElementById('manuale-btn-marquee-toggle');
+    if (!btn) return;
+    var enabled = !!_marqueeModeEnabled;
+    var testoBase = 'Selezione';
+    var textNodes = Array.prototype.slice.call(btn.childNodes).filter(function (n) {
+        return n.nodeType === Node.TEXT_NODE;
+    });
+    textNodes.forEach(function (n) { n.textContent = ' ' + testoBase + (enabled ? ': ON' : ': OFF'); });
+    if (enabled) {
+        btn.classList.add('active');
+        btn.style.backgroundColor = '#1f6feb';
+        btn.style.color = '#fff';
+        btn.style.boxShadow = '0 0 6px rgba(31,111,235,0.5)';
+    } else {
+        btn.classList.remove('active');
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
+        btn.style.boxShadow = '';
+    }
+}
+
+function _setMarqueeMode(enabled) {
+    _marqueeModeEnabled = !!enabled;
+    _aggiornaMarqueeToggleUI();
+}
+
 var _ghostState = {
     active: false,
     group: null,          // THREE.Group del ghost
@@ -428,6 +484,12 @@ function setupDragInteraction(container) {
         if (isEccentricMode && e.shiftKey) {
             e.preventDefault();
         }
+    }
+
+    // Una ricostruzione della scena non deve conservare riferimenti a gruppi
+    // selezionati nella scena precedente.
+    if (typeof _clearManualMultiSelection === 'function') {
+        _clearManualMultiSelection();
     }
 
     // pointerdown in capture → intercetta prima di OrbitControls
@@ -503,6 +565,15 @@ function setupDragInteraction(container) {
         });
     }
 
+    // Bottone Toggle Selezione Rettangolare (Marquee)
+    var btnMarqueeToggle = document.getElementById('manuale-btn-marquee-toggle');
+    if (btnMarqueeToggle && !btnMarqueeToggle._listenerAttached) {
+        btnMarqueeToggle._listenerAttached = true;
+        btnMarqueeToggle.addEventListener('click', function () {
+            _setMarqueeMode(!_marqueeModeEnabled);
+        });
+    }
+
     // La scena può essere stata appena caricata/ricostruita: il primo stato
     // della cronologia è sempre quello realmente visibile all'utente.
     _inizializzaCronologiaManuale();
@@ -511,6 +582,7 @@ function setupDragInteraction(container) {
     // icone o da un rebuild della scena.
     _aggiornaGhostToggleUI();
     _aggiornaUndoManualeUI();
+    _aggiornaMarqueeToggleUI();
 
     STATE._dragListeners = {
         canvas: canvas,

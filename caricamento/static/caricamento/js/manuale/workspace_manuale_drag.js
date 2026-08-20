@@ -248,7 +248,7 @@ function _ricostruisciDecalFaces(mesh, newDims, ud, oldDecalFaces) {
 /**
  * Lampeggia un oggetto di un colore per dare feedback visivo.
  */
-function _ruotaAlProssimoOrientamento(group) {
+function _ruotaAlProssimoOrientamento(group, isCW) {
     var orientamenti = _calcolaOrientamentiValidi(group);
     if (orientamenti.length <= 1) return false;
 
@@ -257,7 +257,12 @@ function _ruotaAlProssimoOrientamento(group) {
     for (var i = 0; i < orientamenti.length; i++) {
         if (orientamenti[i].label === currentLabel) { currentIdx = i; break; }
     }
-    var nextIdx = (currentIdx + 1) % orientamenti.length;
+    // isCW === false → CCW (indietro nell'elenco); altrimenti (true o undefined)
+    // → CW (avanti): mantiene il comportamento storico del singolo oggetto
+    // ruotato via mouse Shift+click, che non specifica una direzione.
+    var nextIdx = (isCW === false)
+        ? (currentIdx - 1 + orientamenti.length) % orientamenti.length
+        : (currentIdx + 1) % orientamenti.length;
     var nuovoOrientamento = orientamenti[nextIdx];
 
     _ricostruisciMeshOrientamento(group, nuovoOrientamento);
@@ -276,9 +281,14 @@ function _ruotaAlProssimoOrientamento(group) {
 //
 // @param {boolean} isCW - true = rotazione oraria (CW, tasto destro), false = antioraria (CCW, tasto sinistro)
 
-function _ruotaEccentrico(group, isCW) {
+/**
+ * Restituisce gli orientamenti "piatti" (stessa altezza della base LxPxH)
+ * su cui opera la rotazione eccentrica. null se non ce ne sono almeno 2
+ * (oggetto non ruotabile nel piano orizzontale).
+ */
+function _orientamentiPiattiEccentrico(group) {
     var tuttiOrientamenti = _calcolaOrientamentiValidi(group);
-    if (tuttiOrientamenti.length <= 1) return false;
+    if (tuttiOrientamenti.length <= 1) return null;
 
     // In modalità eccentrica, ruota SOLO nel piano orizzontale (stessa Y
     // dell'orientamento base LxPxH). Filtra via i ribaltamenti che coinvolgono
@@ -292,7 +302,57 @@ function _ruotaEccentrico(group, isCW) {
     });
 
     // Se dopo il filtro resta solo 1 orientamento, non c'è nulla da ruotare
-    if (orientamenti.length <= 1) return false;
+    return orientamenti.length > 1 ? orientamenti : null;
+}
+
+/**
+ * true se l'oggetto può ruotare ECCENTRICAMENTE (perno sul lato corto):
+ * ha orientamenti piatti, è già in un orientamento piatto e non è quasi
+ * quadrato (Δ lato lungo/corto >= 0.5 cm).
+ */
+function _puoRuotareEccentrico(group) {
+    var orientamenti = _orientamentiPiattiEccentrico(group);
+    if (!orientamenti) return false;
+    var currentLabel = group.userData._orientamento || 'LxPxH';
+    var isPiatto = orientamenti.some(function (o) { return o.label === currentLabel; });
+    if (!isPiatto) return false;
+    var dims = _getTjsDimensions(group);
+    var delta = Math.abs(dims.x - dims.z) / 2;
+    return delta >= 0.5;
+}
+
+/**
+ * Ruota tra i soli orientamenti piatti (piano orizzontale) SENZA spostare
+ * la posizione. Usato come fallback uniforme quando il blocco contiene
+ * oggetti che non possono ruotare eccentricamente: così tutti i membri
+ * girano nello stesso modo.
+ */
+function _ruotaPiattoBaricentrico(group, isCW) {
+    var orientamenti = _orientamentiPiattiEccentrico(group);
+    if (!orientamenti) return false;
+
+    var currentLabel = group.userData._orientamento || 'LxPxH';
+    var currentIdx = 0;
+    var n = orientamenti.length;
+    for (var i = 0; i < n; i++) {
+        if (orientamenti[i].label === currentLabel) { currentIdx = i; break; }
+    }
+
+    // Orientamento corrente non piatto: riporta al primo piatto (come fa
+    // _ruotaEccentrico) senza spostare la posizione.
+    if (orientamenti[currentIdx].label !== currentLabel) {
+        _ricostruisciMeshOrientamento(group, orientamenti[0]);
+        return true;
+    }
+
+    var nextIdx = isCW ? (currentIdx + 1) % n : (currentIdx - 1 + n) % n;
+    _ricostruisciMeshOrientamento(group, orientamenti[nextIdx]);
+    return true;
+}
+
+function _ruotaEccentrico(group, isCW) {
+    var orientamenti = _orientamentiPiattiEccentrico(group);
+    if (!orientamenti) return false;
 
     var currentLabel = group.userData._orientamento || 'LxPxH';
     var currentIdx = 0;
@@ -417,6 +477,42 @@ function _onDragPointerDown(e) {
     var group = intersects[0].object.parent;  // parent del mesh = itemGroup
     if (!group || STATE.oggettiMesh.indexOf(group) === -1) return;
 
+    // --- SELEZIONE MULTIPLA: toggle ON + click sx = aggiungi alla selezione ---
+    if (_marqueeModeEnabled && e.button === 0 && !e.shiftKey) {
+        var alreadySelected = Array.isArray(STATE._manualSelectedObjects) &&
+            STATE._manualSelectedObjects.indexOf(group) >= 0;
+        if (!alreadySelected) {
+            var currentSel = Array.isArray(STATE._manualSelectedObjects)
+                ? STATE._manualSelectedObjects.slice() : [];
+            if (currentSel.indexOf(group) === -1) currentSel.push(group);
+            _setManualSelection(currentSel);
+            // Il conteggio è visibile nel badge della label (basso-destra),
+            // quindi niente toast qui.
+            return; // non iniziare drag — prossimo click draggherà
+        }
+        // Se è già selezionato, proseguire (drag a blocchi)
+    }
+
+    // --- SELEZIONE COLONNA: click dx = oggetto + tutti sotto ---
+    if (e.button === 2 && !e.shiftKey && _marqueeModeEnabled) {
+        e.preventDefault();
+        var colonna = _manualeSelezionaColonna(group);
+        _setManualSelection(colonna);
+        // Il conteggio è visibile nel badge della label (basso-destra),
+        // quindi niente toast qui.
+        return;
+    }
+
+    // --- DRAG DI BLOCCO/PILE: mantiene le posizioni relative ---
+    if (e.button === 0 && !e.shiftKey &&
+        typeof _manualeIniziaDragBlocco === 'function' &&
+        typeof _manualeGruppiSelezionati === 'function') {
+        var gruppiSelezionati = _manualeGruppiSelezionati();
+        if (gruppiSelezionati.length > 1 && gruppiSelezionati.indexOf(group) >= 0) {
+            if (_manualeIniziaDragBlocco(e, group)) return;
+        }
+    }
+
     // --- GHOST MODE ON: raccogli oggetto esistente per riposizionamento ---
     if (_ghostModeEnabled && !_ghostState.active && e.button === 0) {
         e.preventDefault();
@@ -469,6 +565,18 @@ function _onDragPointerDown(e) {
     if (e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Con una selezione multipla attiva e il click su un membro,
+        // Shift+click ruota l'INTERO blocco (stessa logica di Ctrl+←/→
+        // da tastiera, esclusa in _ruotaGruppiTastiera da blocchi.js).
+        var selMulti = (typeof _manualeGruppiSelezionati === 'function')
+            ? _manualeGruppiSelezionati()
+            : [];
+        if (selMulti.length > 1 && selMulti.indexOf(group) >= 0 &&
+            typeof _ruotaGruppiTastiera === 'function') {
+            _ruotaGruppiTastiera(selMulti, e.button === 2);
+            return;
+        }
 
         // Salva stato pre-rotazione per eventuale revert su collisione
         var oldDims = _getTjsDimensions(group);
@@ -529,7 +637,11 @@ function _onDragPointerDown(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    STATE.dragState.active = true;
+    // In modalita multi-selezione (toggle ON), il drag parte solo dopo una
+    // soglia di movimento, cosi un semplice click non sposta l'oggetto.
+    STATE.dragState._pendingMultiSelect = !!_marqueeModeEnabled;
+    STATE.dragState._pendingStartPos = { x: e.clientX, y: e.clientY };
+    STATE.dragState.active = !STATE.dragState._pendingMultiSelect;
     STATE.dragState.object = group;
     STATE.dragState._ctrlStarted = false;     // reset stato Ctrl per nuovo drag
     STATE.dragState._ctrlRawApiZ = 0;          // reset accumulatore Z
@@ -564,6 +676,24 @@ function _onDragPointerDown(e) {
 }
 
 function _onDragPointerMove(e) {
+    if (typeof _manualeMuoviDragBlocco === 'function' &&
+        typeof _manualeBlockDragState !== 'undefined' &&
+        _manualeBlockDragState.active) {
+        _manualeMuoviDragBlocco(e);
+        return;
+    }
+    // Soglia di movimento per multi-selezione: il drag parte solo dopo
+    // aver superato 5px di spostamento, cosi un semplice click non muove.
+    if (STATE.dragState._pendingMultiSelect && STATE.dragState._pendingStartPos) {
+        var dx = e.clientX - STATE.dragState._pendingStartPos.x;
+        var dy = e.clientY - STATE.dragState._pendingStartPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 5) return;
+        // Soglia superata: attiva il drag
+        STATE.dragState._pendingMultiSelect = false;
+        STATE.dragState.active = true;
+        STATE.controls.enabled = false;
+        STATE.renderer.domElement.style.cursor = 'grabbing';
+    }
     if (!STATE.dragState.active) return;
 
     var rect = STATE.renderer.domElement.getBoundingClientRect();
@@ -647,6 +777,21 @@ function _onDragPointerMove(e) {
 }
 
 function _onDragPointerUp(e) {
+    if (typeof _manualeTerminaDragBlocco === 'function' &&
+        typeof _manualeBlockDragState !== 'undefined' &&
+        _manualeBlockDragState.active) {
+        _manualeTerminaDragBlocco();
+        return;
+    }
+
+    // Click senza movimento in modalita multi-selezione: il click ha gia'
+    // aggiunto l'oggetto alla selezione in pointerdown, non serve altro.
+    if (STATE.dragState._pendingMultiSelect) {
+        STATE.dragState._pendingMultiSelect = false;
+        STATE.dragState._pendingStartPos = null;
+        return;
+    }
+
     // --- Click su spazio vuoto (senza drag): deseleziona ---
     if (STATE._clickedOnEmpty) {
         STATE._clickedOnEmpty = false;

@@ -1678,6 +1678,18 @@ img.header-cat-icon {
     flex-shrink: 0;
 }
 
+/* Riga Toggle Selezione Rettangolare (piena larghezza) */
+.manuale-marquee-row {
+    margin-top: 6px;
+}
+
+#manuale-btn-marquee-toggle {
+    width: 100%;
+    height: 33px;
+    padding: 0 8px;
+    white-space: nowrap;
+}
+
 /* Riga Aggiungi + Rimuovi (50% + 50%) */
 .manuale-add-remove-row {
     display: flex;

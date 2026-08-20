@@ -27,7 +27,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
 
     <!-- Custom CSS — modulare (5 file, carico in ordine) -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=27">
+    <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=28">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=8">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=5">
     <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=22">
@@ -131,18 +131,20 @@
     <!-- Three.js visualizzatore: core + rendering + orchestratore -->
     <script src="{% static 'caricamento/js/visualizzatore_3d_core.js' %}?v=1" defer></script>
     <script src="{% static 'caricamento/js/visualizzatore_3d_rendering.js' %}?v=2" defer></script>
-    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=8" defer></script>
+    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=9" defer></script>
 
     <!-- Multi Viewport 2×2 (4 viste: Fronte | Lato | Pianta | 3D) -->
     <script src="{% static 'caricamento/js/multi_viewport_3d.js' %}?v=2" defer></script>
 
     <!-- Modalità Manuale: snap → oggetti → orchestratore → drag → ghost → tastiera -->
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_snap.js' %}?v=1" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale_oggetti.js' %}?v=3" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=13" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale_drag.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_oggetti.js' %}?v=6" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=17" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_drag.js' %}?v=6" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_ghost.js' %}?v=4" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale_tastiera.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_selezione.js' %}?v=7" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_blocchi.js' %}?v=4" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale_tastiera.js' %}?v=7" defer></script>
 
     <!-- Chart.js per grafici distribuzione pesi -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
@@ -150,13 +152,13 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=16" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=18" defer></script>
 
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
     <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=43" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
-    <script src="{% static 'caricamento/js/gestione_file.js' %}?v=10" defer></script>
+    <script src="{% static 'caricamento/js/gestione_file.js' %}?v=11" defer></script>
 
     <!-- 3. Sezioni di Carico (assi) nel form Mezzi -->
     <script src="{% static 'caricamento/js/workspace_sezioni.js' %}?v=4" defer></script>
@@ -170,7 +172,7 @@
     <script src="{% static 'caricamento/js/preview_oggetto_3d.js' %}?v=9" defer></script>
 
     <!-- 6. Pannello Destro: selezione mezzo, carico, editor inline, viewport, export -->
-    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=13" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=15" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
     <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=16" defer></script>
@@ -180,10 +182,10 @@
     <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=6" defer></script>
 
     <!-- 8. Soluzioni alternative generate dal Simulated Annealing -->
-    <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=6" defer></script>
+    <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=7" defer></script>
 
     <!-- 9. Ottimizzazione: camera controls, distribuzione pesi, elaboraOttimizzazione -->
-    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=18" defer></script>
+    <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=21" defer></script>
     <script src="{% static 'caricamento/js/workspace_spaziatura.js' %}?v=1" defer></script>
 
     <!-- 9b. Report stampabile -->
@@ -389,6 +391,12 @@
                                 <button id="manuale-btn-ghost-toggle" class="btn btn-sm"><span class="manuale-emoji">👻</span> Ghost: OFF</button>
                             </div>
                         </div>
+                        <!-- Riga Toggle Selezione Rettangolare -->
+                        <div class="manuale-marquee-row">
+                            <button id="manuale-btn-marquee-toggle" class="btn btn-sm" title="Selezione multipla: ON = click sx aggiunge, click dx seleziona colonna (M)">
+                                <i class="bi bi-check2-square manuale-emoji"></i> Selezione: OFF
+                            </button>
+                        </div>
                         <!-- Riga Aggiungi + Rimuovi (50% + 50%) -->
                         <div class="manuale-add-remove-row">
                             <div class="manuale-remove-cell">
@@ -412,6 +420,7 @@
                             <div id="manuale-oggetto-info" class="manuale-oggetto-info" style="display:none;">
                                 <span class="manuale-oggetto-codice" id="manuale-oggetto-codice"></span>
                                 <span class="manuale-oggetto-pos" id="manuale-oggetto-pos"></span>
+                                <span class="manuale-oggetto-count" id="manuale-oggetto-count" style="display:none;"></span>
                             </div>
                         </div>
                     </div>
@@ -595,10 +604,7 @@
             <div id="soluzioni-alternative-panel" style="display: none;">
                 <div class="sezioni-pesi-title" style="display:flex;justify-content:space-between;align-items:center;">
                     <span><i class="bi bi-shuffle"></i> Soluzioni Alternative</span>
-                    <div style="display:flex;gap:6px;align-items:center;">
-                        <button id="btn-salva-alternativa" class="vp-btn" title="Salva l'alternativa selezionata" style="font-size:12px;padding:2px 8px;"><i class="bi bi-check-lg"></i> Salva</button>
-                        <button id="btn-chiudi-alternative" class="vp-btn" title="Chiudi" style="font-size:12px;padding:2px 6px;"><i class="bi bi-x"></i></button>
-                    </div>
+                    <button id="btn-chiudi-alternative" class="vp-btn" title="Chiudi" style="font-size:12px;padding:2px 6px;"><i class="bi bi-x"></i></button>
                 </div>
                 <div id="soluzioni-alternative-list"></div>
             </div>

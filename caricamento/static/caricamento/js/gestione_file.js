@@ -286,6 +286,8 @@ function _applicaImportazione(data, nomeFile) {
     if (typeof WS !== 'undefined') {
         WS._manualPanelSelectedOggettoId = null;
         WS._manualPanelSelectedCodice = null;
+        WS._manualPanelSelectedRigaId = null;
+        WS._manualPanelSelectedRigaKey = null;
     }
     DOM.panelItemsList.innerHTML = '';
     DOM.panelEmpty.style.display = 'flex';
@@ -305,8 +307,9 @@ function _applicaImportazione(data, nomeFile) {
             oggetto.altezza_mm = oc.dimensioni_mm[2];
         }
         if (oc.peso_kg) oggetto.peso_kg = oc.peso_kg;
-        if (oc.colore) oggetto.colore = oc.colore;
-        aggiungiAlCarico(oggetto.id, oc.quantita);
+        // Il colore importato viene portato sulla RIGA (per-riga), non
+        // sull'anagrafica: così resta valido solo per questo carico.
+        aggiungiAlCarico(oggetto.id, oc.quantita, false, undefined, undefined, oc.colore || '');
     });
 
     aggiornaRiepilogoPanel();
@@ -420,6 +423,7 @@ function _renderizzaImportati3D(data) {
             peso_kg: full ? parseFloat(full.peso_kg) : 0,
             peso_sopra_kg: 0,
             rotazione: p.rotazione || 'XYZ',
+            riga_id: p.riga_id || null,
         };
     });
 
@@ -550,21 +554,50 @@ async function salvaPianoDB() {
             headers: { 'X-CSRFToken': getCSRFToken() },
         });
 
+        var mappaRighe = {};
+        var mappaRigheKey = {};
         for (var i = 0; i < oggetti.length; i++) {
-            await fetch('/api/piani/' + pianoId + '/oggetti_da_caricare/', {
+            var rigaPrecedente = oggetti[i].riga_id;
+            var rigaResp = await fetch('/api/piani/' + pianoId + '/oggetti_da_caricare/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-                body: JSON.stringify({ oggetto_id: oggetti[i].oggetto_id, quantita: oggetti[i].quantita, note: '' }),
+                body: JSON.stringify({
+                    oggetto_id: oggetti[i].oggetto_id,
+                    quantita: oggetti[i].quantita,
+                    priorita: oggetti[i].priorita || 0,
+                    colore: oggetti[i].colore || '',
+                    note: '',
+                }),
             });
+            if (!rigaResp.ok) throw new Error('Salvataggio riga carico fallito: HTTP ' + rigaResp.status);
+            var rigaData = await rigaResp.json();
+            if (rigaPrecedente && rigaData.id) mappaRighe[String(rigaPrecedente)] = rigaData.id;
+            if (oggetti[i].riga_key && rigaData.id) mappaRigheKey[String(oggetti[i].riga_key)] = rigaData.id;
+            var rigaItem = oggetti[i].riga_key
+                ? DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + oggetti[i].riga_key + '"]')
+                : null;
+            if (rigaItem) rigaItem.dataset.rigaId = String(rigaData.id || '');
         }
 
         // Salva lo snapshot raccolto prima delle chiamate di rete. Non
         // modificare STATE.oggettiMesh qui: la preview deve restare visibile e
         // lo snapshot è già stato raccolto da _raccogliPosizioniScena().
+        // Le coordinate di una preview possono contenere gli id delle righe
+        // del piano tecnico già eliminato: convertili negli id delle nuove
+        // righe appena create sul piano reale.
+        var snapshotConRighe = _snapshotPosizioni.map(function (posizione) {
+            var copia = Object.assign({}, posizione);
+            if (copia.riga_id && mappaRighe[String(copia.riga_id)]) {
+                copia.riga_id = mappaRighe[String(copia.riga_id)];
+            } else if (copia.riga_key && mappaRigheKey[String(copia.riga_key)]) {
+                copia.riga_id = mappaRigheKey[String(copia.riga_key)];
+            }
+            return copia;
+        });
         await _salvaPosizioniManuali(
             pianoId,
             _originePosizioni,
-            _snapshotPosizioni
+            snapshotConRighe
         );
         WS._manualDragOccurred = false;
         // Una volta persistito il piano, lo snapshot non è più necessario
@@ -724,6 +757,8 @@ function _normalizzaPosizioneDaDati3D(oggetto) {
         dimensioni_cm: dimensioni,
         colore: oggetto.colore || '#447e9b',
         rotazione: _normalizzaRotazionePerApi(oggetto.rotazione || oggetto.rotazione_applicata || 'XYZ'),
+        riga_id: oggetto.riga_id || null,
+        riga_key: oggetto.riga_key || null,
     };
 }
 
@@ -792,6 +827,8 @@ function _raccogliPosizioniScena(usaFallback) {
             dimensioni_cm: dimensioni,
             colore: ud.colore || '#447e9b',
             rotazione: _normalizzaRotazionePerApi(ud._orientamento || ud.rotazione || 'XYZ'),
+            riga_id: ud.riga_id || null,
+            riga_key: ud.riga_key || null,
         });
     });
 

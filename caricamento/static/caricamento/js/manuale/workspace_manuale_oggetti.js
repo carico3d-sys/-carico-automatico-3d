@@ -19,8 +19,13 @@
  * Aggiunge un wireframe blu attorno all'oggetto e lo imposta come selectedObject.
  */
 function _selectObject(group) {
-    // Deseleziona eventuale precedente
-    _deselectObject();
+    // La selezione rettangolare può avere più oggetti: puliscila interamente
+    // prima di tornare alla selezione singola.
+    if (typeof _clearManualMultiSelection === 'function') {
+        _clearManualMultiSelection();
+    } else {
+        _deselectObject();
+    }
 
     STATE.selectedObject = group;
 
@@ -47,7 +52,16 @@ function _selectObject(group) {
     // La memoria logica è necessaria perché _selectObject() viene usato anche
     // durante l'aggiunta manuale e può quindi rimuovere la classe precedente.
     if (typeof DOM !== 'undefined' && DOM.panelItemsList && group.userData.codice) {
-        var panelItem = DOM.panelItemsList.querySelector('.panel-item[data-codice="' + group.userData.codice + '"]');
+        var panelItem = null;
+        if (group.userData.riga_id) {
+            panelItem = DOM.panelItemsList.querySelector('.panel-item[data-riga-id="' + group.userData.riga_id + '"]');
+        }
+        if (!panelItem && group.userData.riga_key) {
+            panelItem = DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + group.userData.riga_key + '"]');
+        }
+        if (!panelItem) {
+            panelItem = DOM.panelItemsList.querySelector('.panel-item[data-codice="' + group.userData.codice + '"]');
+        }
         if (panelItem) {
             if (typeof _impostaSelezionePanelManuale === 'function') {
                 _impostaSelezionePanelManuale(
@@ -74,6 +88,13 @@ function _selectObject(group) {
  * Deseleziona l'oggetto corrente (rimuove wireframe blu).
  */
 function _deselectObject(keepPanelSelected) {
+    if (typeof _clearManualMultiSelection === 'function' &&
+        Array.isArray(STATE._manualSelectedObjects) &&
+        STATE._manualSelectedObjects.length > 0) {
+        _clearManualMultiSelection(keepPanelSelected);
+        return;
+    }
+
     var group = STATE.selectedObject;
     if (group) {
         var toRemove = [];
@@ -119,11 +140,15 @@ function _deselectObject(keepPanelSelected) {
  * Rimuove l'oggetto selezionato dalla scena 3D e dai dati.
  * Aggiorna anche il pannello destro (quantità oggetti nel carico).
  */
-function _removeSelectedObject() {
-    var group = STATE.selectedObject;
-    if (!group) return;
-
+/**
+ * Rimuove un singolo gruppo dalla scena, da STATE.oggettiMesh, dai dati
+ * (STATE.dati.oggetti) e decrementa la quantità nel pannello destro.
+ */
+function _rimuoviGruppoManuale(group) {
+    if (!group || !group.parent) return;
     var codiceRimosso = group.userData.codice;
+    var rigaIdRimossa = group.userData.riga_id || null;
+    var rigaKeyRimossa = group.userData.riga_key || null;
 
     // Rimuovi dalla scena
     if (group.parent) group.parent.remove(group);
@@ -155,44 +180,73 @@ function _removeSelectedObject() {
     }
 
     // Aggiorna il pannello destro: diminuisci quantità o rimuovi riga
-    if (codiceRimosso && typeof DOM !== 'undefined' && DOM.panelItemsList) {
-        var panelItems = DOM.panelItemsList.querySelectorAll('.panel-item');
-        for (var i = 0; i < panelItems.length; i++) {
-            var item = panelItems[i];
-            if (item.dataset.codice === codiceRimosso) {
-                var qtyInput = item.querySelector('.panel-qty-input');
-                var qty = parseInt(qtyInput.value) || 1;
-                qty -= 1;
-                if (qty <= 0) {
-                    // Mantieni temporaneamente la riga nel DOM per l'animazione,
-                    // ma registra subito la quantità reale (zero): così Undo
-                    // salva uno stato coerente anche prima del setTimeout.
-                    if (qtyInput) qtyInput.value = 0;
-                    // Rimuovi la riga dal pannello
-                    item.style.opacity = '0';
-                    item.style.transition = 'opacity 0.15s';
-                    var itemRef = item;
-                    var removalTimer = setTimeout(function () {
-                        // Se nel frattempo la riga è stata riutilizzata, non rimuoverla.
-                        if (itemRef._panelRemovalTimer !== removalTimer) return;
-                        itemRef._panelRemovalTimer = null;
-                        itemRef.remove();
-                        if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
-                        if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
-                        if (DOM.panelItemsList && DOM.panelItemsList.children.length === 0 && DOM.panelEmpty) {
-                            DOM.panelEmpty.style.display = 'flex';
-                        }
-                    }, 150);
-                    itemRef._panelRemovalTimer = removalTimer;
-                } else {
-                    qtyInput.value = qty;
-                    if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
-                    if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
+    _decrementaQtaPanelPerCodice(codiceRimosso, rigaIdRimossa, rigaKeyRimossa);
+}
+
+/**
+ * Decrementa di 1 la quantità della riga del pannello col codice dato;
+ * se arriva a zero rimuove la riga (con animazione e timer anti-accumulo).
+ */
+function _decrementaQtaPanelPerCodice(codiceRimosso, rigaId, rigaKey) {
+    if (!codiceRimosso || typeof DOM === 'undefined' || !DOM.panelItemsList) return;
+    var item = null;
+    if (rigaId) item = DOM.panelItemsList.querySelector('.panel-item[data-riga-id="' + rigaId + '"]');
+    if (!item && rigaKey) item = DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + rigaKey + '"]');
+    var panelItems = item ? [item] : DOM.panelItemsList.querySelectorAll('.panel-item');
+    for (var i = 0; i < panelItems.length; i++) {
+        item = panelItems[i];
+        if (item.dataset.codice !== codiceRimosso) continue;
+        var qtyInput = item.querySelector('.panel-qty-input');
+        var qty = parseInt(qtyInput.value) || 1;
+        qty -= 1;
+        if (qty <= 0) {
+            // Mantieni temporaneamente la riga nel DOM per l'animazione,
+            // ma registra subito la quantità reale (zero): così Undo
+            // salva uno stato coerente anche prima del setTimeout.
+            if (qtyInput) qtyInput.value = 0;
+            // Rimuovi la riga dal pannello
+            item.style.opacity = '0';
+            item.style.transition = 'opacity 0.15s';
+            var itemRef = item;
+            var removalTimer = setTimeout(function () {
+                // Se nel frattempo la riga è stata riutilizzata, non rimuoverla.
+                if (itemRef._panelRemovalTimer !== removalTimer) return;
+                itemRef._panelRemovalTimer = null;
+                itemRef.remove();
+                if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
+                if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
+                if (DOM.panelItemsList && DOM.panelItemsList.children.length === 0 && DOM.panelEmpty) {
+                    DOM.panelEmpty.style.display = 'flex';
                 }
-                break;
-            }
+            }, 150);
+            itemRef._panelRemovalTimer = removalTimer;
+        } else {
+            qtyInput.value = qty;
+            if (typeof aggiornaRiepilogoPanel === 'function') aggiornaRiepilogoPanel();
+            if (typeof aggiornaStatoPulsante === 'function') aggiornaStatoPulsante();
         }
+        break;
     }
+}
+
+function _removeSelectedObject() {
+    // Con la selezione multipla attiva rimuove TUTTI gli oggetti selezionati;
+    // altrimenti il singolo oggetto selezionato (comportamento precedente).
+    var groups = [];
+    if (Array.isArray(STATE._manualSelectedObjects) && STATE._manualSelectedObjects.length > 0) {
+        groups = STATE._manualSelectedObjects.slice();
+        if (STATE.selectedObject && groups.indexOf(STATE.selectedObject) === -1) {
+            groups.push(STATE.selectedObject);
+        }
+    } else if (STATE.selectedObject) {
+        groups = [STATE.selectedObject];
+    }
+    if (groups.length === 0) return;
+
+    var multi = groups.length > 1;
+    groups.forEach(function (group) {
+        _rimuoviGruppoManuale(group);
+    });
 
     // Segna modifiche manuali. La registrazione avviene dopo l'aggiornamento
     // della quantità nel pannello, così lo snapshot rappresenta davvero lo
@@ -209,9 +263,12 @@ function _removeSelectedObject() {
     // Aggiorna grafico distribuzione pesi in tempo reale se visibile
     if (typeof aggiornaGraficoPesiInTempoReale === 'function') aggiornaGraficoPesiInTempoReale();
 
-    // Auto-seleziona l'ultimo oggetto dello stesso tipo di quello rimosso
-    // (così l'utente può eliminare in serie oggetti con lo stesso codice)
-    if (STATE.oggettiMesh.length > 0) {
+    // Auto-selezione SOLO per la rimozione singola: l'ultimo oggetto dello
+    // stesso tipo di quello rimosso (così l'utente può eliminare in serie
+    // oggetti con lo stesso codice). Dopo una rimozione multipla la
+    // selezione resta vuota.
+    if (!multi && STATE.oggettiMesh.length > 0) {
+        var codiceRimosso = groups[0].userData.codice;
         var found = null;
         if (codiceRimosso) {
             for (var j = STATE.oggettiMesh.length - 1; j >= 0; j--) {
@@ -227,7 +284,9 @@ function _removeSelectedObject() {
     }
 
     if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
-    showToast('🗑️ Oggetto rimosso dal carico.', 'info');
+    showToast(multi
+        ? ('🗑️ ' + groups.length + ' oggetti rimossi dal carico.')
+        : '🗑️ Oggetto rimosso dal carico.', 'info');
 }
 
 // =============================================================================
@@ -675,10 +734,14 @@ function _assicuraObserverSelezionePanelManuale() {
 
     WS._manualPanelSelectionObserver = new MutationObserver(function () {
         var selectedId = WS._manualPanelSelectedOggettoId;
-        if (!selectedId || !DOM.panelItemsList) return;
+        var selectedRigaId = WS._manualPanelSelectedRigaId;
+        var selectedRigaKey = WS._manualPanelSelectedRigaKey;
+        if ((!selectedId && !selectedRigaId && !selectedRigaKey) || !DOM.panelItemsList) return;
 
         var target = Array.from(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (row) {
-            return row.dataset.oggettoId === String(selectedId);
+            return (selectedRigaId && row.dataset.rigaId === String(selectedRigaId)) ||
+                (selectedRigaKey && row.dataset.rigaKey === String(selectedRigaKey)) ||
+                (!selectedRigaId && !selectedRigaKey && row.dataset.oggettoId === String(selectedId));
         });
         if (!target) return;
 
@@ -719,6 +782,8 @@ function _impostaSelezionePanelManuale(item, oggettoId, codice) {
 
     WS._manualPanelSelectedOggettoId = target.dataset.oggettoId || String(oggettoId || '');
     WS._manualPanelSelectedCodice = target.dataset.codice || String(codice || '');
+    WS._manualPanelSelectedRigaId = target.dataset.rigaId || null;
+    WS._manualPanelSelectedRigaKey = target.dataset.rigaKey || null;
 
     DOM.panelItemsList.querySelectorAll('.panel-item.selected').forEach(function (row) {
         if (row !== target) row.classList.remove('selected');
@@ -730,11 +795,16 @@ function _ripristinaSelezionePanelManuale(item, oggettoId, codice) {
     _impostaSelezionePanelManuale(item, oggettoId, codice);
 }
 
-function _incrementaPanelQty(oggettoId, codice) {
+function _incrementaPanelQty(oggettoId, codice, rigaId, rigaKey) {
     if (typeof DOM === 'undefined' || !DOM.panelItemsList) return;
 
-    // Cerca per oggettoId
-    var item = DOM.panelItemsList.querySelector('.panel-item[data-oggetto-id="' + oggettoId + '"]');
+    // Prima cerca il lotto preciso; il codice è solo fallback per i legacy.
+    var item = rigaId
+        ? DOM.panelItemsList.querySelector('.panel-item[data-riga-id="' + rigaId + '"]')
+        : null;
+    if (!item && rigaKey) {
+        item = DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + rigaKey + '"]');
+    }
     if (!item && codice) {
         // Fallback: cerca per codice
         var items = DOM.panelItemsList.querySelectorAll('.panel-item');
@@ -758,9 +828,12 @@ function _incrementaPanelQty(oggettoId, codice) {
         var quantitaInScena = 0;
         if (typeof STATE !== 'undefined' && Array.isArray(STATE.oggettiMesh)) {
             STATE.oggettiMesh.forEach(function (mesh) {
-                if (mesh && mesh.parent === STATE.scene &&
-                    mesh.userData && mesh.userData.codice === codice) {
-                    quantitaInScena += 1;
+                if (mesh && mesh.parent === STATE.scene && mesh.userData &&
+                    mesh.userData.codice === codice) {
+                    var stessoLotto = (rigaId && String(mesh.userData.riga_id) === String(rigaId)) ||
+                        (rigaKey && mesh.userData.riga_key === rigaKey) ||
+                        (!rigaId && !rigaKey);
+                    if (stessoLotto) quantitaInScena += 1;
                 }
             });
         }
@@ -791,6 +864,16 @@ function _getManualeSelectedPanelItem() {
     if (typeof DOM === 'undefined' || !DOM.panelItemsList) return null;
 
     var item = DOM.panelItemsList.querySelector('.panel-item.selected');
+    if (!item && typeof WS !== 'undefined' && WS._manualPanelSelectedRigaId) {
+        item = DOM.panelItemsList.querySelector(
+            '.panel-item[data-riga-id="' + WS._manualPanelSelectedRigaId + '"]'
+        );
+    }
+    if (!item && typeof WS !== 'undefined' && WS._manualPanelSelectedRigaKey) {
+        item = DOM.panelItemsList.querySelector(
+            '.panel-item[data-riga-key="' + WS._manualPanelSelectedRigaKey + '"]'
+        );
+    }
     if (!item && typeof WS !== 'undefined' && WS._manualPanelSelectedOggettoId) {
         item = DOM.panelItemsList.querySelector(
             '.panel-item[data-oggetto-id="' + WS._manualPanelSelectedOggettoId + '"]'
@@ -842,6 +925,11 @@ function _aggiungiOggettoDaPanel() {
     var selectedPanelItem = selectedItem;
     var selectedPanelOggettoId = selectedItem.dataset.oggettoId;
     var selectedPanelCodice = selectedItem.dataset.codice;
+    var selectedPanelRigaId = selectedItem.dataset.rigaId || null;
+    var selectedPanelRigaKey = selectedItem.dataset.rigaKey || null;
+    // Il ghost deve mantenere il lotto selezionato fino alla conferma.
+    _ghostState.riga_id = selectedPanelRigaId;
+    _ghostState.riga_key = selectedPanelRigaKey;
 
     var oggettoId = parseInt(selectedItem.dataset.oggettoId);
     if (!oggettoId) {
@@ -895,10 +983,15 @@ function _aggiungiOggettoDaPanel() {
         }
         var codice = oggetto.codice;
         var descrizione = oggetto.descrizione || '';
-        var colore = coloreOggetto(oggetto);
+        // Il colore della riga (se personalizzato) ha precedenza su quello
+        // dell'anagrafica, così anche in modalità manuale due lotti con lo
+        // stesso codice restano distinguibili.
+        var colore = coloreRiga(selectedItem);
         var pesoKg = oggetto.peso_kg || 0;
         var nuovoItem = _creaMeshSingolo(risultato.dims, risultato.pos, codice, colore, descrizione, pesoKg);
         nuovoItem.userData._orientamento = risultato.label;
+        nuovoItem.userData.riga_id = selectedPanelRigaId;
+        nuovoItem.userData.riga_key = selectedPanelRigaKey;
         STATE.scene.add(nuovoItem);
         STATE.oggettiMesh.push(nuovoItem);
         if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
@@ -910,7 +1003,7 @@ function _aggiungiOggettoDaPanel() {
         _flashOggetto(nuovoItem, 0x00ff00);
         _selectObject(nuovoItem);
         showToast('✅ ' + codice + ' piazzato (' + risultato.label + ')', 'success');
-        _incrementaPanelQty(oggetto.id, codice);
+        _incrementaPanelQty(oggetto.id, codice, selectedPanelRigaId, selectedPanelRigaKey);
         // Ripristina la riga solo dopo l'aggiornamento della quantità, che
         // conclude tutte le modifiche al pannello.
         _ripristinaSelezionePanelManuale(

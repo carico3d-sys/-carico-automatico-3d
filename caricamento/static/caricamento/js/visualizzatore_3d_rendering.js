@@ -246,6 +246,8 @@ function buildOggetti(oggetti) {
             pesoSopra: oggetto.peso_sopra_kg,
             rotazione: oggetto.rotazione,
             colore: coloreHex,
+            riga_id: oggetto.riga_id || null,
+            riga_key: oggetto.riga_key || null,
             index: index,
             _baseY: 0,                                                // Y locale mesh (per animazione floating)
             _posZ: pos.z,                                              // API z (visual bottom) per calcoli drag verticale

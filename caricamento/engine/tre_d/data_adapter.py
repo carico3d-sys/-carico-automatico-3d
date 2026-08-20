@@ -115,6 +115,7 @@ def _carica_oggetti(piano: PianoDiCarico) -> List[Obj]:
                 solo_su_piano=solo_su_piano,
                 fragile=fragile,
                 priorita=priorita,
+                riga_origine_id=entry.id,
                 vincolo_oggetto_id=(
                     getattr(vincolo_oggetto, "pk", None)
                     if vincolo_oggetto is not None else None
@@ -124,8 +125,9 @@ def _carica_oggetti(piano: PianoDiCarico) -> List[Obj]:
                     if vincolo_oggetto is not None else ""
                 ),
             )
-            # Memorizzo anche il colore come attributo (utile per salvare)
-            obj._colore = _get_colore(oggetto, index)
+            # Colore della riga se presente, altrimenti anagrafica/palette.
+            # Così due righe con lo stesso codice possono avere colori diversi.
+            obj._colore = _get_colore(oggetto, index) if not entry.colore else entry.colore
             obj._peso_kg = float(oggetto.peso_kg)
             obj.peso_massimo_tetto = (
                 float(vincolo_oggetto.peso_massimo_tetto_kg)
@@ -190,6 +192,7 @@ def _salva_posizionamenti(
         nuovo = OggettoPosizionato(
             piano_di_carico=piano,
             oggetto_id=obj.oggetto_id,
+            riga_origine_id=getattr(obj, "riga_origine_id", None),
             coordinata_x_mm=_cm_to_mm(obj.x),
             coordinata_y_mm=_cm_to_mm(obj.y),
             coordinata_z_mm=_cm_to_mm(obj.z),

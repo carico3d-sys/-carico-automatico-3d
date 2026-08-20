@@ -6,6 +6,9 @@ NOTA: Django Q2 usa `async_task()` come FUNZIONE, non come decorator.
       async_task(func, *args, **kwargs) accoda un task e restituisce un UUID.
 """
 
+import logging
+
+from django.utils import timezone
 from django_q.tasks import async_task
 
 from .engine import (
@@ -13,6 +16,10 @@ from .engine import (
     esegui_ottimizzazione_tre_d,
 )
 from .engine.tre_d.constants import OPTIMIZATION_TIME_BUDGET_SECONDS
+from .models import PianoDiCarico, StatoPiano
+
+
+logger = logging.getLogger(__name__)
 
 
 def avvia_ottimizzazione(
@@ -42,12 +49,35 @@ def avvia_ottimizzazione(
     # Esegue direttamente l'Algoritmo 3D Semplificato (TreDPacker).
     # Il SezioneWeightTracker viene attivato automaticamente se il mezzo
     # ha sezioni configurate e "Priorità alla distribuzione dei pesi" è attiva.
-    risultato = esegui_ottimizzazione_tre_d(
-        piano_id,
-        config=configurazione,
-        salva_risultato=salva_risultato,
-        budget_seconds=budget_seconds,
-    )
+    try:
+        risultato = esegui_ottimizzazione_tre_d(
+            piano_id,
+            config=configurazione,
+            salva_risultato=salva_risultato,
+            budget_seconds=budget_seconds,
+        )
+    except Exception as exc:
+        # Un'eccezione fuori dal blocco principale dell'orchestratore (per
+        # esempio un campo DB presente in una versione worker non aggiornata)
+        # non deve lasciare il piano bloccato in ``in_elaborazione``. Django Q
+        # marca il task come fallito, ma il frontend legge lo stato del piano.
+        logger.exception("Ottimizzazione task fallita: piano_id=%s", piano_id)
+        if salva_risultato:
+            PianoDiCarico.objects.filter(pk=piano_id).update(
+                stato=StatoPiano.ERRORE,
+                messaggio_errore=f"{type(exc).__name__}: {exc}",
+                completato_at=timezone.now(),
+            )
+        return {
+            "successo": False,
+            "piano_id": piano_id,
+            "oggetti_posizionati": 0,
+            "oggetti_non_posizionati": [],
+            "saturazione_percentuale": 0,
+            "messaggio": str(exc),
+            "report_priorita": {},
+            "posizioni_preview": [],
+        }
 
     # Costruisci output base
     output = {
@@ -76,6 +106,7 @@ def avvia_ottimizzazione(
                 "colore": item.colore,
                 "peso_kg": float(item.peso_kg),
                 "peso_sopra_kg": float(item.peso_sopra_kg),
+                "riga_id": item.riga_origine_id,
             }
             for item in risultato.oggetti_posizionati
         ],

@@ -37,6 +37,21 @@ function coloreOggetto(oggetto) {
     return COLORI_PACCHI[Math.abs(id) % COLORI_PACCHI.length];
 }
 
+/**
+ * Colore effettivo di una riga del pannello "Oggetti nel carico":
+ * colore personalizzato della riga (dataset.colore) se presente,
+ * altrimenti colore dell'anagrafica dell'oggetto.
+ */
+function coloreRiga(itemDiv) {
+    if (!itemDiv) return '#447e9b';
+    var colore = itemDiv.dataset.colore || '';
+    if (coloreEsadecimaleValido(colore)) {
+        return colore;
+    }
+    var oid = parseInt(itemDiv.dataset.oggettoId, 10) || 0;
+    return coloreOggetto(trovaOggetto(oid));
+}
+
 const W = window.WORKSPACE_CONFIG || {};
 const WS = {
     piani: W.pianiDisponibili || [],
@@ -428,6 +443,8 @@ function switchSidebarTab(tabName) {
         // nell'automatica o nella navigazione.
         WS._manualPanelSelectedOggettoId = null;
         WS._manualPanelSelectedCodice = null;
+        WS._manualPanelSelectedRigaId = null;
+        WS._manualPanelSelectedRigaKey = null;
     }
 }
 

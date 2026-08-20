@@ -24,6 +24,29 @@ function _xMaxCm(soluzione) {
 }
 
 /**
+ * Sincronizza il riepilogo della sidebar con la soluzione attualmente
+ * visualizzata nel main view, invece di usare i dati del pannello di carico.
+ */
+function _aggiornaSidebarDaSoluzione(soluzione) {
+    if (typeof _aggiornaSidebarRiepilogo !== 'function') return;
+    var oggetti = Array.isArray(soluzione && soluzione.oggetti)
+        ? soluzione.oggetti
+        : [];
+    var pesoTotale = 0;
+    var codici = {};
+    oggetti.forEach(function (oggetto) {
+        pesoTotale += Number(oggetto.peso_kg || 0);
+        if (oggetto.codice) codici[String(oggetto.codice)] = true;
+    });
+
+    // Alcune alternative possono riportare il peso solo nelle metriche.
+    if (!pesoTotale && soluzione && soluzione.peso_totale_kg) {
+        pesoTotale = Number(soluzione.peso_totale_kg) || 0;
+    }
+    _aggiornaSidebarRiepilogo(oggetti.length, pesoTotale, Object.keys(codici).length);
+}
+
+/**
  * Ridimensiona il renderer 3D dopo un cambio di layout del pannello.
  * Il pannello alternative cambia l'altezza del viewport: senza questo passo il
  * canvas resta della dimensione precedente e lascia una fascia vuota (il
@@ -97,10 +120,11 @@ function mostraSoluzioniAlternative(soluzioni) {
     list.style.gridTemplateColumns = 'repeat(' + Math.min(Math.max(WS.soluzioniAlternative.length, 1), 6) + ', 1fr)';
     panel.style.display = 'block';
     _marcaSelezione(0);
+    _aggiornaSidebarDaSoluzione(WS.soluzioniAlternative[0]);
     _resizeViewport3D();
 
-    // Click sulla card = applica senza salvare (anteprima nel 3D). La
-    // salvatura avviene col bottone "Salva" nell'header del pannello.
+    // Click sulla card = applica solo l'anteprima nel 3D. Il salvataggio
+    // definitivo avviene tramite il comando Salva della barra laterale.
     list.querySelectorAll('.soluzione-alt-item').forEach(function (card) {
         card.addEventListener('click', function () {
             var idx = parseInt(this.dataset.idx);
@@ -203,21 +227,13 @@ function visualizzaSoluzioneAlternativa(idx) {
     if (typeof renderizzaDati3D === 'function') {
         renderizzaDati3D(dati);
         _marcaSelezione(idx);
+        _aggiornaSidebarDaSoluzione(soluzione);
         var label = migliore ? 'Soluzione migliore' : ('Anteprima alternativa #' + idx);
         _setHeaderCaricoLabel(label);
         showToast(label, 'info');
     } else {
         showToast('Modulo 3D non disponibile per l\'anteprima.', 'error');
     }
-}
-
-/**
- * Salva la soluzione alternativa attualmente selezionata come soluzione
- * attiva del piano (bottone "Salva" nell'header del pannello).
- */
-function salvaAlternativaSelezionata() {
-    var idx = (typeof WS.soluzioneAltSelezionata === 'number') ? WS.soluzioneAltSelezionata : 0;
-    applicaSoluzioneAlternativa(idx);
 }
 
 /**
@@ -280,12 +296,8 @@ async function applicaSoluzioneAlternativa(idx) {
     }
 }
 
-// Aggancia i listener dei pulsanti dell'header una sola volta all'avvio.
+// Aggancia il listener del pulsante di chiusura dell'header all'avvio.
 (function () {
-    var salva = document.getElementById('btn-salva-alternativa');
-    if (salva) {
-        salva.addEventListener('click', function () { salvaAlternativaSelezionata(); });
-    }
     var chiudi = document.getElementById('btn-chiudi-alternative');
     if (chiudi) {
         chiudi.addEventListener('click', function () { nascondiSoluzioniAlternative(); });

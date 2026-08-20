@@ -486,13 +486,23 @@ class OggettoDaCaricare(models.Model):
         blank=True,
         help_text=_("Note opzionali per questo caricamento."),
     )
+    colore = models.CharField(
+        max_length=7,
+        default="",
+        blank=True,
+        help_text=_(
+            "Colore esadecimale personalizzato per QUESTA riga di carico. "
+            "Vuoto = usa il colore dell'anagrafica dell'oggetto."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = _("Oggetto da Caricare")
         verbose_name_plural = _("Oggetti da Caricare")
-        unique_together = ["piano_di_carico", "oggetto"]
-        ordering = ["piano_di_carico", "priorita", "oggetto__codice"]
+        # Sono ammesse più righe con lo stesso oggetto: ogni riga è un lotto
+        # indipendente, eventualmente con priorità e note diverse.
+        ordering = ["piano_di_carico", "priorita", "oggetto__codice", "id"]
 
     def __str__(self):
         return (
@@ -520,6 +530,14 @@ class OggettoPosizionato(models.Model):
         on_delete=models.PROTECT,
         related_name="posizionamenti",
         help_text=_("L'oggetto che è stato posizionato. PROTECT: non si può eliminare un oggetto se è posizionato in un piano di carico."),
+    )
+    riga_origine = models.ForeignKey(
+        "OggettoDaCaricare",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="oggetti_posizionati",
+        help_text=_("Riga del pannello da cui proviene questo oggetto; una riga può avere più istanze."),
     )
 
     # -- Coordinate assolute dello spigolo d'ancoraggio --

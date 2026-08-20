@@ -171,6 +171,7 @@ def esegui_ottimizzazione_tre_d(
                 OggettoPosizionato.objects.create(
                     piano_di_carico=piano,
                     oggetto_id=r.oggetto_id,
+                    riga_origine_id=r.riga_origine_id,
                     coordinata_x_mm=r.coordinata_x_mm,
                     coordinata_y_mm=r.coordinata_y_mm,
                     coordinata_z_mm=r.coordinata_z_mm,
@@ -289,5 +290,17 @@ def _popola_tre_d(packer, oggetti_da_caricare) -> None:
                 vincoli = oggetto.vincoli
             except VincoloOggetto.DoesNotExist:
                 vincoli = None
-            colore = _genera_colore_da_oggetto(oggetto.id, oggetto.colore)
-            packer.aggiungi_oggetto(oggetto, vincoli, colore, priorita=priorita)
+            # Il colore della riga ha precedenza: se vuoto si usa quello
+            # dell'anagrafica (o la palette derivata dall'id). In questo modo
+            # due righe con lo stesso codice possono avere colori diversi
+            # nello stesso piano di carico.
+            colore = _genera_colore_da_oggetto(
+                oggetto.id, o_dc.colore or oggetto.colore
+            )
+            packer.aggiungi_oggetto(
+                oggetto,
+                vincoli,
+                colore,
+                priorita=priorita,
+                riga_origine_id=o_dc.id,
+            )

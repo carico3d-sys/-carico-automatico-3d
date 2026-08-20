@@ -84,6 +84,9 @@ class ItemPacked:
     peso_kg: Decimal
     colore: str
     peso_sopra_kg: Decimal = Decimal("0")
+    # ID della riga OggettoDaCaricare che ha generato questa istanza.
+    # None mantiene la compatibilità con risultati/client legacy.
+    riga_origine_id: Optional[int] = None
 
 
 @dataclass

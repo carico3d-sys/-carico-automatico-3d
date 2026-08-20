@@ -194,6 +194,8 @@ class OggettoPosizionatoSerializer(serializers.ModelSerializer):
         model = OggettoPosizionato
         fields = [
             "id",
+            "oggetto_id",
+            "riga_origine",
             "codice",
             "descrizione",
             # Coordinate dello spigolo d'ancoraggio (angolo inf-sx-post)
@@ -305,6 +307,28 @@ class OggettoDaCaricareSerializer(serializers.Serializer):
     quantita = serializers.IntegerField(default=1, min_value=1)
     priorita = serializers.IntegerField(default=0, min_value=0)
     note = serializers.CharField(required=False, allow_blank=True)
+    colore = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=7,
+        help_text="Colore esadecimale per questa riga. Vuoto = colore anagrafica.",
+    )
+
+
+class OggettoDaCaricareUpdateSerializer(serializers.Serializer):
+    """Serializzatore per aggiornare una singola riga di carico (PATCH).
+
+    Tutti i campi sono opzionali: il PATCH aggiorna solo quelli inviati.
+    """
+    quantita = serializers.IntegerField(required=False, min_value=1)
+    priorita = serializers.IntegerField(required=False, min_value=0)
+    note = serializers.CharField(required=False, allow_blank=True)
+    colore = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=7,
+        help_text="Colore esadecimale per questa riga. Vuoto = colore anagrafica.",
+    )
 
 
 class StrategiaOttimizzazioneSerializer(serializers.Serializer):

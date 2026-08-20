@@ -91,14 +91,31 @@ function _sincronizzaSelezionePanel(itemDiv) {
     // 2. Seleziona l'ultimo oggetto di questo tipo nella scena 3D (solo in modalità manuale)
     if (typeof WS !== 'undefined' && WS.manualMode && typeof STATE !== 'undefined' && STATE.oggettiMesh && STATE.oggettiMesh.length > 0 && itemDiv.dataset.codice) {
         var codice = itemDiv.dataset.codice;
+        var rigaId = itemDiv.dataset.rigaId || null;
+        var rigaKey = itemDiv.dataset.rigaKey || null;
+        var meshTrovato = null;
         for (var i = STATE.oggettiMesh.length - 1; i >= 0; i--) {
             var mesh = STATE.oggettiMesh[i];
-            if (mesh.userData && mesh.userData.codice === codice) {
-                if (typeof _selectObject === 'function') {
-                    _selectObject(mesh);
-                }
+            var stessoLotto = mesh.userData && (
+                (rigaId && String(mesh.userData.riga_id) === String(rigaId)) ||
+                (rigaKey && mesh.userData.riga_key === rigaKey)
+            );
+            if (mesh.userData && stessoLotto) {
+                meshTrovato = mesh;
                 break;
             }
+        }
+        // Fallback per posizionamenti legacy privi di riga origine.
+        if (!meshTrovato) {
+            for (var j = STATE.oggettiMesh.length - 1; j >= 0; j--) {
+                if (STATE.oggettiMesh[j].userData && STATE.oggettiMesh[j].userData.codice === codice) {
+                    meshTrovato = STATE.oggettiMesh[j];
+                    break;
+                }
+            }
+        }
+        if (meshTrovato && typeof _selectObject === 'function') {
+            _selectObject(meshTrovato);
         }
     }
 }
@@ -145,12 +162,15 @@ function _allineaQtyRichiesta(itemDiv) {
     _aggiornaColoreQtyOriginale(itemDiv);
 }
 
-function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
+function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale, rigaId, colore) {
     if (!oggettoId) return;
     if (qtyIniziale === undefined || qtyIniziale === null) qtyIniziale = 1;
 
-    // Cerca se già presente
-    var esistente = document.querySelector('.panel-item[data-oggetto-id="' + oggettoId + '"]');
+    // Una riga identificata dal DB viene aggiornata solo tramite il suo id.
+    // Senza rigaId (pulsante +) non fare merge: ogni click crea un lotto nuovo.
+    var esistente = rigaId
+        ? document.querySelector('.panel-item[data-riga-id="' + rigaId + '"]')
+        : null;
     if (esistente) {
         var qtyInput = esistente.querySelector('.panel-qty-input');
         if (qtyInput) {
@@ -182,6 +202,11 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     var div = document.createElement('div');
     div.className = 'panel-item';
     div.dataset.oggettoId = oggettoId;
+    div.dataset.rigaId = rigaId || '';
+    if (typeof WS !== 'undefined') {
+        WS._panelRigaCounter = (WS._panelRigaCounter || 0) + 1;
+        div.dataset.rigaKey = 'riga-' + Date.now() + '-' + WS._panelRigaCounter;
+    }
     div.dataset.peso = oggetto.peso_kg;
     div.dataset.lunghezza = oggetto.lunghezza_mm;
     div.dataset.larghezza = oggetto.larghezza_mm;
@@ -190,7 +215,14 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     div.dataset.priorita = '0';
     var qtyRichiesta = qtyOriginale || qtyIniziale;
     div.dataset.qtyOriginale = String(qtyRichiesta);
-    var coloreBar = (typeof coloreOggetto === 'function') ? coloreOggetto(oggetto) : (oggetto.colore || '#447e9b');
+    // Colore PER-RIGA: se arriva da DB/import lo conserva, altrimenti parte
+    // vuoto (colore anagrafica) e viene gestito da _assegnaColoriAutomatici().
+    var coloreRigaInit = (colore && coloreEsadecimaleValido(colore)) ? colore : '';
+    var anagraficaCol = coloreOggetto(oggetto);
+    div.dataset.colore = coloreRigaInit;
+    div.dataset.coloreCustom = (coloreRigaInit && coloreRigaInit !== anagraficaCol) ? '1' : '';
+    div.dataset.coloreAuto = '';
+    var coloreBar = coloreRiga(div);
     div.innerHTML =
         '<div class="panel-item-color" style="background:' + coloreBar + ';"></div>' +
         '<div class="panel-item-info">' +
@@ -256,13 +288,13 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
         if (!oid) return;
 
         if (e.ctrlKey || e.shiftKey) {
-            _togglePanelMultiSel(oid, e.ctrlKey, e.shiftKey);
+            _togglePanelMultiSel(oid, e.ctrlKey, e.shiftKey, div);
             // In multi-select non cambiare la selezione singola (selected)
         } else {
             // Click semplice: deseleziona multi, seleziona solo questo
             _pulisciPanelMultiSel();
-            _panelMultiSelState.oggettiSelezionati.push(oid);
-            _panelMultiSelState.ultimoCliccato = oid;
+            _panelMultiSelState.oggettiSelezionati.push(div.dataset.rigaId || div.dataset.rigaKey || String(oid));
+            _panelMultiSelState.ultimoCliccato = div.dataset.rigaId || div.dataset.rigaKey || String(oid);
             div.classList.add('selected-multi');
             _aggiornaPanelBatchToolbar();
 
@@ -277,6 +309,8 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     });
 
     DOM.panelItemsList.appendChild(div);
+    // Distingue automaticamente i codici duplicati senza colore personalizzato.
+    _assegnaColoriAutomatici();
     _aggiornaColoreQtyOriginale(div);
     DOM.panelEmpty.style.display = 'none';
     var panelHeader = document.getElementById('panel-items-header');
@@ -289,12 +323,85 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale) {
     return div;
 }
 
+/**
+ * Assegna i colori alle righe del pannello.
+ *
+ * - Righe con colore personalizzato (dataset.coloreCustom === '1'): invariati.
+ * - Più righe con lo stesso codice e NESSUNA personalizzazione: colori
+ *   automatici distinti dalla palette (mai uguali al colore anagrafica).
+ * - Una singola riga per codice senza personalizzazione: colore anagrafica.
+ *
+ * Il colore effettivo resta sempre in dataset.colore (hex), così viene
+ * salvato con la riga e riusato da motore e modalità manuale.
+ */
+function _assegnaColoriAutomatici() {
+    var rows = Array.prototype.slice.call(DOM.panelItemsList.querySelectorAll('.panel-item'));
+    if (!rows.length) return;
+
+    var byCodice = {};
+    rows.forEach(function (row) {
+        var c = row.dataset.codice || '';
+        (byCodice[c] = byCodice[c] || []).push(row);
+    });
+
+    Object.keys(byCodice).forEach(function (codice) {
+        var gruppo = byCodice[codice];
+        var senzaCustom = gruppo.filter(function (row) {
+            return row.dataset.coloreCustom !== '1';
+        });
+
+        if (senzaCustom.length <= 1) {
+            // Una sola riga (o nessuna) senza personalizzazione: usa l'anagrafica.
+            senzaCustom.forEach(function (row) {
+                var oid = parseInt(row.dataset.oggettoId, 10) || 0;
+                row.dataset.colore = coloreOggetto(trovaOggetto(oid));
+                row.dataset.coloreAuto = '';
+            });
+            return;
+        }
+
+        // Più righe duplicate senza colore personalizzato: palette distinta,
+        // evitando il colore anagrafica e quelli già usati dalle righe custom.
+        var oid0 = parseInt(gruppo[0].dataset.oggettoId, 10) || 0;
+        var anagraficaCol = coloreOggetto(trovaOggetto(oid0));
+        var usati = {};
+        gruppo.forEach(function (row) {
+            if (row.dataset.coloreCustom === '1' && row.dataset.colore) {
+                usati[row.dataset.colore] = true;
+            }
+        });
+        var idx = 0;
+        senzaCustom.forEach(function (row) {
+            var col = null;
+            for (var k = 0; k < COLORI_PACCHI.length && !col; k++) {
+                var cand = COLORI_PACCHI[(idx + k) % COLORI_PACCHI.length];
+                if (cand !== anagraficaCol && !usati[cand]) {
+                    col = cand;
+                    usati[cand] = true;
+                    idx += k + 1;
+                }
+            }
+            if (!col) col = anagraficaCol; // palette esaurita: fallback
+            row.dataset.colore = col;
+            row.dataset.coloreAuto = '1';
+            idx++;
+        });
+    });
+
+    // Aggiorna le barre colore di tutte le righe.
+    rows.forEach(function (row) {
+        var colorBar = row.querySelector('.panel-item-color');
+        if (colorBar) colorBar.style.background = coloreRiga(row);
+    });
+}
+
 function rimuoviOggettoPanel(itemDiv) {
     itemDiv.style.opacity = '0';
     itemDiv.style.transition = 'opacity 0.15s';
     setTimeout(function () {
         if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
         itemDiv.remove();
+        _assegnaColoriAutomatici();
         aggiornaRiepilogoPanel();
         aggiornaStatoPulsante();
         if (DOM.panelItemsList.children.length === 0) {
@@ -346,6 +453,8 @@ function svuotaCarico() {
     if (typeof WS !== 'undefined') {
         WS._manualPanelSelectedOggettoId = null;
         WS._manualPanelSelectedCodice = null;
+        WS._manualPanelSelectedRigaId = null;
+        WS._manualPanelSelectedRigaKey = null;
     }
     DOM.panelItemsList.innerHTML = '';
     _pulisciPanelMultiSel();
@@ -399,6 +508,9 @@ function raccogliOggettiDaPanel() {
             peso_kg: oggetto.peso_kg,
             quantita: qty,
             priorita: parseInt(div.dataset.priorita) || 0,
+            colore: div.dataset.colore || '',
+            riga_id: div.dataset.rigaId || null,
+            riga_key: div.dataset.rigaKey || null,
         });
     });
     return oggetti;
@@ -444,13 +556,13 @@ async function esportaPosizioni() {
 // =============================================================================
 
 /**
- * Salva le modifiche fatte nell'editor inline.
- * Aggiorna la cache WS.oggettiDisponibili, il DOM itemDiv.dataset,
- * e ricostruisce l'interfaccia dell'item.
- * Se le dimensioni sono cambiate, disattiva automaticamente
- * i VincoloTraOggetti che coinvolgono l'oggetto (avvisando l'utente).
+ * Salva le modifiche fatte nell'editor inline della riga.
  *
- * Restituisce { qty, dimsCambiate, colore }.
+ * I campi modificabili (quantità, priorità, colore) valgono SOLO per questa
+ * riga di carico: vengono salvati su OggettoDaCaricare via PATCH, mai
+ * sull'anagrafica dell'oggetto.
+ *
+ * Restituisce { qty, colore }.
  */
 async function salvaModificheEditor(itemDiv, oggettoId) {
     var oggetto = WS.oggettiDisponibili.find(function (o) { return o.id == oggettoId; });
@@ -458,70 +570,56 @@ async function salvaModificheEditor(itemDiv, oggettoId) {
 
     var nuovaQty = parseInt(document.getElementById('editor-qty-' + oggettoId).value) || 1;
     var nuovaPrio = parseInt(document.getElementById('editor-prio-' + oggettoId).value) || 0;
-    var nuovoPeso = parseFloat(document.getElementById('editor-peso-' + oggettoId).value) || oggetto.peso_kg;
-    var nuovaLungh = parseFloat(document.getElementById('editor-lungh-' + oggettoId).value);
-    var nuovaLarg = parseFloat(document.getElementById('editor-larg-' + oggettoId).value);
-    var nuovaAlt = parseFloat(document.getElementById('editor-alt-' + oggettoId).value);
     var colorePersonalizzato = document.getElementById('editor-colore-enable-' + oggettoId).checked;
-    var nuovoColore = colorePersonalizzato ? document.getElementById('editor-colore-' + oggettoId).value.trim() : '';
+    var nuovoColore = colorePersonalizzato
+        ? document.getElementById('editor-colore-' + oggettoId).value.trim()
+        : '';
 
-    // Rileva se le dimensioni sono cambiate
-    var nuoveDimsMm = {
-        l: Math.round(nuovaLungh * 10),
-        p: Math.round(nuovaLarg * 10),
-        h: Math.round(nuovaAlt * 10),
-    };
-    var dimsCambiate = (nuoveDimsMm.l !== oggetto.lunghezza_mm ||
-                        nuoveDimsMm.p !== oggetto.larghezza_mm ||
-                        nuoveDimsMm.h !== oggetto.altezza_mm);
-
-    // CONTROLLO PREVENTIVO: se dimensioni cambiate e ci sono vincoli attivi, blocca subito
-    // (prima di qualsiasi mutazione). Questo è il controllo "duro" di sicurezza.
-    if (dimsCambiate) {
-        var haVincoliAttivi = WS.vincoliTra.some(function (v) {
-            return v.attivo && (v.oggetto_a === oggettoId || v.oggetto_b === oggettoId);
-        });
-        if (haVincoliAttivi) {
-            showToast('🔒 Impossibile modificare le dimensioni: questo oggetto ha vincoli "sopra" attivi con altri oggetti. Rimuovili in 🔗 Vincoli tra Oggetti.', 'error');
-            // Non mutare nulla: ricostruisci l'item con i valori originali e chiudi l'editor
-            itemDiv.classList.remove('editing');
-            ricostruisciItemPanel(itemDiv, oggetto, nuovaQty);
-            aggiornaRiepilogoPanel();
-            aggiornaStatoPulsante();
-            return { qty: nuovaQty, dimsCambiate: false, colore: oggetto.colore };
-        }
-    }
-
-    // Aggiorna i dati dell'oggetto nella cache locale
-    if (nuovaLungh && nuovaLarg && nuovaAlt) {
-        oggetto.lunghezza_mm = nuoveDimsMm.l;
-        oggetto.larghezza_mm = nuoveDimsMm.p;
-        oggetto.altezza_mm = nuoveDimsMm.h;
-    }
-    if (nuovoPeso) oggetto.peso_kg = nuovoPeso;
-    oggetto.colore = nuovoColore;
-    itemDiv.dataset.peso = oggetto.peso_kg;
-    itemDiv.dataset.lunghezza = oggetto.lunghezza_mm;
-    itemDiv.dataset.larghezza = oggetto.larghezza_mm;
-    itemDiv.dataset.altezza = oggetto.altezza_mm;
-    itemDiv.dataset.codice = oggetto.codice;
+    // Aggiorna lo stato locale della riga (per-riga, mai l'anagrafica).
     itemDiv.dataset.priorita = String(nuovaPrio);
+    if (colorePersonalizzato && coloreEsadecimaleValido(nuovoColore)) {
+        itemDiv.dataset.colore = nuovoColore;
+        itemDiv.dataset.coloreCustom = '1';
+        itemDiv.dataset.coloreAuto = '';
+    } else {
+        // Colore "di anagrafica": rimuovi l'override; per i codici duplicati
+        // _assegnaColoriAutomatici() riassegnerà colori distinti.
+        itemDiv.dataset.colore = '';
+        itemDiv.dataset.coloreCustom = '';
+        itemDiv.dataset.coloreAuto = '';
+    }
 
     // Ricostruisci l'item con i nuovi valori
     itemDiv.classList.remove('editing');
     ricostruisciItemPanel(itemDiv, oggetto, nuovaQty);
+    _assegnaColoriAutomatici();
     aggiornaRiepilogoPanel();
     aggiornaStatoPulsante();
-    aggiornaSelectOggetti();
 
-    // Aggiorna l'Oggetto sul server (sempre — anche colore e peso
-    // devono essere salvati prima dell'ottimizzazione).
-    await _patchOggettoServer(oggettoId, oggetto.lunghezza_mm, oggetto.larghezza_mm, oggetto.altezza_mm, oggetto.peso_kg, oggetto.colore);
+    // Salva la riga sul server (solo se già persistita).
+    if (itemDiv.dataset.rigaId && WS.activePianoId) {
+        try {
+            var resp = await fetch('/api/piani/' + WS.activePianoId + '/oggetti_da_caricare/', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                body: JSON.stringify({
+                    riga_id: itemDiv.dataset.rigaId,
+                    quantita: nuovaQty,
+                    priorita: nuovaPrio,
+                    colore: itemDiv.dataset.colore || '',
+                }),
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        } catch (e) {
+            console.error('Errore salvataggio riga sul server:', e);
+            showToast('⚠️ Modifiche salvate localmente ma non sul server: ' + e.message, 'warning');
+        }
+    }
 
-    // Le modifiche all'oggetto rendono obsoleti i dati di distribuzione dell'ottimizzazione precedente
+    // La modifica rende obsoleti i dati di distribuzione dell'ottimizzazione precedente
     if (WS.activePianoId) invalidaDistribuzionePesi();
 
-    return { qty: nuovaQty, dimsCambiate: dimsCambiate, colore: nuovoColore };
+    return { qty: nuovaQty, colore: itemDiv.dataset.colore || '' };
 }
 
 /**
@@ -591,22 +689,20 @@ function apriEditorOggetto(itemDiv) {
     // Se già in modifica, non fare nulla
     if (itemDiv.classList.contains('editing')) return;
 
-    // Controlla se l'oggetto ha VincoloTraOggetti attivi → blocca modifica dimensioni
-    var hasVincoli = WS.vincoliTra.some(function (v) {
-        return v.attivo && (v.oggetto_a === oggettoId || v.oggetto_b === oggettoId);
-    });
-
     // Salva l'HTML originale
     itemDiv._originalHTML = itemDiv.innerHTML;
     itemDiv.classList.add('editing', 'selected');
 
     var qty = parseInt(itemDiv.querySelector('.panel-qty-input')?.value) || 1;
     var prio = parseInt(itemDiv.dataset.priorita) || 0;
-    var lunghCm = formatCm(oggetto.lunghezza_mm);
-    var largCm = formatCm(oggetto.larghezza_mm);
-    var altCm = formatCm(oggetto.altezza_mm);
-    var coloreCorrente = (typeof coloreOggetto === 'function') ? coloreOggetto(oggetto) : (oggetto.colore || '#447e9b');
-    var hasCustomColor = !!(oggetto.colore && oggetto.colore.trim());
+    var coloreCorrente = coloreRiga(itemDiv);
+    // Il colore risulta "personalizzato" se l'utente l'ha scelto o se è stato
+    // salvato diverso dall'anagrafica (incluse le assegnazioni automatiche
+    // per codici duplicati, così restano visibili e modificabili).
+    var hasCustomColor = !!(
+        itemDiv.dataset.coloreCustom === '1' ||
+        (itemDiv.dataset.colore && itemDiv.dataset.colore !== coloreOggetto(oggetto))
+    );
 
     itemDiv.innerHTML =
         '<div class="panel-editor">' +
@@ -620,30 +716,11 @@ function apriEditorOggetto(itemDiv) {
                         '<label class="field-label">Quantità</label>' +
                         '<input type="number" class="form-input" id="editor-qty-' + oggettoId + '" value="' + qty + '" min="1" step="1">' +
                     '</div>' +
-                    '<div class="field-group flex-grow">' +
-                        '<label class="field-label">Peso (kg)</label>' +
-                        '<input type="number" class="form-input" id="editor-peso-' + oggettoId + '" value="' + oggetto.peso_kg + '" step="0.01" min="0.01">' +
-                    '</div>' +
-                    '<div class="field-group" style="flex:0 0 80px;">' +
+                    '<div class="field-group" style="flex:0 0 90px;">' +
                         '<label class="field-label">Priorità</label>' +
                         '<input type="number" class="form-input" id="editor-prio-' + oggettoId + '" value="' + prio + '" min="0" step="1" title="1 = massima priorità, caricato per primo">' +
                     '</div>' +
                 '</div>' +
-                '<div class="field-row">' +
-                    '<div class="field-group flex-grow">' +
-                        '<label class="field-label">L (cm)' + (hasVincoli ? ' 🔒' : '') + '</label>' +
-                        '<input type="number" class="form-input" id="editor-lungh-' + oggettoId + '" value="' + lunghCm + '" step="0.1" min="0.1"' + (hasVincoli ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '>' +
-                    '</div>' +
-                    '<div class="field-group flex-grow">' +
-                        '<label class="field-label">P (cm)' + (hasVincoli ? ' 🔒' : '') + '</label>' +
-                        '<input type="number" class="form-input" id="editor-larg-' + oggettoId + '" value="' + largCm + '" step="0.1" min="0.1"' + (hasVincoli ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '>' +
-                    '</div>' +
-                    '<div class="field-group flex-grow">' +
-                        '<label class="field-label">H (cm)' + (hasVincoli ? ' 🔒' : '') + '</label>' +
-                        '<input type="number" class="form-input" id="editor-alt-' + oggettoId + '" value="' + altCm + '" step="0.1" min="0.1"' + (hasVincoli ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '>' +
-                    '</div>' +
-                '</div>' +
-                (hasVincoli ? '<div class="field-row"><div class="field-note" style="color:#e67e22;font-size:11px;">🔒 Dimensioni bloccate: questo oggetto ha vincoli "sopra" attivi con altri oggetti. Rimuovi i vincoli in 🔗 Vincoli tra Oggetti per sbloccare.</div></div>' : '') +
                 '<div class="field-row">' +
                     '<div class="field-group" style="flex:0 0 70px;">' +
                         '<label class="field-label">Colore</label>' +
@@ -655,9 +732,10 @@ function apriEditorOggetto(itemDiv) {
                         '</label>' +
                     '</div>' +
                 '</div>' +
+                '<div class="field-note" style="font-size:11px;color:#888;margin-top:2px;">Colore e priorità valgono solo per questa riga di carico; dimensioni e peso si modificano dall\'anagrafica.</div>' +
             '</div>' +
             '<div class="panel-editor-actions">' +
-                '<button class="btn btn-primary btn-sm" id="editor-update-' + oggettoId + '">✅ Aggiorna oggetto</button>' +
+                '<button class="btn btn-primary btn-sm" id="editor-update-' + oggettoId + '">✅ Aggiorna riga</button>' +
                 '<button class="btn btn-sm" id="editor-recalc-' + oggettoId + '">🔄 Ricalcola carico</button>' +
             '</div>' +
         '</div>';
@@ -673,12 +751,18 @@ function apriEditorOggetto(itemDiv) {
         var risultato = await salvaModificheEditor(itemDiv, oggettoId);
         if (!risultato) return;
 
-        // Aggiorna colore nella scena 3D se presente
-        if (typeof aggiornaColoreOggettoInScena === 'function' && oggetto.codice) {
-            aggiornaColoreOggettoInScena(oggetto.codice, risultato.colore || '#447e9b');
+        // Aggiorna colore nella scena 3D SOLO per le mesh di questa riga.
+        // Niente fallback per codice: cambierebbe anche i mesh dell'ALTRO
+        // lotto con lo stesso codice, e il colore deve valere solo per la riga.
+        if (typeof aggiornaColoreRigaInScena === 'function') {
+            aggiornaColoreRigaInScena(
+                itemDiv.dataset.rigaId,
+                itemDiv.dataset.rigaKey,
+                risultato.colore || '#447e9b'
+            );
         }
 
-        showToast('Oggetto "' + oggetto.codice + '" aggiornato.', 'success');
+        showToast('Riga "' + oggetto.codice + '" aggiornata (solo per questo carico).', 'success');
     });
 
     document.getElementById('editor-recalc-' + oggettoId).addEventListener('click', async function (e) {
@@ -745,11 +829,11 @@ function chiudiEditorOggetto(itemDiv) {
             if (!oidCh) return;
 
             if (e.ctrlKey || e.shiftKey) {
-                _togglePanelMultiSel(oidCh, e.ctrlKey, e.shiftKey);
+                _togglePanelMultiSel(oidCh, e.ctrlKey, e.shiftKey, itemDiv);
             } else {
                 _pulisciPanelMultiSel();
-                _panelMultiSelState.oggettiSelezionati.push(oidCh);
-                _panelMultiSelState.ultimoCliccato = oidCh;
+                _panelMultiSelState.oggettiSelezionati.push(itemDiv.dataset.rigaId || itemDiv.dataset.rigaKey || String(oidCh));
+                _panelMultiSelState.ultimoCliccato = itemDiv.dataset.rigaId || itemDiv.dataset.rigaKey || String(oidCh);
                 itemDiv.classList.add('selected-multi');
                 _aggiornaPanelBatchToolbar();
 
@@ -765,7 +849,7 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
     itemDiv._originalHTML = null;
     var qtyOriginale = parseInt(itemDiv.dataset.qtyOriginale, 10) || qty;
     var priorita = parseInt(itemDiv.dataset.priorita) || 0;
-    var coloreBar = (typeof coloreOggetto === 'function') ? coloreOggetto(oggetto) : (oggetto.colore || '#447e9b');
+    var coloreBar = coloreRiga(itemDiv);
     itemDiv.innerHTML =
         '<div class="panel-item-color" style="background:' + coloreBar + ';"></div>' +
         '<div class="panel-item-info">' +
@@ -778,9 +862,6 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
         '</div>' +
         '<div class="panel-item-prio">' +
             '<input type="number" class="panel-prio-input" value="' + priorita + '" min="0" step="1" title="Priorità carico (1 = massima)">' +
-        '</div>' +
-        '<div class="panel-item-prio">' +
-            '<input type="number" class="panel-prio-input" value="0" min="0" step="1" title="Priorita carico (1 = massima)">' +
         '</div>' +
         '<div class="panel-item-actions">' +
             '<button class="btn-item-action btn-modify" title="Modifica">✏️</button>' +
@@ -829,11 +910,11 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
         if (!oidR) return;
 
         if (e.ctrlKey || e.shiftKey) {
-            _togglePanelMultiSel(oidR, e.ctrlKey, e.shiftKey);
+            _togglePanelMultiSel(oidR, e.ctrlKey, e.shiftKey, itemDiv);
         } else {
             _pulisciPanelMultiSel();
-            _panelMultiSelState.oggettiSelezionati.push(oidR);
-            _panelMultiSelState.ultimoCliccato = oidR;
+            _panelMultiSelState.oggettiSelezionati.push(itemDiv.dataset.rigaId || itemDiv.dataset.rigaKey || String(oidR));
+            _panelMultiSelState.ultimoCliccato = itemDiv.dataset.rigaId || itemDiv.dataset.rigaKey || String(oidR);
             itemDiv.classList.add('selected-multi');
             _aggiornaPanelBatchToolbar();
 
@@ -850,12 +931,14 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
 
 function aggiornaColoreNeiPanelItems(oggettoId, nuovoColore) {
     if (!oggettoId) return;
+    // Una modifica del colore in anagrafica NON deve toccare le righe con
+    // colore personalizzato: quelle valgono solo per questo carico.
     DOM.panelItemsList.querySelectorAll('.panel-item[data-oggetto-id="' + oggettoId + '"]').forEach(function (itemDiv) {
-        var colorBar = itemDiv.querySelector('.panel-item-color');
-        if (colorBar) {
-            colorBar.style.background = nuovoColore || '#447e9b';
-        }
+        if (itemDiv.dataset.coloreCustom === '1') return;
+        itemDiv.dataset.colore = '';
+        itemDiv.dataset.coloreAuto = '';
     });
+    _assegnaColoriAutomatici();
 }
 
 // =============================================================================
@@ -918,20 +1001,20 @@ async function popolaPanelDaPiano(pianoId) {
         var data = await resp.json();
         var oggetti3d = data.oggetti || [];
 
-        // Leggi le q.tà salvate (OggettoDaCaricare) dall'API
-        var qtySalvate = {};
+        // Le righe sono lotti distinti: non accorpare mai per codice.
         var odcList = data.oggetti_da_caricare || [];
-        var prioSalvate = {};
-        odcList.forEach(function (odc) {
-            qtySalvate[odc.codice] = odc.quantita;
-            prioSalvate[odc.codice] = odc.priorita || 0;
-        });
 
-        // Conta occorrenze per codice oggetto (solo quelli piazzati in 3D)
-        var conteggio = {};
+        // Conta le istanze prima per riga origine e poi, solo come fallback
+        // per i piani legacy, per codice.
+        var conteggioPerRiga = {};
+        var conteggioPerCodice = {};
         oggetti3d.forEach(function (o) {
             var codice = o.codice;
-            conteggio[codice] = (conteggio[codice] || 0) + 1;
+            conteggioPerCodice[codice] = (conteggioPerCodice[codice] || 0) + 1;
+            if (o.riga_id !== null && o.riga_id !== undefined) {
+                var key = String(o.riga_id);
+                conteggioPerRiga[key] = (conteggioPerRiga[key] || 0) + 1;
+            }
         });
 
         // Determina se il piano è stato salvato manualmente (q.tà confermate)
@@ -943,39 +1026,59 @@ async function popolaPanelDaPiano(pianoId) {
         if (typeof WS !== 'undefined') {
             WS._manualPanelSelectedOggettoId = null;
             WS._manualPanelSelectedCodice = null;
+            WS._manualPanelSelectedRigaId = null;
+            WS._manualPanelSelectedRigaKey = null;
         }
         DOM.panelItemsList.innerHTML = '';
         if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
 
-        // La lista di oggetti del piano caricato è SOLO quella del piano stesso:
-        // NON ereditare gli oggetti del piano aperto in precedenza nel pannello.
-        // Fonti: oggetti_da_caricare (q.tà richieste) + oggetti piazzati in 3D.
-        var tuttiCodici = Object.keys(qtySalvate);
-        Object.keys(conteggio).forEach(function (cod) {
-            if (tuttiCodici.indexOf(cod) === -1) tuttiCodici.push(cod);
-        });
-
-        for (var i = 0; i < tuttiCodici.length; i++) {
-            var codice = tuttiCodici[i];
-            var qty, qtyOrig;
-            // Input: conteggio 3D reale (dopo ottimizzazione) o q.tà salvata (dopo save manuale)
-            if (isManuale) {
-                qty = qtySalvate.hasOwnProperty(codice) ? qtySalvate[codice] : (conteggio[codice] || 0);
-            } else {
-                qty = conteggio[codice] || 0;
+        // La lista di oggetti del piano caricato è SOLO quella del piano stesso.
+        // Per i piani legacy senza riga_id viene usato il codice come fallback.
+        var codiciLegacyUsati = {};
+        for (var i = 0; i < odcList.length; i++) {
+            var odc = odcList[i];
+            var codice = odc.codice;
+            var rigaKey = odc.id ? String(odc.id) : '';
+            var conteggioRiga = rigaKey && conteggioPerRiga.hasOwnProperty(rigaKey)
+                ? conteggioPerRiga[rigaKey]
+                : null;
+            // Piani con più righe dello stesso codice: se i posizionamenti NON
+            // hanno il legame alla riga (piani salvati prima della funzione),
+            // usare il totale del codice mostrerebbe la stessa quantità su tutte
+            // le righe. Il fallback corretto è la quantità della singola riga.
+            var qty = isManuale
+                ? odc.quantita
+                : (conteggioRiga !== null
+                    ? conteggioRiga
+                    : odc.quantita);
+            if (!odc.oggetto_id) {
+                var anagrafica = trovaOggettoPerCodice(codice);
+                if (!anagrafica) continue;
+                odc.oggetto_id = anagrafica.id;
             }
-            // Badge "q.tà richiesta": SOLO informativo, da q.tà salvate
-            qtyOrig = qtySalvate.hasOwnProperty(codice) ? qtySalvate[codice] : undefined;
-            var oggetto = trovaOggettoPerCodice(codice);
-            if (!oggetto) continue;
-            var divEl = aggiungiAlCarico(oggetto.id, qty, true, qtyOrig);
-            // Ripristina priorità salvata
-            if (divEl && prioSalvate.hasOwnProperty(codice)) {
-                divEl.dataset.priorita = String(prioSalvate[codice]);
+            var divEl = aggiungiAlCarico(odc.oggetto_id, qty, true, odc.quantita, odc.id, odc.colore || '');
+            if (divEl) {
+                divEl.dataset.rigaId = odc.id ? String(odc.id) : '';
+                divEl.dataset.priorita = String(odc.priorita || 0);
                 var prioInp = divEl.querySelector('.panel-prio-input');
-                if (prioInp) prioInp.value = prioSalvate[codice];
+                if (prioInp) prioInp.value = odc.priorita || 0;
+            }
+            if (!rigaKey && !codiciLegacyUsati[codice]) {
+                codiciLegacyUsati[codice] = true;
             }
         }
+
+        // Posizionamenti legacy non associati a nessuna riga: aggiungi una riga
+        // di compatibilità solo se il codice non era già rappresentato.
+        Object.keys(conteggioPerCodice).forEach(function (codiceLegacy) {
+            if (codiciLegacyUsati[codiceLegacy] || odcList.some(function (odc) { return odc.codice === codiceLegacy; })) return;
+            var oggettoLegacy = trovaOggettoPerCodice(codiceLegacy);
+            if (oggettoLegacy) aggiungiAlCarico(oggettoLegacy.id, conteggioPerCodice[codiceLegacy], true);
+        });
+
+        // Riassegna i colori automatici per i codici duplicati rimasti senza
+        // colore personalizzato (es. piani salvati prima di questa funzione).
+        _assegnaColoriAutomatici();
 
         DOM.panelEmpty.style.display = DOM.panelItemsList.children.length > 0 ? 'none' : 'flex';
         if (typeof _reimpostaCronologiaManuale === 'function') _reimpostaCronologiaManuale();
@@ -997,6 +1100,8 @@ function nuovoCarico() {
     if (typeof WS !== 'undefined') {
         WS._manualPanelSelectedOggettoId = null;
         WS._manualPanelSelectedCodice = null;
+        WS._manualPanelSelectedRigaId = null;
+        WS._manualPanelSelectedRigaKey = null;
     }
 
     // Nascondi intestazione colonne
@@ -1054,8 +1159,8 @@ function nuovoCarico() {
 // =============================================================================
 
 var _panelMultiSelState = {
-    oggettiSelezionati: [],  // array di oggettoId
-    ultimoCliccato: null,    // oggettoId dell'ultimo item cliccato (per Shift)
+    oggettiSelezionati: [],  // chiavi univoche delle righe
+    ultimoCliccato: null,    // chiave dell'ultima riga cliccata (per Shift)
 };
 
 function _pulisciPanelMultiSel() {
@@ -1084,21 +1189,23 @@ function _aggiornaPanelBatchToolbar() {
 
 
 
-function _togglePanelMultiSel(oggettoId, ctrlKey, shiftKey) {
+function _togglePanelMultiSel(oggettoId, ctrlKey, shiftKey, itemArg) {
     var items = Array.from(DOM.panelItemsList.querySelectorAll('.panel-item'));
-    var currentItem = items.find(function (el) { return parseInt(el.dataset.oggettoId) == oggettoId; });
+    var currentItem = itemArg || items.find(function (el) { return parseInt(el.dataset.oggettoId) == oggettoId; });
     if (!currentItem) return;
+    var rowKey = currentItem.dataset.rigaId || currentItem.dataset.rigaKey || String(oggettoId);
+    var rowKeyFor = function (el) { return el.dataset.rigaId || el.dataset.rigaKey || String(parseInt(el.dataset.oggettoId) || ''); };
 
     if (shiftKey && _panelMultiSelState.ultimoCliccato !== null) {
         // Shift+click: seleziona intervallo
-        var startItem = items.find(function (el) { return parseInt(el.dataset.oggettoId) == _panelMultiSelState.ultimoCliccato; });
+        var startItem = items.find(function (el) { return rowKeyFor(el) === _panelMultiSelState.ultimoCliccato; });
         if (startItem) {
             var startIdx = items.indexOf(startItem);
             var endIdx = items.indexOf(currentItem);
             var minIdx = Math.min(startIdx, endIdx);
             var maxIdx = Math.max(startIdx, endIdx);
             for (var i = minIdx; i <= maxIdx; i++) {
-                var id = parseInt(items[i].dataset.oggettoId);
+                var id = rowKeyFor(items[i]);
                 if (_panelMultiSelState.oggettiSelezionati.indexOf(id) === -1) {
                     _panelMultiSelState.oggettiSelezionati.push(id);
                 }
@@ -1107,22 +1214,22 @@ function _togglePanelMultiSel(oggettoId, ctrlKey, shiftKey) {
         }
     } else if (ctrlKey) {
         // Ctrl+click: toggle singolo
-        var idx = _panelMultiSelState.oggettiSelezionati.indexOf(oggettoId);
+        var idx = _panelMultiSelState.oggettiSelezionati.indexOf(rowKey);
         if (idx >= 0) {
             _panelMultiSelState.oggettiSelezionati.splice(idx, 1);
             currentItem.classList.remove('selected-multi');
         } else {
-            _panelMultiSelState.oggettiSelezionati.push(oggettoId);
+            _panelMultiSelState.oggettiSelezionati.push(rowKey);
             currentItem.classList.add('selected-multi');
         }
     } else {
         // Click semplice: deseleziona tutto e seleziona solo questo
         _pulisciPanelMultiSel();
-        _panelMultiSelState.oggettiSelezionati.push(oggettoId);
+        _panelMultiSelState.oggettiSelezionati.push(rowKey);
         currentItem.classList.add('selected-multi');
     }
 
-    _panelMultiSelState.ultimoCliccato = oggettoId;
+    _panelMultiSelState.ultimoCliccato = rowKey;
     _aggiornaPanelBatchToolbar();
 }
 
@@ -1130,12 +1237,14 @@ function _eliminaPanelItemsBatch() {
     var ids = _panelMultiSelState.oggettiSelezionati;
     if (ids.length === 0) return;
 
-    // Raccogli codici per messaggio conferma
-    var codici = [];
-    ids.forEach(function (id) {
-        var o = trovaOggetto(id);
-        if (o) codici.push(o.codice);
-    });
+    // Raccogli le righe esatte per messaggio e rimozione.
+    var righe = ids.map(function (key) {
+        return DOM.panelItemsList.querySelector('.panel-item[data-riga-id="' + key + '"], .panel-item[data-riga-key="' + key + '"]') ||
+            Array.from(DOM.panelItemsList.querySelectorAll('.panel-item')).find(function (item) {
+                return (item.dataset.rigaId || item.dataset.rigaKey || item.dataset.oggettoId) === key;
+            });
+    }).filter(function (item) { return !!item; });
+    var codici = righe.map(function (item) { return item.dataset.codice || ''; });
 
     if (!confirm('Rimuovere ' + ids.length + ' oggetti dal carico?\n\n' + codici.join(', '))) return;
 
@@ -1143,8 +1252,7 @@ function _eliminaPanelItemsBatch() {
     _panelMultiSelState.oggettiSelezionati = [];
     _panelMultiSelState.ultimoCliccato = null;
 
-    ids.forEach(function (id) {
-        var item = DOM.panelItemsList.querySelector('.panel-item[data-oggetto-id="' + id + '"]');
+    righe.forEach(function (item) {
         if (item) {
             item.style.opacity = '0';
             item.style.transition = 'opacity 0.15s';

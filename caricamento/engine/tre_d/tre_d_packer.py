@@ -80,9 +80,16 @@ class TreDPacker:
             "vincoli_completi": True,
         }
 
-    def aggiungi_oggetto(self, oggetto, vincoli=None, colore="#4488ff", priorita=0):
-        """Raccoglie un oggetto da processare (interfaccia standard)."""
-        self._items.append((oggetto, vincoli, colore, priorita))
+    def aggiungi_oggetto(
+        self,
+        oggetto,
+        vincoli=None,
+        colore="#4488ff",
+        priorita=0,
+        riga_origine_id=None,
+    ):
+        """Raccoglie un oggetto e conserva la riga del pannello di origine."""
+        self._items.append((oggetto, vincoli, colore, priorita, riga_origine_id))
 
     def esegui(self):
         """Converte gli oggetti in formato Obj, esegue l'algoritmo,
@@ -93,6 +100,7 @@ class TreDPacker:
 
         for idx, (oggetto, vincoli, colore, *extra) in enumerate(self._items):
             priorita = extra[0] if extra else 0
+            riga_origine_id = extra[1] if len(extra) > 1 else None
             w_cm = _mm_to_cm(oggetto.lunghezza_mm)
             d_cm = _mm_to_cm(oggetto.larghezza_mm)
             h_cm = _mm_to_cm(oggetto.altezza_mm)
@@ -135,6 +143,7 @@ class TreDPacker:
                 solo_su_piano=solo_su_piano,
                 fragile=fragile,
                 priorita=priorita,
+                riga_origine_id=riga_origine_id,
                 peso_massimo_tetto=peso_massimo_tetto,
                 vincolo_oggetto_id=(
                     getattr(vincoli, "pk", None) if vincoli is not None else None
@@ -267,6 +276,7 @@ class TreDPacker:
                 peso_kg=Decimal(str(getattr(obj, "_peso_kg", 0))),
                 colore=getattr(obj, "_colore", "#4488ff"),
                 peso_sopra_kg=Decimal(str(getattr(obj, "_peso_sopra_kg", 0))),
+                riga_origine_id=getattr(obj, "riga_origine_id", None),
             ))
         # Serializza le soluzioni prodotte dalla strategia (es. Monte Carlo)
         # nel formato atteso dal frontend. La prima è la migliore: viene
@@ -309,6 +319,7 @@ class TreDPacker:
                 "rotazione_applicata": "XYZ",
                 "colore": getattr(obj, "_colore", "#4488ff"),
                 "peso_kg": float(getattr(obj, "_peso_kg", 0)),
+                "riga_id": getattr(obj, "riga_origine_id", None),
             })
         volume_bin = (
             self.bin_dimensioni[0]

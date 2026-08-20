@@ -35,7 +35,9 @@ from caricamento.models import (
     ImpostazioniSistema,
     Oggetto,
     OggettoDaCaricare,
+    OggettoPosizionato,
     PianoDiCarico,
+    StatoPiano,
     UserProfile,
     VincoloOggetto,
     VincoloTraOggetti,
@@ -190,6 +192,201 @@ class TestStrategyFactory(TestCase):
                 self.assertIsInstance(risultato, list)
                 self.assertEqual(len(ids), len(set(ids)))
                 self.assertGreaterEqual(len(ids), 1)
+
+
+class TestRigheDuplicateCarico(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="duplicate-rows-user")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.container = Contenitore.objects.create(
+            owner=self.user,
+            nome="Duplicate rows container",
+            lunghezza_mm=4000,
+            larghezza_mm=2000,
+            altezza_mm=2000,
+            carico_massimo_kg=Decimal("1000"),
+        )
+        self.oggetto = Oggetto.objects.create(
+            owner=self.user,
+            codice="DUP-ROW",
+            lunghezza_mm=500,
+            larghezza_mm=400,
+            altezza_mm=300,
+            peso_kg=Decimal("10"),
+            quantita_disponibile=10,
+        )
+        self.piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Duplicate rows plan",
+            contenitore=self.container,
+        )
+
+    def test_post_same_object_creates_two_distinct_rows(self):
+        url = f"/api/piani/{self.piano.id}/oggetti_da_caricare/"
+        first = self.client.post(
+            url,
+            {"oggetto_id": self.oggetto.id, "quantita": 2, "priorita": 1},
+            format="json",
+        )
+        second = self.client.post(
+            url,
+            {"oggetto_id": self.oggetto.id, "quantita": 1, "priorita": 0},
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertNotEqual(first.data["id"], second.data["id"])
+        self.assertEqual(self.piano.oggetti_da_caricare.count(), 2)
+        self.assertEqual(
+            set(self.piano.oggetti_da_caricare.values_list("priorita", flat=True)),
+            {0, 1},
+        )
+
+    def test_optimizer_preserves_source_row_for_each_instance(self):
+        first = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=2,
+            priorita=1,
+        )
+        second = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=0,
+        )
+
+        risultato = esegui_ottimizzazione_tre_d(self.piano.id)
+
+        self.assertTrue(risultato.successo)
+        posizionati = list(
+            OggettoPosizionato.objects.filter(piano_di_carico=self.piano)
+        )
+        self.assertEqual(len(posizionati), 3)
+        self.assertEqual(
+            sum(item.riga_origine_id == first.id for item in posizionati),
+            2,
+        )
+        self.assertEqual(
+            sum(item.riga_origine_id == second.id for item in posizionati),
+            1,
+        )
+
+    def test_post_row_accepts_per_row_colore(self):
+        url = f"/api/piani/{self.piano.id}/oggetti_da_caricare/"
+        response = self.client.post(
+            url,
+            {"oggetto_id": self.oggetto.id, "quantita": 2, "colore": "#ff00aa"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["colore"], "#ff00aa")
+        riga = self.piano.oggetti_da_caricare.get(pk=response.data["id"])
+        self.assertEqual(riga.colore, "#ff00aa")
+
+    def test_patch_row_updates_only_that_row(self):
+        prima = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=0,
+        )
+        seconda = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=0,
+        )
+
+        url = f"/api/piani/{self.piano.id}/oggetti_da_caricare/"
+        response = self.client.patch(
+            url,
+            {
+                "riga_id": prima.id,
+                "quantita": 3,
+                "priorita": 2,
+                "colore": "#00ff55",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        prima.refresh_from_db()
+        seconda.refresh_from_db()
+        self.assertEqual(prima.quantita, 3)
+        self.assertEqual(prima.priorita, 2)
+        self.assertEqual(prima.colore, "#00ff55")
+        # La seconda riga (stesso codice) non viene toccata.
+        self.assertEqual(seconda.quantita, 1)
+        self.assertEqual(seconda.priorita, 0)
+        self.assertEqual(seconda.colore, "")
+
+    def test_patch_row_rejects_riga_of_another_plan(self):
+        altro_piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Altro piano",
+            contenitore=self.container,
+        )
+        riga_altra = OggettoDaCaricare.objects.create(
+            piano_di_carico=altro_piano,
+            oggetto=self.oggetto,
+            quantita=1,
+        )
+        url = f"/api/piani/{self.piano.id}/oggetti_da_caricare/"
+        response = self.client.patch(
+            url,
+            {"riga_id": riga_altra.id, "colore": "#123456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_optimizer_uses_row_color_for_each_lot(self):
+        prima = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=1,
+            colore="#ff0000",
+        )
+        seconda = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=0,
+            colore="#00ff00",
+        )
+
+        risultato = esegui_ottimizzazione_tre_d(self.piano.id)
+        self.assertTrue(risultato.successo)
+
+        posizionati = list(
+            OggettoPosizionato.objects.filter(piano_di_carico=self.piano)
+        )
+        colori_per_riga = {
+            op.riga_origine_id: op.colore for op in posizionati
+        }
+        self.assertEqual(colori_per_riga[prima.id], "#ff0000")
+        self.assertEqual(colori_per_riga[seconda.id], "#00ff00")
+
+    def test_optimizer_falls_back_to_anagrafica_color_without_row_color(self):
+        # Nessun colore di riga: il motore usa il colore dell'anagrafica.
+        self.oggetto.colore = "#abcdef"
+        self.oggetto.save(update_fields=["colore"])
+        OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+        )
+
+        risultato = esegui_ottimizzazione_tre_d(self.piano.id)
+        self.assertTrue(risultato.successo)
+        posizionato = OggettoPosizionato.objects.get(
+            piano_di_carico=self.piano
+        )
+        self.assertEqual(posizionato.colore, "#abcdef")
 
 
 class TestGroupOptimizer(TestCase):
@@ -2161,6 +2358,30 @@ class TestApiErrorHandling(TestCase):
         self.assertEqual(response["X-Request-ID"], response.data["error"]["request_id"])
         # Compatibilità con i client che usavano il campo DRF originale.
         self.assertIn("sezioni", response.data)
+
+    def test_stato_con_task_q_fallito_non_resta_in_elaborazione(self):
+        container = Contenitore.objects.create(
+            owner=self.user,
+            nome="Container task fallito",
+            lunghezza_mm=2000,
+            larghezza_mm=2000,
+            altezza_mm=2000,
+            carico_massimo_kg=Decimal("1000"),
+        )
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano task fallito",
+            contenitore=container,
+            stato=StatoPiano.IN_ELABORAZIONE,
+            task_id="task-fallito-test",
+        )
+        with patch("django_q.models.Task.objects.filter") as task_filter:
+            task_filter.return_value.first.return_value = Mock(success=False)
+            response = self.client.get(f"/api/piani/{piano.id}/stato/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["stato"], StatoPiano.ERRORE)
+        self.assertIn("worker", response.data["messaggio_errore"])
 
 
 class TestDemoTrialFingerprint(TestCase):

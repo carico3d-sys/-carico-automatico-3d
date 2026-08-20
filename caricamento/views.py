@@ -63,6 +63,7 @@ from .serializers import (
     ContenitoreListSerializer,
     OggettoCreateSerializer,
     OggettoDaCaricareSerializer,
+    OggettoDaCaricareUpdateSerializer,
     OggettoDetailSerializer,
     OggettoListSerializer,
     PianoDiCaricoCreateSerializer,
@@ -137,6 +138,21 @@ def _calcola_distribuzione_pesi(piano):
             "margine_kg": round(max(0.0, limite - carico), 2),
         })
     return {"sezioni": risultati, "oggetti": oggetti}
+
+
+def _colore_posizionamento(op):
+    """Colore da mostrare per un posizionamento.
+
+    Preferisce il colore della riga ``OggettoDaCaricare`` (quando il
+    posizionamento è collegato a una riga), perché il colore per-riga ha la
+    precedenza su quello dell'anagrafica. In questo modo, modificare il colore
+    di una riga dal pannello (o salvarla con colore automatico distinto) si
+    riflette subito in scena 3D ed export, anche senza ri-elaborare.
+    """
+    riga = op.riga_origine
+    if riga is not None and riga.colore:
+        return riga.colore
+    return op.colore or "#4488ff"
 
 
 # ===========================================================================
@@ -1042,31 +1058,61 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         """
         piano = self.get_object()
         num_posizionati = piano.oggetti_posizionati.count()
+        stato = piano.stato
+        messaggio_errore = piano.messaggio_errore
+
+        # Django Q registra il fallimento del task, ma in caso di eccezione
+        # fuori dall'orchestratore il modello del piano può essere rimasto in
+        # ``in_elaborazione``. Intercetta quel caso durante il polling, così
+        # il frontend riceve uno stato finale invece di attendere inutilmente.
+        if stato == StatoPiano.IN_ELABORAZIONE and piano.task_id:
+            try:
+                from django_q.models import Task
+                task = Task.objects.filter(id=piano.task_id).first()
+                if task is not None and task.success is False:
+                    logger.error(
+                        "Task Q fallito durante il polling: piano_id=%s task_id=%s",
+                        piano.id,
+                        piano.task_id,
+                    )
+                    stato = StatoPiano.ERRORE
+                    messaggio_errore = (
+                        "Il worker non ha completato l'ottimizzazione. "
+                        "Riprova l'operazione."
+                    )
+            except Exception:
+                # Il polling dello stato non deve fallire se il backend Q non
+                # è disponibile: continua a restituire lo stato del piano.
+                pass
 
         return Response(
             {
                 "id": piano.id,
                 "nome": piano.nome,
-                "stato": piano.stato,
+                "stato": stato,
                 "task_id": piano.task_id,
                 "oggetti_posizionati": num_posizionati,
                 "saturazione": piano.saturazione_volumetrica,
                 "peso_totale_kg": piano.peso_totale_kg,
                 "completato_at": piano.completato_at,
-                "messaggio_errore": piano.messaggio_errore,
+                "messaggio_errore": messaggio_errore,
                 "soluzioni_alternative": self._soluzioni_alternative_transitorie(piano),
             }
         )
 
-    @action(detail=True, methods=["post", "delete"])
+    @action(detail=True, methods=["post", "patch", "delete"])
     def oggetti_da_caricare(self, request, pk=None):
         """Gestisce gli oggetti da caricare per questo piano.
 
-        POST   /api/piani/{id}/oggetti_da_caricare/  → Aggiunge/modifica un oggetto
+        POST   /api/piani/{id}/oggetti_da_caricare/  → Crea una nuova riga
+        PATCH  /api/piani/{id}/oggetti_da_caricare/  → Aggiorna una riga esistente
         DELETE /api/piani/{id}/oggetti_da_caricare/  → Rimuove TUTTI gli oggetti dal piano
 
         Corpo POST (JSON):
-            { "oggetto_id": 1, "quantita": 5, "note": "" }
+            { "oggetto_id": 1, "quantita": 5, "priorita": 0, "colore": "#ff0000", "note": "" }
+
+        Corpo PATCH (JSON, campi opzionali):
+            { "riga_id": 12, "quantita": 5, "priorita": 2, "colore": "" }
         """
         piano = self.get_object()
 
@@ -1074,6 +1120,34 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             count = piano.oggetti_da_caricare.count()
             piano.oggetti_da_caricare.all().delete()
             return Response({"successo": True, "rimossi": count})
+
+        if request.method == "PATCH":
+            riga_id = request.data.get("riga_id")
+            if not riga_id:
+                raise ValidationError({"riga_id": "Campo obbligatorio per il PATCH."})
+            try:
+                riga = piano.oggetti_da_caricare.get(pk=int(riga_id))
+            except (TypeError, ValueError, OggettoDaCaricare.DoesNotExist):
+                raise ValidationError({"riga_id": "Riga non trovata in questo piano."})
+
+            serializer = OggettoDaCaricareUpdateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            for campo, valore in serializer.validated_data.items():
+                setattr(riga, campo, valore)
+            riga.save()
+
+            return Response(
+                {
+                    "id": riga.id,
+                    "oggetto_id": riga.oggetto_id,
+                    "quantita": riga.quantita,
+                    "priorita": riga.priorita,
+                    "colore": riga.colore or "",
+                    "note": riga.note,
+                    "created": False,
+                }
+            )
 
         # POST
         serializer = OggettoDaCaricareSerializer(data=request.data)
@@ -1083,14 +1157,15 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         if not Oggetto.objects.filter(id=oggetto_id, owner=request.user).exists():
             raise ValidationError({"oggetto_id": "Oggetto non appartenente all'utente."})
 
-        oggetto_da_caricare, created = OggettoDaCaricare.objects.update_or_create(
+        # Ogni POST rappresenta un lotto distinto. Non usare update_or_create:
+        # lo stesso oggetto può comparire su più righe con priorità diverse.
+        oggetto_da_caricare = OggettoDaCaricare.objects.create(
             piano_di_carico=piano,
             oggetto_id=oggetto_id,
-            defaults={
-                "quantita": serializer.validated_data.get("quantita", 1),
-                "priorita": serializer.validated_data.get("priorita", 0),
-                "note": serializer.validated_data.get("note", ""),
-            },
+            quantita=serializer.validated_data.get("quantita", 1),
+            priorita=serializer.validated_data.get("priorita", 0),
+            note=serializer.validated_data.get("note", ""),
+            colore=serializer.validated_data.get("colore", ""),
         )
 
         return Response(
@@ -1098,9 +1173,12 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 "id": oggetto_da_caricare.id,
                 "oggetto_id": oggetto_da_caricare.oggetto_id,
                 "quantita": oggetto_da_caricare.quantita,
-                "created": created,
+                "priorita": oggetto_da_caricare.priorita,
+                "colore": oggetto_da_caricare.colore or "",
+                "note": oggetto_da_caricare.note,
+                "created": True,
             },
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            status=status.HTTP_201_CREATED,
         )
 
     @action(detail=True, methods=["get"])
@@ -1115,7 +1193,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         piano = self.get_object()
         contenitore = piano.contenitore
         oggetti_posizionati = list(
-            piano.oggetti_posizionati.select_related("oggetto").order_by(
+            piano.oggetti_posizionati.select_related("oggetto", "riga_origine").order_by(
                 "coordinata_x_mm", "coordinata_y_mm", "coordinata_z_mm"
             )
         )
@@ -1141,7 +1219,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 f"{op.coordinata_x_mm:>6} {op.coordinata_y_mm:>6} {op.coordinata_z_mm:>6} "
                 f"{op.dimensione_x_mm:>5} {op.dimensione_y_mm:>5} {op.dimensione_z_mm:>5} "
                 f"{op.rotazione_applicata or 'nessuna':<15} "
-                f"{op.colore or '-'}"
+                f"{_colore_posizionamento(op) or '-'}"
             )
 
         lines.append("-" * 85)
@@ -1182,7 +1260,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         # IMPORTANTE: stesso ordinamento di export_posizioni per avere
         # numeri corrispondenti tra tabella esportata e scene 3D.
         oggetti_posizionati = list(
-            piano.oggetti_posizionati.order_by(
+            piano.oggetti_posizionati.select_related("riga_origine").order_by(
                 "coordinata_x_mm", "coordinata_y_mm", "coordinata_z_mm"
             )
         )
@@ -1226,9 +1304,13 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             },
             "oggetti_da_caricare": [
                 {
+                    "id": odc.id,
+                    "oggetto_id": odc.oggetto_id,
                     "codice": odc.oggetto.codice,
                     "quantita": odc.quantita,
                     "priorita": odc.priorita,
+                    "colore": odc.colore or "",
+                    "note": odc.note,
                 }
                 for odc in oggetti_da_caricare
             ],
@@ -1238,6 +1320,8 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             payload["oggetti"].append(
                 {
                     "id": op.id,
+                    "oggetto_id": op.oggetto_id,
+                    "riga_id": op.riga_origine_id,
                     "codice": op.oggetto.codice,
                     "descrizione": op.oggetto.descrizione,
                     "posizione_mm": {
@@ -1261,7 +1345,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                         "z": round(op.dimensione_z_mm / 10, 1),
                     },
                     "rotazione": op.rotazione_applicata,
-                    "colore": op.colore,
+                    "colore": _colore_posizionamento(op),
                     "peso_kg": float(op.oggetto.peso_kg),
                     "peso_sopra_kg": float(op.peso_posato_sopra_kg),
                 }
@@ -1390,9 +1474,24 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                     "oggetti": "Un posizionamento supera le dimensioni del contenitore."
                 })
 
+            riga_id = item.get("riga_id")
+            riga_origine = None
+            if riga_id not in (None, ""):
+                try:
+                    riga_origine = piano.oggetti_da_caricare.get(pk=int(riga_id))
+                except (TypeError, ValueError, OggettoDaCaricare.DoesNotExist):
+                    # Preview e client legacy possono inviare un id non più
+                    # valido; il posizionamento resta salvabile senza origine.
+                    riga_origine = None
+            if riga_origine is not None and riga_origine.oggetto_id != oggetto.id:
+                raise ValidationError({
+                    "oggetti": "La riga origine non corrisponde all'oggetto posizionato."
+                })
+
             nuovi.append(OggettoPosizionato(
                 piano_di_carico=piano,
                 oggetto=oggetto,
+                riga_origine=riga_origine,
                 coordinata_x_mm=x_mm,
                 coordinata_y_mm=y_mm,
                 coordinata_z_mm=z_mm,

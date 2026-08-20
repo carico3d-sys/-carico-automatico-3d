@@ -891,6 +891,8 @@ function _costruisciDatiPreviewOttimizzazione(risultato, pianoId) {
             colore: item.colore || oggetto.colore || '#447e9b',
             peso_kg: Number(item.peso_kg || oggetto.peso_kg || 0),
             peso_sopra_kg: Number(item.peso_sopra_kg || 0),
+            riga_id: item.riga_id || null,
+            riga_key: item.riga_key || null,
         };
     });
     var metriche = risultato.metriche || {};
@@ -942,6 +944,8 @@ function _salvaSnapshotPreviewOttimizzazione(datiPreview) {
                 },
                 colore: oggetto.colore || '#447e9b',
                 rotazione: oggetto.rotazione || 'XYZ',
+                riga_id: oggetto.riga_id || null,
+                riga_key: oggetto.riga_key || null,
             };
         })
         : null;
@@ -1003,33 +1007,59 @@ async function _attendiOttimizzazioneAsync(pianoId, taskId) {
     var intervalloMs = 2000;
     var inizio = Date.now();
     var statiFinali = ['completato', 'parziale', 'fallito', 'errore'];
+    var ultimoStato = null;
+    var erroriConsecutivi = 0;
 
     while (Date.now() - inizio < attesaMassimaMs) {
         await new Promise(function (resolve) { setTimeout(resolve, intervalloMs); });
-        var resp = await fetch('/api/piani/' + pianoId + '/stato/', {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!resp.ok) continue;
-        var stato = await resp.json();
-        if (statiFinali.indexOf(stato.stato) >= 0) {
-            return stato;
+        try {
+            var resp = await fetch('/api/piani/' + pianoId + '/stato/', {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) {
+                erroriConsecutivi += 1;
+                if (erroriConsecutivi >= 3) {
+                    return {
+                        stato: 'errore',
+                        messaggio_errore: 'Impossibile verificare lo stato dell\'ottimizzazione.'
+                    };
+                }
+                continue;
+            }
+            var stato = await resp.json();
+            ultimoStato = stato;
+            erroriConsecutivi = 0;
+            if (statiFinali.indexOf(stato.stato) >= 0) {
+                return stato;
+            }
+            setStatus('busy', 'Elaborazione in coda...');
+            mostraTaskStatus('busy', 'Elaborazione in coda... (' + (stato.oggetti_posizionati || 0) + ' pezzi)');
+        } catch (error) {
+            // Un riavvio momentaneo del web worker non deve interrompere
+            // subito l'elaborazione già accodata: ritenta tre polling.
+            erroriConsecutivi += 1;
+            console.warn('Polling ottimizzazione non riuscito:', error);
+            if (erroriConsecutivi >= 3) {
+                return {
+                    stato: 'errore',
+                    messaggio_errore: 'Impossibile verificare lo stato dell\'ottimizzazione.'
+                };
+            }
         }
-        setStatus('busy', 'Elaborazione in coda...');
-        mostraTaskStatus('busy', 'Elaborazione in coda... (' + (stato.oggetti_posizionati || 0) + ' pezzi)');
     }
 
     // Timeout di attesa: restituisci l'ultimo stato disponibile.
-    try {
-        var ultimoResp = await fetch('/api/piani/' + pianoId + '/stato/', {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (ultimoResp.ok) return await ultimoResp.json();
-    } catch (e) { /* ignora */ }
+    if (ultimoStato) return ultimoStato;
     return { stato: 'errore', messaggio_errore: 'Attesa ottimizzazione scaduta.' };
 }
 
 async function elaboraOttimizzazione(salvaRisultato) {
     if (WS.ottimizzazioneInCorso) return;
+
+    // Una nuova elaborazione deve partire sempre senza alternative obsolete
+    // visibili nel main view.
+    nascondiSoluzioniAlternative();
+
     // "Elabora" è sempre una preview; il salvataggio definitivo è esplicito
     // tramite Ottimizza e Salva oppure tramite il pulsante Salva.
     salvaRisultato = salvaRisultato === true;
@@ -1128,12 +1158,36 @@ async function elaboraOttimizzazione(salvaRisultato) {
 
         // 2. Aggiungi oggetti da caricare
         setStatus('busy', 'Registrazione oggetti...');
+        // Mappa riga del piano tecnico → riga_key del pannello: serve a
+        // riportare le posizioni della preview alla riga corretta in fase di
+        // Salva, senza toccare dataset.rigaId del pannello (che deve restare
+        // legato al piano reale, altrimenti la matita farebbe PATCH con un id
+        // di una riga inesistente dopo l'eliminazione del piano di anteprima).
+        var previewRigaKeyById = {};
         for (var i = 0; i < oggetti.length; i++) {
-            await fetch('/api/piani/' + pianoId + '/oggetti_da_caricare/', {
+            var rigaResp = await fetch('/api/piani/' + pianoId + '/oggetti_da_caricare/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-                body: JSON.stringify({ oggetto_id: oggetti[i].oggetto_id, quantita: oggetti[i].quantita, priorita: oggetti[i].priorita || 0, note: '' }),
+                body: JSON.stringify({
+                    oggetto_id: oggetti[i].oggetto_id,
+                    quantita: oggetti[i].quantita,
+                    priorita: oggetti[i].priorita || 0,
+                    colore: oggetti[i].colore || '',
+                    note: '',
+                }),
             });
+            if (!rigaResp.ok) throw new Error('Registrazione riga carico fallita: HTTP ' + rigaResp.status);
+            var rigaData = await rigaResp.json();
+            if (salvaRisultato) {
+                // Piano reale: le righe persistite sono quelle del piano attivo,
+                // quindi il pannello può puntare ai loro id.
+                var rigaItem = oggetti[i].riga_key
+                    ? DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + oggetti[i].riga_key + '"]')
+                    : null;
+                if (rigaItem) rigaItem.dataset.rigaId = String(rigaData.id || '');
+            } else if (rigaData.id && oggetti[i].riga_key) {
+                previewRigaKeyById[String(rigaData.id)] = oggetti[i].riga_key;
+            }
         }
 
         // 3. Configurazione dell'ottimizzatore.
@@ -1219,6 +1273,10 @@ async function elaboraOttimizzazione(salvaRisultato) {
                         colore: o.colore,
                         peso_kg: o.peso_kg || 0,
                         peso_sopra_kg: o.peso_sopra_kg || 0,
+                        riga_id: o.riga_id || null,
+                        riga_key: (o.riga_id != null && previewRigaKeyById[String(o.riga_id)])
+                            ? previewRigaKeyById[String(o.riga_id)]
+                            : null,
                     };
                 }),
             };

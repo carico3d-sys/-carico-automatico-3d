@@ -22,15 +22,10 @@
 // =============================================================================
 
 /**
- * Muove l'oggetto selezionato di (dx, dy, dz) step di griglia.
- * @param {number} dx - step in X (lunghezza Three.js, positivo = destra)
- * @param {number} dy - step in Y (altezza Three.js, positivo = su)
- * @param {number} dz - step in Z (larghezza Three.js, positivo = avanti)
+ * Calcola la posizione snap+clamp di un gruppo spostato di (dx, dy, dz)
+ * step di griglia, senza applicarla (funzione pura per il drag da tastiera).
  */
-function _muoviOggettoTastiera(dx, dy, dz) {
-    var group = STATE.selectedObject;
-    if (!group) return;
-
+function _calcolaPosizioneTastiera(group, dx, dy, dz) {
     var step = STATE.snapStepCm;
     var dimCm = _getTjsDimensions(group);
     var newPos = group.position.clone();
@@ -61,14 +56,72 @@ function _muoviOggettoTastiera(dx, dy, dz) {
         snapped.y = Math.max(dimCm.y / 2, Math.min(cDim2.z - dimCm.y / 2, snapped.y));
     }
 
-    // Controlla collisioni
-    if (_checkCollisionWithOthers(group, snapped, dimCm)) {
-        _flashOggetto(group, 0xff0000);
+    return snapped;
+}
+
+/**
+ * Verifica se il blocco (gruppi selezionati) nelle posizioni date collide con
+ * oggetti NON appartenenti al blocco (stesso criterio del drag a blocchi).
+ */
+function _bloccoCollideTastiera(groups, posizioni) {
+    var altri = STATE.oggettiMesh.filter(function (o) {
+        return groups.indexOf(o) === -1 && o.visible;
+    });
+    for (var i = 0; i < groups.length; i++) {
+        var dim = _getTjsDimensions(groups[i]);
+        for (var j = 0; j < altri.length; j++) {
+            if (_aabbOverlap(dim, posizioni[i], _getTjsDimensions(altri[j]), altri[j].position)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Muove l'oggetto selezionato — o l'intero blocco in caso di selezione
+ * multipla — di (dx, dy, dz) step di griglia. Se anche un solo membro
+ * collide con un oggetto non selezionato, il blocco non si muove.
+ */
+function _muoviOggettoTastiera(dx, dy, dz) {
+    var groups = _manualeGruppiSelezionati();
+    if (groups.length === 0) {
+        if (!STATE.selectedObject) return;
+        groups = [STATE.selectedObject];
+    }
+
+    var posizioni;
+    if (groups.length > 1) {
+        // Blocco: traslazione RIGIDA. Tutti i membri mantengono le posizioni
+        // relative (quindi non possono mai sovrapporsi tra loro) e il delta
+        // viene clampato per tenere l'intero blocco dentro il contenitore.
+        // Senza questo, il clamp/snap indipendente per membro farebbe sì che
+        // abbassando una pila il membro più basso si fermi sul pavimento
+        // mentre quello sopra continua a scendere → si infila dentro.
+        var ref = groups[0];
+        var target = _calcolaPosizioneTastiera(ref, dx, dy, dz);
+        var delta = new THREE.Vector3(
+            target.x - ref.position.x,
+            target.y - ref.position.y,
+            target.z - ref.position.z
+        );
+        var startPositions = groups.map(function (g) { return g.position.clone(); });
+        var deltaClamped = _manualeClampaDeltaAlContenitore(delta, startPositions, groups);
+        posizioni = startPositions.map(function (p) {
+            return new THREE.Vector3(p.x + deltaClamped.x, p.y + deltaClamped.y, p.z + deltaClamped.z);
+        });
+    } else {
+        // Oggetto singolo: comportamento invariato
+        posizioni = groups.map(function (g) { return _calcolaPosizioneTastiera(g, dx, dy, dz); });
+    }
+
+    if (_bloccoCollideTastiera(groups, posizioni)) {
+        groups.forEach(function (g) { _flashOggetto(g, 0xff0000); });
         return;
     }
 
-    group.position.set(snapped.x, snapped.y, snapped.z);
-    _aggiornaInfoOggettoManuale(group);
+    groups.forEach(function (g, idx) { g.position.copy(posizioni[idx]); });
+    _aggiornaInfoOggettoManuale(groups[0]);
     if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
     if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
     _refreshSidebarLineari();
@@ -78,59 +131,128 @@ function _muoviOggettoTastiera(dx, dy, dz) {
 // ROTAZIONE OGGETTO SELEZIONATO
 // =============================================================================
 
-function _ruotaOggettoTastiera(isCW) {
-    var group = STATE.selectedObject;
-    if (!group) return;
-
-    var oldDims = _getTjsDimensions(group);
-    var oldPos = group.position.clone();
-    var oldOrientamento = group.userData._orientamento || 'LxPxH';
-    var oldEccentricStep = group.userData._eccentricStep || 0;
+/**
+ * Ruota i gruppi dati (blocco o singolo) al loro orientamento successivo.
+ * Con un blocco ogni membro ruota in place e la validità (collisioni +
+ * contenitore) è valutata escludendo i membri del blocco stesso; se anche
+ * un solo membro è invalido, l'intero blocco viene ripristinato.
+ * Condivisa da tastiera (Ctrl+←/→) e mouse (Shift+click).
+ */
+function _ruotaGruppiTastiera(groups, isCW) {
+    if (!groups || groups.length === 0) return;
 
     // Controlla se siamo in modalità eccentrica
     var isEccentricMode = (typeof IMPOSTAZIONI !== 'undefined' &&
         IMPOSTAZIONI.output_ottimizzazione &&
         IMPOSTAZIONI.output_ottimizzazione.modalita_rotazione === 'eccentrica');
 
-    var ruotato;
-    if (isEccentricMode) {
-        ruotato = _ruotaEccentrico(group, isCW);
-    } else {
-        ruotato = _ruotaAlProssimoOrientamento(group);
+    // Salva stato pre-rotazione per un eventuale revert completo del blocco
+    var statiPre = groups.map(function (g) {
+        return {
+            group: g,
+            dims: _getTjsDimensions(g),
+            pos: g.position.clone(),
+            orientamento: g.userData._orientamento || 'LxPxH',
+            eccentricStep: g.userData._eccentricStep || 0
+        };
+    });
+
+    // MODALITÀ UNIFORME per tutto il blocco: rotazione eccentrica solo se TUTTI
+    // i membri possono ruotare eccentricamente; altrimenti l'intero blocco
+    // ruota nel piano orizzontale senza spostarsi (fallback baricentrico
+    // piatto). Così gli oggetti girano tutti nello stesso modo.
+    var tuttiEccentrici = isEccentricMode && groups.every(function (g) {
+        return typeof _puoRuotareEccentrico === 'function' && _puoRuotareEccentrico(g);
+    });
+
+    // Ruota ogni membro nella STESSA direzione: CW (isCW=true) o CCW (false).
+    var ruotati = 0;
+    groups.forEach(function (g) {
+        var r;
+        if (tuttiEccentrici) {
+            r = _ruotaEccentrico(g, isCW);
+        } else if (isEccentricMode) {
+            r = _ruotaPiattoBaricentrico(g, isCW);
+        } else {
+            r = _ruotaAlProssimoOrientamento(g, isCW);
+        }
+        if (r) ruotati += 1;
+    });
+    if (ruotati === 0) {
+        groups.forEach(function (g) { _flashOggetto(g, 0xff0000); });
+        return;
     }
 
-    if (ruotato) {
-        var newDims = _getTjsDimensions(group);
-        var collision = _checkCollisionWithOthers(group, group.position, newDims);
+    // Validazione post-rotazione: fuori contenitore o collisione con oggetti
+    // NON appartenenti al blocco (i membri selezionati non sono ostacoli).
+    var altri = STATE.oggettiMesh.filter(function (o) {
+        return groups.indexOf(o) === -1 && o.visible;
+    });
+    var invalido = false;
+    for (var i = 0; i < groups.length && !invalido; i++) {
+        var g = groups[i];
+        var newDims = _getTjsDimensions(g);
 
-        // Controlla anche che l'oggetto non esca dai bordi del contenitore
-        var fuoriContenitore = false;
-        if (!collision && STATE.dati && STATE.dati.contenitore) {
+        if (STATE.dati && STATE.dati.contenitore) {
             var cDim = STATE.dati.contenitore.dimensioni_cm;
             var halfX = newDims.x / 2, halfY = newDims.y / 2, halfZ = newDims.z / 2;
-            if (group.position.x - halfX < 0 || group.position.x + halfX > cDim.x ||
-                group.position.z - halfZ < 0 || group.position.z + halfZ > cDim.y ||
-                group.position.y - halfY < 0 || group.position.y + halfY > cDim.z) {
-                fuoriContenitore = true;
+            if (g.position.x - halfX < 0 || g.position.x + halfX > cDim.x ||
+                g.position.z - halfZ < 0 || g.position.z + halfZ > cDim.y ||
+                g.position.y - halfY < 0 || g.position.y + halfY > cDim.z) {
+                invalido = true;
             }
         }
 
-        if (collision || fuoriContenitore) {
-            // Revert
-            _ricostruisciMeshOrientamento(group, { label: oldOrientamento, tjsDims: oldDims });
-            group.position.copy(oldPos);
-            group.userData._eccentricStep = oldEccentricStep;
-            _flashOggetto(group, 0xff0000);
-        } else {
-            _flashOggetto(group, 0x00ff00);
-            if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
-            if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
-            _refreshSidebarLineari();
+        for (var j = 0; j < altri.length && !invalido; j++) {
+            if (_aabbOverlap(newDims, g.position, _getTjsDimensions(altri[j]), altri[j].position)) {
+                invalido = true;
+            }
         }
-        _aggiornaInfoOggettoManuale(group);
-    } else {
-        _flashOggetto(group, 0xff0000);
     }
+
+    if (invalido) {
+        // Revert completo: ripristina dimensione, posizione e step eccentrico
+        statiPre.forEach(function (s) {
+            _ricostruisciMeshOrientamento(s.group, { label: s.orientamento, tjsDims: s.dims });
+            s.group.position.copy(s.pos);
+            s.group.userData._eccentricStep = s.eccentricStep;
+            _flashOggetto(s.group, 0xff0000);
+        });
+        return;
+    }
+
+    groups.forEach(function (g) { _flashOggetto(g, 0x00ff00); });
+    if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
+    if (typeof _registraModificaManuale === 'function') _registraModificaManuale();
+    _refreshSidebarLineari();
+    _aggiornaInfoOggettoManuale(groups[0]);
+}
+
+function _ruotaOggettoTastiera(isCW) {
+    var groups = _manualeGruppiSelezionati();
+    if (groups.length === 0) {
+        if (!STATE.selectedObject) return;
+        groups = [STATE.selectedObject];
+    }
+    _ruotaGruppiTastiera(groups, isCW);
+}
+
+/**
+ * Snap alla griglia di tutti gli oggetti selezionati (o del singolo) e
+ * deseleziona: conferma la posizione del blocco con Enter / D-pad ✓.
+ */
+function _snapEDeselezionaBlocco() {
+    var groups = _manualeGruppiSelezionati();
+    if (groups.length === 0) {
+        if (!STATE.selectedObject) return;
+        groups = [STATE.selectedObject];
+    }
+    groups.forEach(function (g) {
+        var dim = _getTjsDimensions(g);
+        var snapped = _snapPosition(g.position, dim);
+        g.position.set(snapped.x, snapped.y, snapped.z);
+    });
+    _deselectObject();
 }
 
 // =============================================================================
@@ -150,6 +272,15 @@ function _onTastieraManualeKeyDown(e) {
 
     // Non interferire se il ghost è attivo
     if (_ghostState && _ghostState.active) return;
+
+    // M = toggle Selezione Rettangolare (non richiede oggetto selezionato)
+    if (e.key === 'm' || e.key === 'M') {
+        if (typeof _setMarqueeMode === 'function') {
+            _setMarqueeMode(!_marqueeModeEnabled);
+            showToast(_marqueeModeEnabled ? 'Selezione multipla: ON — click sx aggiunge, click dx seleziona colonna' : 'Selezione multipla: OFF', 'info');
+        }
+        return;
+    }
 
     // Enter senza oggetto selezionato: lascia passare (es. per attivare bottone col focus)
     if (e.key === 'Enter' && !STATE.selectedObject) return;
@@ -211,11 +342,8 @@ function _onTastieraManualeKeyDown(e) {
             var btnAdd = document.getElementById('manuale-btn-aggiungi');
             if (document.activeElement === btnAdd) break;
             e.preventDefault();
-            // Snap + deseleziona: oggetto confermato, focus rimosso
-            var dimCm = _getTjsDimensions(STATE.selectedObject);
-            var snapped = _snapPosition(STATE.selectedObject.position, dimCm);
-            STATE.selectedObject.position.set(snapped.x, snapped.y, snapped.z);
-            _deselectObject();
+            // Snap + deseleziona: oggetto (o blocco) confermato, focus rimosso
+            _snapEDeselezionaBlocco();
             break;
     }
 }
@@ -246,12 +374,7 @@ function _setupDPadButtons() {
     var btnConfirm = document.getElementById('manuale-dpad-confirm');
     if (btnConfirm) {
         btnConfirm.addEventListener('click', function () {
-            if (STATE.selectedObject) {
-                var dimCm = _getTjsDimensions(STATE.selectedObject);
-                var snapped = _snapPosition(STATE.selectedObject.position, dimCm);
-                STATE.selectedObject.position.set(snapped.x, snapped.y, snapped.z);
-                _deselectObject();
-            }
+            _snapEDeselezionaBlocco();
         });
     }
 

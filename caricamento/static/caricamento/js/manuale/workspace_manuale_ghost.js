@@ -559,6 +559,8 @@ function _confermaGhost() {
         var itemGroup = _creaMeshSingolo(dimCm, tjsPos, oggetto.codice, colore, oggetto.descrizione, oggetto.peso_kg);
         itemGroup.userData._orientamento = orientamento;
         itemGroup.userData.rotazione = orientamento;
+        itemGroup.userData.riga_id = gs.riga_id || null;
+        itemGroup.userData.riga_key = gs.riga_key || null;
 
         STATE.scene.add(itemGroup);
         STATE.oggettiMesh.push(itemGroup);
@@ -574,7 +576,7 @@ function _confermaGhost() {
 
         if (typeof WS !== 'undefined') WS._manualDragOccurred = true;
 
-        _incrementaPanelQty(oggetto.id, oggetto.codice);
+        _incrementaPanelQty(oggetto.id, oggetto.codice, gs.riga_id, gs.riga_key);
         // Mantieni selezionata la riga usata anche dopo l'aggiornamento
         // della quantità e dopo la selezione del mesh nella scena.
         if (typeof _ripristinaSelezionePanelManuale === 'function') {

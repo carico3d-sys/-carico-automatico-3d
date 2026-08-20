@@ -661,6 +661,23 @@ body {
     font-size: 11px;
     color: #2e7d32;
     animation: manuale-info-in 0.15s ease;
+    position: relative;  /* ancora il badge conteggio selezione multipla */
+}
+
+/* Badge numero oggetti selezionati (angolo basso-destra, overlay assoluto:
+   non modifica le dimensioni della label) */
+.manuale-oggetto-count {
+    position: absolute;
+    right: 6px;
+    bottom: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 14px;
+    color: #1b5e20;
+    background: #c8e6c9;
+    border-radius: 9px;
+    padding: 0 6px;
+    pointer-events: none;
 }
 
 @keyframes manuale-info-in {

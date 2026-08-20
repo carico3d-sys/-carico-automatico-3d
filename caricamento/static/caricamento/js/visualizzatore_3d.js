@@ -34,6 +34,39 @@ function aggiornaColoreOggettoInScena(codice, nuovoColore) {
     });
 }
 
+/**
+ * Aggiorna il colore nella scena 3D SOLO per i mesh appartenenti a una
+ * specifica riga del pannello (riga_id/riga_key). Usato dalla matita ✏️:
+ * il colore personalizzato vale solo per quella riga di carico.
+ *
+ * Restituisce il numero di mesh aggiornati (0 se la scena non ha mesh
+ * associati a quella riga, es. posizionamenti legacy).
+ */
+function aggiornaColoreRigaInScena(rigaId, rigaKey, nuovoColore) {
+    if (!STATE.oggettiMesh || STATE.oggettiMesh.length === 0) return 0;
+
+    var coloreSicuro = coloreOggetto({ id: 0, colore: nuovoColore });
+    var colore = new THREE.Color(coloreSicuro);
+    var aggiornati = 0;
+
+    STATE.oggettiMesh.forEach(function (group) {
+        var data = group.userData;
+        if (!data) return;
+        var match = (rigaId && String(data.riga_id) === String(rigaId)) ||
+                    (rigaKey && data.riga_key === rigaKey);
+        if (!match) return;
+
+        group.children.forEach(function (child) {
+            if (child.type === 'Mesh' && child.material && child.material.color) {
+                child.material.color.copy(colore);
+            }
+        });
+        data.colore = coloreSicuro;
+        aggiornati++;
+    });
+    return aggiornati;
+}
+
 // =========================================================================
 // ANIMAZIONE
 // =========================================================================

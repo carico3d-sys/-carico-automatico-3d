@@ -106,6 +106,7 @@ class Obj:
                  solo_su_piano: bool = False,
                  fragile: bool = False,
                  priorita: int = 0,
+                 riga_origine_id: Optional[int] = None,
                  peso_massimo_tetto: float = 0,
                  vincolo_oggetto_id: Optional[int] = None,
                  note_vincolo: str = ""):
@@ -122,6 +123,7 @@ class Obj:
         self.solo_su_piano = solo_su_piano
         self.fragile = fragile
         self.priorita = priorita
+        self.riga_origine_id = riga_origine_id
         self.peso_massimo_tetto = peso_massimo_tetto
         self.vincolo_oggetto_id = vincolo_oggetto_id
         self.note_vincolo = note_vincolo or ""
