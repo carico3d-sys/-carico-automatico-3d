@@ -184,6 +184,7 @@ function _costruisciDati3DdaSoluzione(soluzione) {
             colore: o.colore || '#4488ff',
             peso_kg: o.peso_kg || 0,
             peso_sopra_kg: 0,
+            riga_id: o.riga_id || null,
         };
     });
 
