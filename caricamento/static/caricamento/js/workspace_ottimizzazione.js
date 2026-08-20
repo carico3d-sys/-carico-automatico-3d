@@ -1092,6 +1092,10 @@ async function elaboraOttimizzazione(salvaRisultato) {
         }
     }
 
+    // Assicurati che i colori auto per righe duplicate siano aggiornati
+    // prima di raccogliere gli oggetti dal pannello.
+    if (typeof _assegnaColoriAutomatici === 'function') _assegnaColoriAutomatici();
+
     var oggetti = raccogliOggettiDaPanel();
     if (oggetti.length === 0) {
         showToast('Aggiungi almeno un oggetto al carico.', 'warning');
