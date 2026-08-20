@@ -491,6 +491,12 @@ function svuotaCarico() {
 }
 
 function raccogliOggettiDaPanel() {
+    // Garantisce che i colori auto per righe duplicate siano sempre
+    // calcolati prima di leggere dataset.colore.  Chiunque chiami
+    // questa funzione otterrà i colori corretti senza doversi ricordare
+    // di chiamare _assegnaColoriAutomatici() prima.
+    if (typeof _assegnaColoriAutomatici === 'function') _assegnaColoriAutomatici();
+
     var items = DOM.panelItemsList.querySelectorAll('.panel-item');
     var oggetti = [];
     items.forEach(function (div) {

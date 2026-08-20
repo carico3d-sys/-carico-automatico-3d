@@ -477,10 +477,6 @@ async function salvaPianoDB() {
         _impostaAzioniAutoDisabilitate(true);
     }
 
-    // Assicurati che i colori auto per righe duplicate siano aggiornati
-    // prima di raccogliere gli oggetti dal pannello.
-    if (typeof _assegnaColoriAutomatici === 'function') _assegnaColoriAutomatici();
-
     var oggetti = raccogliOggettiDaPanel();
     if (oggetti.length === 0) {
         WS.salvataggioInCorso = false;
