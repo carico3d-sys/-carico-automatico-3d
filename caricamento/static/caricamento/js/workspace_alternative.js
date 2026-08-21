@@ -278,10 +278,19 @@ async function applicaSoluzioneAlternativa(idx) {
     }
     try {
         setStatus('busy', 'Applicazione soluzione alternativa...');
+        // Le alternative vengono dall'ottimizzatore: applicandone una il piano
+        // torna ad essere automatico (rimuove l'etichetta "manuale" che un
+        // salvataggio manuale precedente aveva impostato).
+        var algoritmo = 'Algoritmo 3D Semplificato';
+        if (typeof IMPOSTAZIONI !== 'undefined' && IMPOSTAZIONI &&
+            IMPOSTAZIONI.strategia_ottimizzazione &&
+            IMPOSTAZIONI.strategia_ottimizzazione.ordinamento_casuale) {
+            algoritmo += ' 🎲 Monte Carlo';
+        }
         var resp = await fetch('/api/piani/' + WS.activePianoId + '/salva_posizioni_manuali/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ oggetti: oggetti, origine: 'sincronizzazione' }),
+            body: JSON.stringify({ oggetti: oggetti, origine: 'sincronizzazione', algoritmo: algoritmo }),
         });
         if (!resp.ok) {
             var err = await resp.json().catch(function () { return {}; });

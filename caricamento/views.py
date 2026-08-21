@@ -1690,13 +1690,20 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 rotazione_applicata=item.get("rotazione", "XYZ"),
             ))
 
-        # Le priorità hanno la precedenza su tutto: la barriera di fase deve
-        # valere anche per i payload salvati direttamente (soluzioni
-        # alternative generate prima del fix, client legacy). Un oggetto a
+        # Le priorità hanno la precedenza su tutto nei flussi AUTOMATICI:
+        # la barriera di fase deve valere per i payload generati dal motore
+        # (Elabora, soluzioni alternative, client legacy): un oggetto a
         # priorità 0 che risulterebbe posizionato prima della fine X dei
         # prioritari viene ripiazzato in coda, altrimenti non sarebbe
         # scaricabile senza smontare il carico.
-        _applica_barriera_priorita(nuovi, piano)
+        #
+        # Nel flusso MANUALE invece l'utente ha la precedenza: se ha spostato
+        # un oggetto a mano nella scena 3D, la sua scelta va salvata così
+        # com'è (o al massimo segnalata, mai rifiutata). Applicare qui la
+        # barriera bloccherebbe il salvataggio con un 400 quando un prio0
+        # spostato a mano non trova posto in coda.
+        if origine == "sincronizzazione":
+            _applica_barriera_priorita(nuovi, piano)
 
         # Cancella solo dopo aver validato tutto il payload. La transazione
         # mantiene comunque l'operazione atomica anche in caso di errore DB.
@@ -1712,6 +1719,16 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 piano.stato = StatoPiano.COMPLETATO
                 piano.algoritmo = "manuale"
                 update_fields.extend(["stato", "algoritmo"])
+            elif origine == "sincronizzazione" and request.data.get("algoritmo"):
+                # Applicare una soluzione alternativa (o salvare un piano
+                # automatico) riporta il piano ad "automatico": rimuove
+                # l'etichetta "manuale" che un salvataggio manuale precedente
+                # aveva impostato.
+                piano.algoritmo = str(request.data.get("algoritmo"))[:128]
+                if piano.stato != StatoPiano.COMPLETATO:
+                    piano.stato = StatoPiano.COMPLETATO
+                    update_fields.append("stato")
+                update_fields.append("algoritmo")
             piano.save(update_fields=update_fields)
 
         return Response({

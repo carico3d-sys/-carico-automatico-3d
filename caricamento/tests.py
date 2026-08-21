@@ -1967,6 +1967,68 @@ class TestOrigineSalvataggioPosizioni(TestCaseBase):
         piano.refresh_from_db()
         self.assertEqual(piano.algoritmo, "manuale")
 
+    def test_alternativa_dopo_manuale_riporta_piano_ad_automatico(self):
+        """Flusso utente: salvo a mano (piano = "manuale"), poi applico una
+        soluzione alternativa (sincronizzazione con algoritmo): il piano deve
+        tornare ad essere automatico, non restare etichettato "manuale"."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("ORIG-ALT", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano alt dopo manuale",
+            contenitore=contenitore,
+            algoritmo="Algoritmo 3D Semplificato 🎲 Monte Carlo",
+        )
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=oggetto)
+
+        # 1) Salvataggio manuale: il piano diventa "manuale"
+        response = self._salva_posizioni(piano, "manuale")
+        self.assertEqual(response.status_code, 200)
+        piano.refresh_from_db()
+        self.assertEqual(piano.algoritmo, "manuale")
+
+        # 2) Applicazione alternativa: deve riportare l'algoritmo automatico
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        response = client.post(
+            "/api/piani/{}/salva_posizioni_manuali/".format(piano.id),
+            {
+                "origine": "sincronizzazione",
+                "algoritmo": "Algoritmo 3D Semplificato 🎲 Monte Carlo",
+                "oggetti": [{
+                    "oggetto_id": oggetto.id,
+                    "codice": oggetto.codice,
+                    "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                    "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                    "colore": "#4488ff",
+                    "rotazione": "XYZ",
+                }],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        piano.refresh_from_db()
+        self.assertEqual(piano.algoritmo, "Algoritmo 3D Semplificato 🎲 Monte Carlo")
+
+    def test_alternativa_senza_algoritmo_non_altere_etichetta(self):
+        """Se il payload di sincronizzazione non include algoritmo (client
+        legacy), l'etichetta del piano non viene toccata."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("ORIG-ALT2", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano alt legacy",
+            contenitore=contenitore,
+            algoritmo="Algoritmo 3D Semplificato",
+        )
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=oggetto)
+
+        response = self._salva_posizioni(piano, "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        piano.refresh_from_db()
+        self.assertEqual(piano.algoritmo, "Algoritmo 3D Semplificato")
+
     def test_salva_persiste_tutte_le_posizioni_visibili(self):
         """La quantità richiesta non elimina posizioni già visibili nella scena."""
         contenitore = self.crea_contenitore(x=2000, y=2000, z=2000)
@@ -2197,6 +2259,58 @@ class TestOrigineSalvataggioPosizioni(TestCaseBase):
             barriera,
             "Il prio 0 è rimasto dentro il blocco dei prioritari!",
         )
+
+    def test_salvataggio_manuale_non_bloccato_dalla_barriera(self):
+        """Nel flusso MANUALE l'utente ha la precedenza: se sposta a mano un
+        oggetto a priorità 0 dentro i blocchi dei prioritari, il salvataggio
+        non deve essere rifiutato dalla barriera di fase (prima del fix il
+        backend rispondeva 400 "non collocabili in coda")."""
+        contenitore = self.crea_contenitore(x=2000, y=2000, z=2000)
+        oggetto = self.crea_oggetto("BARR-MAN", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano barriera manuale",
+            contenitore=contenitore,
+        )
+        riga_prio1 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#FF0000", priorita=1,
+        )
+        riga_prio0 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#00FF00", priorita=0,
+        )
+
+        # L'utente ha spostato a mano il prio0 a X=0, DENTRO il blocco prio1
+        # (X=0-500). Nel flusso manuale la scelta va rispettata, non
+        # rifiutata con un 400.
+        response = self._salva_posizioni_payload(piano, [
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#aaaaaa",
+                "rotazione": "XYZ",
+                "riga_id": riga_prio1.id,
+            },
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},  # viola la barriera
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#bbbbbb",
+                "rotazione": "XYZ",
+                "riga_id": riga_prio0.id,
+            },
+        ], "manuale")
+
+        # Il salvataggio manuale deve riuscire e conservare le coordinate
+        # inviate dall'utente.
+        self.assertEqual(response.status_code, 200)
+        op_prio0 = piano.oggetti_posizionati.get(riga_origine=riga_prio0)
+        self.assertEqual(op_prio0.coordinata_x_mm, 0,
+            "La modifica manuale non è stata salvata!")
 
     def test_payload_con_barriera_gia_rispettata_non_viene_modificato(self):
         """Se il payload rispetta già la barriera, le coordinate restano
