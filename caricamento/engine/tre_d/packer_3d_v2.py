@@ -58,7 +58,10 @@ from .postprocessing import (
     place_singles_at_end as _post_place_singles_at_end,
 )
 from .priority_policy import (
+    chiave_priorita,
     normalizza_vincoli_sopra,
+    priorita_effettive,
+    priorita_esplicita,
     priorita_mancanti,
     riordina_per_fasi,
     score_soluzione,
@@ -782,6 +785,23 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
         preserve_inner_order=preserve_order,
     )
 
+    # Barriera spaziale tra fasi: le priorità hanno la precedenza su tutto.
+    # Un oggetto di una fase successiva (priorità più bassa) deve essere
+    # posizionato fisicamente DOPO (x >=) la fine X di tutti gli oggetti
+    # delle fasi precedenti, mai dentro i loro blocchi: altrimenti un lotto
+    # a priorità 0 nascosto in mezzo ai prioritari non sarebbe scaricabile
+    # senza smontare il carico.
+    _eff_priorita = priorita_effettive(objects, vincoli_sopra)
+
+    def _fase(obj):
+        p = _eff_priorita.get(
+            chiave_priorita(obj), priorita_esplicita(obj)
+        )
+        return (0 if p > 0 else 1, p if p > 0 else 999)
+
+    fase_corrente = None
+    barriera_fase = 0.0
+
     # Snapshot immutabile dell'ordine effettivo dopo la priorità/sort e
     # prima che il packing modifichi dimensioni e coordinate delle istanze.
     # Il repacking deve conservare questo ordine, non quello dell'input
@@ -814,6 +834,19 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
             deadline_exceeded = True
             unfitted_ids.append(obj.id)
             continue
+
+        # Ogni volta che cambia fase (priorità più bassa), la barriera
+        # spaziale avanza fino alla massima X già occupata dalle fasi
+        # precedenti. Gli oggetti della nuova fase non possono mai essere
+        # piazzati prima di questa barriera.
+        fase = _fase(obj)
+        if fase != fase_corrente:
+            fase_corrente = fase
+            if placed:
+                barriera_fase = max(
+                    (p.x + p.width for p in placed if getattr(p, "z", -1) >= 0),
+                    default=0.0,
+                )
 
         posizionato = False
 
@@ -880,6 +913,14 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                                 _orig_f1_w, _orig_f1_d, _orig_f1_h
                             )
                             continue
+                        # Barriera di fase: lo stacking non può portare
+                        # un oggetto di priorità più bassa dentro il blocco
+                        # delle fasi precedenti.
+                        if obj.x < barriera_fase - 0.001:
+                            obj.width, obj.depth, obj.height = (
+                                _orig_f1_w, _orig_f1_d, _orig_f1_h
+                            )
+                            continue
                         placed.append(obj)
                         if grid is not None:
                             grid.add(obj)
@@ -924,6 +965,13 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
                         x_positions.add(sec_x_cm)
 
             x_positions = sorted(x_positions)
+
+            # Barriera di fase: le fasi successive (priorità più bassa)
+            # partono solo dopo la fine X delle fasi precedenti.
+            x_positions = [
+                x for x in x_positions
+                if x >= barriera_fase - 0.001
+            ]
 
             # ============================================================
             # PASSATA 1 (v2): best Y-fill
@@ -1303,6 +1351,36 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
         singles_after_postprocessing = len(
             _trova_singoli_interni(placed, container_h, vincoli_sopra)
         )
+        # La barriera di fase deve valere anche dopo il post-processing:
+        # deferral e fill-holes non possono rimettere un oggetto di priorità
+        # bassa dentro il blocco delle fasi precedenti.
+        def _viola_barriera():
+            if not placed:
+                return False
+            max_x_per_fase = {}
+            for o in placed:
+                if getattr(o, "z", -1) < 0:
+                    continue
+                fase = _fase(o)
+                if fase not in max_x_per_fase:
+                    max_x_per_fase[fase] = 0.0
+                max_x_per_fase[fase] = max(
+                    max_x_per_fase[fase], o.x + o.width
+                )
+            fasi_ordinate = sorted(max_x_per_fase)
+            cumulativo = 0.0
+            for fase in fasi_ordinate:
+                for o in placed:
+                    if (
+                        getattr(o, "z", -1) >= 0
+                        and _fase(o) == fase
+                        and o.x < cumulativo - 0.001
+                    ):
+                        return True
+                cumulativo = max(cumulativo, max_x_per_fase[fase])
+            return False
+
+        barriera_violata_postprocessing = _viola_barriera()
         max_x_after_postprocessing = max(
             (obj.x + obj.width for obj in placed if obj.z >= 0),
             default=0,
@@ -1343,9 +1421,12 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
         # piccola quantità di X per chiudere un buco interno. In assenza di
         # quel miglioramento resta invece obbligatorio lo score globale.
         should_rollback_postprocessing = (
-            singles_after_postprocessing >= singles_before_postprocessing
-            and score_after_postprocessing <= score_before_postprocessing
-            and not sequential_progress
+            barriera_violata_postprocessing
+            or (
+                singles_after_postprocessing >= singles_before_postprocessing
+                and score_after_postprocessing <= score_before_postprocessing
+                and not sequential_progress
+            )
         )
         if (
             should_rollback_postprocessing

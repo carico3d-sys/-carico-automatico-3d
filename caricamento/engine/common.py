@@ -32,7 +32,7 @@ class ConfigurazioneOttimizzazione:
     """Configurazione dell'ottimizzatore di carico (Algoritmo 3D Semplificato)."""    # --- Strategia ---
     algoritmo_base: str = "Algoritmo 3D Semplificato"
     ordinamento_casuale: bool = False
-    distribuzione_pesi_attiva: bool = True
+    distribuzione_pesi_attiva: bool = False
     compattazione_aggressiva: bool = False  # se True, permette incastro sotto sbalzi
     backtracking_avanzato: bool = False  # se True, attiva optimizer_v3 a blocchi
 
@@ -47,7 +47,7 @@ class ConfigurazioneOttimizzazione:
         return cls(
             algoritmo_base=strategia.get("algoritmo_base", defaults["strategia_ottimizzazione"]["algoritmo_base"]),
             ordinamento_casuale=strategia.get("ordinamento_casuale", False),
-            distribuzione_pesi_attiva=strategia.get("distribuzione_pesi_attiva", True),
+            distribuzione_pesi_attiva=strategia.get("distribuzione_pesi_attiva", False),
             compattazione_aggressiva=strategia.get("compattazione_aggressiva", False),
             backtracking_avanzato=strategia.get("backtracking_avanzato", False),
         )
@@ -58,7 +58,7 @@ def get_configurazione_default() -> dict:
         "strategia_ottimizzazione": {
             "algoritmo_base": "Algoritmo 3D Semplificato",
             "ordinamento_casuale": False,
-            "distribuzione_pesi_attiva": True,
+            "distribuzione_pesi_attiva": False,
             "compattazione_aggressiva": False,
             "backtracking_avanzato": False,
         },

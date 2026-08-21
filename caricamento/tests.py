@@ -388,6 +388,78 @@ class TestRigheDuplicateCarico(TestCase):
         )
         self.assertEqual(posizionato.colore, "#abcdef")
 
+    def test_optimizer_reassigns_shared_custom_color_between_duplicate_rows(self):
+        """Due righe con lo STESSO colore custom devono ottenere colori
+        diversi dal motore (replica della logica _assegnaColoriAutomatici
+        del frontend: un colore condiviso da 2+ righe va riassegnato)."""
+        prima = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=1,
+            colore="#FF0000",
+        )
+        seconda = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=0,
+            colore="#FF0000",
+        )
+
+        risultato = esegui_ottimizzazione_tre_d(self.piano.id)
+        self.assertTrue(risultato.successo)
+
+        posizionati = list(
+            OggettoPosizionato.objects.filter(piano_di_carico=self.piano)
+        )
+        colori_per_riga = {
+            op.riga_origine_id: op.colore for op in posizionati
+        }
+        # Due lotti distinti: colori distinti, mai lo stesso colore condiviso.
+        self.assertEqual(len(set(colori_per_riga.values())), 2)
+        self.assertNotEqual(
+            colori_per_riga[prima.id], colori_per_riga[seconda.id]
+        )
+
+    def test_optimizer_keeps_unique_custom_color_and_reassigns_shared_one(self):
+        """Una riga con colore custom UNICO lo mantiene; l'altra riga dello
+        stesso codice senza personalizzazione ottiene un colore diverso dalla
+        palette (mai uguale al custom unico né all'anagrafica)."""
+        self.oggetto.colore = "#123456"
+        self.oggetto.save(update_fields=["colore"])
+        unica = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=1,
+            colore="#00AA00",
+        )
+        senza_custom = OggettoDaCaricare.objects.create(
+            piano_di_carico=self.piano,
+            oggetto=self.oggetto,
+            quantita=1,
+            priorita=0,
+            colore="",
+        )
+
+        risultato = esegui_ottimizzazione_tre_d(self.piano.id)
+        self.assertTrue(risultato.successo)
+
+        posizionati = list(
+            OggettoPosizionato.objects.filter(piano_di_carico=self.piano)
+        )
+        colori_per_riga = {
+            op.riga_origine_id: op.colore for op in posizionati
+        }
+        # La riga custom unica mantiene il suo colore; l'altra riga ne ha uno
+        # diverso (e non l'anagrafica, per distinguere i lotti).
+        self.assertEqual(colori_per_riga[unica.id], "#00AA00")
+        self.assertNotEqual(
+            colori_per_riga[unica.id], colori_per_riga[senza_custom.id]
+        )
+        self.assertNotEqual(colori_per_riga[senza_custom.id], "#123456")
+
 
 class TestGroupOptimizer(TestCase):
     """Verifica le configurazioni locali senza coinvolgere MC o v3."""
@@ -1641,12 +1713,15 @@ class TestConfigurazioneOttimizzazione(TestCaseBase):
         })
         self.assertTrue(config.ordinamento_casuale)
         self.assertEqual(config.algoritmo_base, "Algoritmo 3D Semplificato")
-        self.assertTrue(config.distribuzione_pesi_attiva)
+        # La distribuzione pesi è disattivata di default perché il vincolo
+        # sulle sezioni può impedire il piazzamento di oggetti che invece
+        # entrerebbero nel contenitore.
+        self.assertFalse(config.distribuzione_pesi_attiva)
 
     def test_from_dict_con_config_vuota(self):
         config = ConfigurazioneOttimizzazione.from_dict({})
         self.assertEqual(config.algoritmo_base, "Algoritmo 3D Semplificato")
-        self.assertTrue(config.distribuzione_pesi_attiva)
+        self.assertFalse(config.distribuzione_pesi_attiva)
 
     def test_configurazione_personalizzata(self):
         contenitore = self.crea_contenitore()
@@ -1950,6 +2025,225 @@ class TestOrigineSalvataggioPosizioni(TestCaseBase):
         )
 
 
+    def test_fallback_obsolete_riga_id_links_to_correct_row(self):
+        """Quando il riga_id è obsoleto (piano tecnico eliminato),
+        il backend dovrebbe trovare la riga per oggetto_id e collegarla."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("FALL-A", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano fallback",
+            contenitore=contenitore,
+        )
+        riga = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=2,
+            colore="#FF0000",
+        )
+
+        response = self._salva_posizioni_payload(piano, [{
+            "oggetto_id": oggetto.id,
+            "codice": oggetto.codice,
+            "posizione_cm": {"x": 0, "y": 0, "z": 0},
+            "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+            "colore": "#aaaaaa",
+            "rotazione": "XYZ",
+            # riga_id obsoleta (ID 99999 non esiste nel piano)
+            "riga_id": 99999,
+        }], "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        op = piano.oggetti_posizionati.first()
+        self.assertIsNotNone(op)
+        # Il fallback dovrebbe aver trovato la riga per oggetto_id
+        self.assertEqual(op.riga_origine_id, riga.id)
+        # Il colore dovrebbe essere quello della riga, non quello dello snapshot
+        self.assertEqual(op.colore, "#FF0000")
+
+    def test_obsolete_riga_id_uses_row_color_not_snapshot_color(self):
+        """Il colore della riga ha precedenza su quello dello snapshot
+        quando il riga_id è obsoleto ma la riga viene trovata."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("FALL-B", 600, 500, 400)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano fallback colore",
+            contenitore=contenitore,
+        )
+        riga = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#00FF00",
+        )
+
+        response = self._salva_posizioni_payload(piano, [{
+            "oggetto_id": oggetto.id,
+            "codice": oggetto.codice,
+            "posizione_cm": {"x": 0, "y": 0, "z": 0},
+            "dimensioni_cm": {"x": 60, "y": 50, "z": 40},
+            "colore": "#000000",  # colore dello snapshot (sbagliato)
+            "rotazione": "XYZ",
+            "riga_id": 99998,  # obsoleta
+        }], "manuale")
+
+        self.assertEqual(response.status_code, 200)
+        op = piano.oggetti_posizionati.first()
+        self.assertIsNotNone(op)
+        self.assertEqual(op.colore, "#00FF00")  # colore dalla riga
+        self.assertEqual(op.riga_origine_id, riga.id)
+
+    def test_fallback_does_not_link_two_positions_to_same_riga(self):
+        """Quando 2 posizionamenti dello stesso oggetto hanno riga_id
+        obsoleti, il fallback dovrebbe collegarne uno alla riga 1 e
+        l'altro alla riga 2 (se disponibile), non entrambi alla prima."""
+        contenitore = self.crea_contenitore()
+        oggetto = self.crea_oggetto("FALL-DUP", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano fallback dup",
+            contenitore=contenitore,
+        )
+        riga1 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#FF0000",
+        )
+        riga2 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#0000FF",
+        )
+
+        # Due posizionamenti dello stesso oggetto con riga_id obsoleti
+        response = self._salva_posizioni_payload(piano, [
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#aaaaaa",
+                "rotazione": "XYZ",
+                "riga_id": 99991,  # obsoleta
+            },
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 60, "y": 0, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#bbbbbb",
+                "rotazione": "XYZ",
+                "riga_id": 99992,  # obsoleta
+            },
+        ], "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        ops = list(piano.oggetti_posizionati.order_by('id'))
+        self.assertEqual(len(ops), 2)
+        # I due posizionamenti dovrebbero avere righe diverse
+        righe_ids = {op.riga_origine_id for op in ops if op.riga_origine_id}
+        self.assertEqual(len(righe_ids), 2,
+            "Entrambi i posizionamenti puntano alla stessa riga!")
+        # E colori diversi
+        colori = {op.colore for op in ops}
+        self.assertEqual(len(colori), 2,
+            "I due posizionamenti hanno lo stesso colore!")
+
+    def test_payload_che_viola_la_barriera_viene_corretto_in_coda(self):
+        """Un payload (es. soluzione alternativa generata prima del fix) che
+        mette un oggetto a priorità 0 dentro il blocco dei prioritari viene
+        ripiazzato in coda: la priorità ha la precedenza su tutto."""
+        contenitore = self.crea_contenitore(x=2000, y=2000, z=2000)
+        oggetto = self.crea_oggetto("BARR-A", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano barriera",
+            contenitore=contenitore,
+        )
+        riga_prio1 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#FF0000", priorita=1,
+        )
+        riga_prio0 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#00FF00", priorita=0,
+        )
+
+        # Il payload viola la barriera: il prio 0 è a X=0 (davanti al prio 1
+        # che occupa X=0-500). Il backend deve spostarlo dopo la fine X dei
+        # prioritari (X >= 500).
+        response = self._salva_posizioni_payload(piano, [
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#aaaaaa",
+                "rotazione": "XYZ",
+                "riga_id": riga_prio1.id,
+            },
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},  # VIOLA!
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#bbbbbb",
+                "rotazione": "XYZ",
+                "riga_id": riga_prio0.id,
+            },
+        ], "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        op_prio0 = piano.oggetti_posizionati.get(riga_origine=riga_prio0)
+        op_prio1 = piano.oggetti_posizionati.get(riga_origine=riga_prio1)
+        barriera = op_prio1.coordinata_x_mm + op_prio1.dimensione_x_mm
+        self.assertGreaterEqual(
+            op_prio0.coordinata_x_mm,
+            barriera,
+            "Il prio 0 è rimasto dentro il blocco dei prioritari!",
+        )
+
+    def test_payload_con_barriera_gia_rispettata_non_viene_modificato(self):
+        """Se il payload rispetta già la barriera, le coordinate restano
+        quelle inviate (nessun riordinamento superfluo)."""
+        contenitore = self.crea_contenitore(x=2000, y=2000, z=2000)
+        oggetto = self.crea_oggetto("BARR-B", 500, 400, 300)
+        piano = PianoDiCarico.objects.create(
+            owner=self.user,
+            nome="Piano barriera ok",
+            contenitore=contenitore,
+        )
+        riga_prio1 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#FF0000", priorita=1,
+        )
+        riga_prio0 = OggettoDaCaricare.objects.create(
+            piano_di_carico=piano, oggetto=oggetto, quantita=1,
+            colore="#00FF00", priorita=0,
+        )
+
+        response = self._salva_posizioni_payload(piano, [
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 0, "y": 0, "z": 0},
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#aaaaaa",
+                "rotazione": "XYZ",
+                "riga_id": riga_prio1.id,
+            },
+            {
+                "oggetto_id": oggetto.id,
+                "codice": oggetto.codice,
+                "posizione_cm": {"x": 60, "y": 0, "z": 0},  # già in coda
+                "dimensioni_cm": {"x": 50, "y": 40, "z": 30},
+                "colore": "#bbbbbb",
+                "rotazione": "XYZ",
+                "riga_id": riga_prio0.id,
+            },
+        ], "sincronizzazione")
+
+        self.assertEqual(response.status_code, 200)
+        op_prio0 = piano.oggetti_posizionati.get(riga_origine=riga_prio0)
+        # Coordinata invariata: 60 cm = 600 mm
+        self.assertEqual(op_prio0.coordinata_x_mm, 600)
+
+
 class TestImpostazioniOttimizzatoreAPI(TestCase):
     """Le preferenze dell'ottimizzatore sono persistenti e isolate per utente."""
 
@@ -2133,12 +2427,78 @@ class TestPrioritaContenitoreVariabile(TestCase):
             "Il singolo I02 deve restare nella fase I02, prima degli I01.",
         )
 
+    def test_priorita_zero_mai_dentro_i_blocchi_delle_priorita_uno(self):
+        """La barriera di fase vieta di piazzare oggetti a priorità 0
+        dentro i blocchi delle priorità 1 (anche in stacking). I lotti a
+        priorità 0 devono stare fisicamente dopo la fine X dei prioritari.
+        """
+        from caricamento.engine.tre_d.priority_policy import (
+            priorita_effettive,
+        )
+
+        # Due lotti dello stesso codice: q5 a priorità 1 (piazzati per
+        # primi, da X=0) e q1 a priorità 0 (deve finire in coda, mai
+        # impilato dentro il blocco prioritario).
+        oggetti = [
+            *(
+                Obj(
+                    f"CART-{indice}",
+                    100,
+                    100,
+                    100,
+                    oggetto_id=1,
+                    riga_origine_id=10,
+                    priorita=1,
+                )
+                for indice in range(5)
+            ),
+            Obj(
+                "CART-5",
+                100,
+                100,
+                100,
+                oggetto_id=1,
+                riga_origine_id=11,
+                priorita=0,
+            ),
+        ]
+
+        self.assertEqual(
+            priorita_effettive(oggetti),
+            {10: 1, 11: 0},
+        )
+
+        posizionati = load_truck_v2(
+            oggetti,
+            container_dim=(500, 200, 300),
+        )
+        self.assertEqual(len(posizionati), 6)
+
+        prio1 = [obj for obj in posizionati if obj.riga_origine_id == 10]
+        prio0 = [obj for obj in posizionati if obj.riga_origine_id == 11]
+        self.assertEqual(len(prio0), 1)
+
+        max_end_prio1 = max(obj.x + obj.width for obj in prio1)
+        # La priorità 0 non può iniziare prima della fine X dei prioritari:
+        # mai dentro i blocchi (né a pavimento né impilata sopra di essi).
+        self.assertGreaterEqual(
+            prio0[0].x,
+            max_end_prio1 - 0.5,
+            "Il lotto a priorità 0 è finito dentro il blocco prioritario!",
+        )
+
     def test_altezza_del_contenitore_e_dinamica(self):
-        """Lo stesso carico usa il limite Z del camion/cassa selezionato."""
+        """Lo stesso carico usa il limite Z del camion/cassa selezionato.
+
+        Entrambi gli oggetti sono nella stessa fase di priorità: il secondo
+        si impila sul primo perché la barriera di fase vieta di piazzare un
+        oggetto a priorità 0 sopra un blocco a priorità 1 (non sarebbe
+        scaricabile senza smontare il carico).
+        """
         for altezza, secondo_deve_entrare in ((270, False), (370, True)):
             oggetti = [
                 Obj("PRIORITARIO-0", 100, 100, 200, oggetto_id=1, priorita=1),
-                Obj("SUCCESSIVO-0", 100, 100, 100, oggetto_id=2, priorita=0),
+                Obj("SUCCESSIVO-0", 100, 100, 100, oggetto_id=2, priorita=1),
             ]
             posizionati = load_truck_v2(
                 oggetti,

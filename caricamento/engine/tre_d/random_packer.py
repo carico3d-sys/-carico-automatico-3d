@@ -23,6 +23,7 @@ from .group_optimizer import optimize_deterministic_groups
 from .packer_3d_v2 import filter_unfitted, _e_una_base
 from .packer_3d_v2 import load_truck_v2
 from .priority_policy import priorita_effettive, priorita_esplicita
+from .priority_policy import chiave_priorita
 from .priority_policy import score_soluzione
 
 # Numero massimo di soluzioni alternative (oltre alla migliore) esposte
@@ -85,7 +86,7 @@ def _shuffle_per_tipo(objects: List, vincoli_sopra=None) -> List:
     effective = priorita_effettive(objects)
     phase_groups = {}
     for o in objects:
-        phase = effective.get(o.oggetto_id, priorita_esplicita(o))
+        phase = effective.get(chiave_priorita(o), priorita_esplicita(o))
         phase_groups.setdefault(phase, []).append(o)
 
     result = []

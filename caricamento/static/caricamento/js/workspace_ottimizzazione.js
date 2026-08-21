@@ -920,6 +920,33 @@ function _costruisciDatiPreviewOttimizzazione(risultato, pianoId) {
 }
 
 /**
+ * Rete di sicurezza colori: dopo l'elaborazione, prima di visualizzare,
+ * forza il colore di ogni posizionamento a quello della riga del pannello
+ * "Oggetti nel carico" che gli corrisponde (ogni riga ha un id agganciato
+ * agli oggetti pertinenti, via riga_key/riga_id). Anche se il backend
+ * restituisse colori di anagrafica (es. worker non aggiornato), la scena
+ * 3D e lo snapshot di Salva usano i colori per-riga distinti del pannello.
+ */
+function _applicaColoriRigaPosizioni(dati) {
+    if (!dati || !Array.isArray(dati.oggetti)) return;
+    if (typeof DOM === 'undefined' || !DOM.panelItemsList) return;
+    if (typeof coloreRiga !== 'function' || typeof coloreEsadecimaleValido !== 'function') return;
+    dati.oggetti.forEach(function (oggetto) {
+        var riga = null;
+        if (oggetto.riga_key) {
+            riga = DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + oggetto.riga_key + '"]');
+        }
+        if (!riga && oggetto.riga_id) {
+            riga = DOM.panelItemsList.querySelector('.panel-item[data-riga-id="' + oggetto.riga_id + '"]');
+        }
+        var colore = riga ? coloreRiga(riga) : '';
+        if (coloreEsadecimaleValido(colore)) {
+            oggetto.colore = colore;
+        }
+    });
+}
+
+/**
  * Conserva una copia indipendente delle coordinate restituite da "Elabora".
  * La preview usa un piano tecnico temporaneo che viene eliminato nel finally;
  * per il successivo click su Salva non dobbiamo dipendere né da quel piano né
@@ -1281,6 +1308,9 @@ async function elaboraOttimizzazione(salvaRisultato) {
                 }),
             };
             var datiPreview = _costruisciDatiPreviewOttimizzazione(risultatoPreview, pianoId);
+            // Prima di visualizzare, forza i colori delle righe del pannello
+            // (rete di sicurezza: indipendente da ciò che ha prodotto il backend).
+            _applicaColoriRigaPosizioni(datiPreview);
             _salvaSnapshotPreviewOttimizzazione(datiPreview);
             renderizzaDati3D(datiPreview);
             WS.treSceneLoaded = true;

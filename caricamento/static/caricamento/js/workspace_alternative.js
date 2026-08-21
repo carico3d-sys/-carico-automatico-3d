@@ -269,6 +269,7 @@ async function applicaSoluzioneAlternativa(idx) {
             },
             colore: o.colore || '#4488ff',
             rotazione: o.rotazione_applicata || 'XYZ',
+            riga_id: o.riga_id || null,
         };
     });
     if (oggetti.length === 0) {

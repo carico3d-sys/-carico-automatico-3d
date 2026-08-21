@@ -43,6 +43,16 @@ class OttimizzaRateThrottle(UserRateThrottle):
     """Throttle specifico per l'endpoint /ottimizza/ (10 richieste/minuto)."""
     scope = "ottimizza"
 
+
+class PanelRateThrottle(UserRateThrottle):
+    """Throttle generoso per le operazioni pannello (DELETE + POST righe).
+
+    Il flusso "Elabora" esegue 1 DELETE + N POST sequenziali.  Con un
+    limite di 60/min il limite viene superato rapidamente con piano di
+    50+ righe.  Questo throttle alza il limite a 200/min.
+    """
+    scope = "panel"
+
 from .models import (
     Contenitore,
     ImpostazioniSistema,
@@ -861,6 +871,154 @@ class OggettoViewSet(viewsets.ModelViewSet):
 
 
 # ===========================================================================
+# Barriera di priorità nel salvataggio posizioni
+# ===========================================================================
+
+
+def _applica_barriera_priorita(nuovi, piano):
+    """Ripiazza in coda gli oggetti a priorità 0 che risultano posizionati
+    prima della fine X dei prioritari.
+
+    La priorità ha la precedenza su tutto: un lotto a priorità 0 non può
+    mai restare dentro i blocchi delle priorità 1 (non sarebbe scaricabile
+    senza smontare il carico). Se il payload salvato (soluzione alternativa
+    generata prima del fix, client legacy) viola la barriera, i posizionamenti
+    a priorità 0 vengono ricompattati nella fascia X terminale con un
+    first-fit Y → X → Z, rispettando il contenitore e le collisioni.
+
+    ``nuovi`` è la lista di ``OggettoPosizionato`` non ancora salvati;
+    la funzione la modifica in-place e la restituisce.
+    """
+    righe_prio = {
+        riga.pk: (riga.priorita or 0)
+        for riga in piano.oggetti_da_caricare.all()
+    }
+
+    def _priorita(op):
+        return righe_prio.get(op.riga_origine_id, 0)
+
+    prio1 = [op for op in nuovi if _priorita(op) > 0]
+    prio0 = [op for op in nuovi if _priorita(op) == 0]
+    if not prio1 or not prio0:
+        return nuovi
+
+    barriera = max(
+        op.coordinata_x_mm + op.dimensione_x_mm for op in prio1
+    )
+    violatori = [op for op in prio0 if op.coordinata_x_mm < barriera - 0.5]
+    if not violatori:
+        return nuovi
+
+    contenitore = piano.contenitore
+    L = contenitore.lunghezza_mm
+    W = contenitore.larghezza_mm
+    H = contenitore.altezza_mm
+
+    # Riferimento per collisioni: i prioritari + i prio0 già in coda
+    # (non violatori) che restano al loro posto.
+    placed = list(prio1) + [
+        op for op in prio0 if op not in violatori
+    ]
+
+    def _collide(x, y, z, dx, dy, dz):
+        if x + dx > L + 0.5 or y + dy > W + 0.5 or z + dz > H + 0.5:
+            return True
+        for p in placed:
+            if (
+                x < p.coordinata_x_mm + p.dimensione_x_mm - 0.5
+                and x + dx > p.coordinata_x_mm + 0.5
+                and y < p.coordinata_y_mm + p.dimensione_y_mm - 0.5
+                and y + dy > p.coordinata_y_mm + 0.5
+                and z < p.coordinata_z_mm + p.dimensione_z_mm - 0.5
+                and z + dz > p.coordinata_z_mm + 0.5
+            ):
+                return True
+        return False
+
+    def _ha_supporto(x, y, z, dx, dy):
+        if z <= 0.5:
+            return True
+        for p in placed:
+            if abs(p.coordinata_z_mm + p.dimensione_z_mm - z) < 0.5:
+                if (
+                    x < p.coordinata_x_mm + p.dimensione_x_mm - 0.5
+                    and x + dx > p.coordinata_x_mm + 0.5
+                    and y < p.coordinata_y_mm + p.dimensione_y_mm - 0.5
+                    and y + dy > p.coordinata_y_mm + 0.5
+                ):
+                    return True
+        return False
+
+    # Primo fit: i più ingombranti prima, per saturare meglio la coda.
+    violatori.sort(key=lambda op: -op.dimensione_x_mm * op.dimensione_y_mm)
+
+    for op in violatori:
+        dx, dy, dz = op.dimensione_x_mm, op.dimensione_y_mm, op.dimensione_z_mm
+        piazzato = False
+
+        # Candidati X: la barriera e i bordi destri degli oggetti in coda.
+        xs = {barriera}
+        for p in placed:
+            xs.add(p.coordinata_x_mm + p.dimensione_x_mm)
+
+        for x in sorted(xs):
+            if x < barriera - 0.5:
+                continue
+            if x + dx > L + 0.5:
+                continue
+
+            # Candidati Y: 0 e i bordi di chi si sovrappone in X.
+            ys = {0}
+            for p in placed:
+                if p.coordinata_x_mm < x + dx and p.coordinata_x_mm + p.dimensione_x_mm > x:
+                    ys.add(p.coordinata_y_mm + p.dimensione_y_mm)
+
+            for y in sorted(ys):
+                if y + dy > W + 0.5:
+                    continue
+
+                # Candidati Z: pavimento o sommità di chi copre il footprint.
+                zs = {0}
+                for p in placed:
+                    if (
+                        p.coordinata_x_mm < x + dx
+                        and p.coordinata_x_mm + p.dimensione_x_mm > x
+                        and p.coordinata_y_mm < y + dy
+                        and p.coordinata_y_mm + p.dimensione_y_mm > y
+                    ):
+                        zs.add(p.coordinata_z_mm + p.dimensione_z_mm)
+
+                for z in sorted(zs):
+                    if z + dz > H + 0.5:
+                        continue
+                    if not _ha_supporto(x, y, z, dx, dy):
+                        continue
+                    if _collide(x, y, z, dx, dy, dz):
+                        continue
+                    op.coordinata_x_mm = x
+                    op.coordinata_y_mm = y
+                    op.coordinata_z_mm = z
+                    placed.append(op)
+                    piazzato = True
+                    break
+                if piazzato:
+                    break
+            if piazzato:
+                break
+
+        if not piazzato:
+            raise ValidationError({
+                "oggetti": (
+                    "Oggetti a priorità 0 non collocabili in coda senza "
+                    "sovrapporre i prioritari: riduci le quantità o rivedi "
+                    "le priorità."
+                )
+            })
+
+    return nuovi
+
+
+# ===========================================================================
 # ViewSet: PianoDiCarico (con azioni personalizzate)
 # ===========================================================================
 
@@ -1100,7 +1258,8 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             }
         )
 
-    @action(detail=True, methods=["post", "patch", "delete"])
+    @action(detail=True, methods=["post", "patch", "delete"],
+             throttle_classes=[PanelRateThrottle])
     def oggetti_da_caricare(self, request, pk=None):
         """Gestisce gli oggetti da caricare per questo piano.
 
@@ -1430,6 +1589,10 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         oggetti_per_codice = {o.codice: o for o in oggetti_qs}
 
         nuovi = []
+        # Traccia quali righe sono già state assegnate come riga_origine
+        # per evitare che il fallback assegni la stessa riga a più
+        # posizionamenti dello stesso oggetto (causando colori identici).
+        righe_assegnate = set()
         for item in oggetti_data:
             codice = str(item.get("codice", "")).strip()
             oggetto_id = item.get("oggetto_id")
@@ -1481,12 +1644,37 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                     riga_origine = piano.oggetti_da_caricare.get(pk=int(riga_id))
                 except (TypeError, ValueError, OggettoDaCaricare.DoesNotExist):
                     # Preview e client legacy possono inviare un id non più
-                    # valido; il posizionamento resta salvabile senza origine.
+                    # valido; prova a trovare la riga corretta per oggetto_id.
+                    riga_origine = None
+            # Fallback: se la riga non è stata trovata per ID, prova a
+            # trovare una riga con lo stesso oggetto_id che non sia già
+            # stata assegnata a un altro posizionamento.
+            if riga_origine is None and riga_id not in (None, ""):
+                try:
+                    riga_origine = (
+                        piano.oggetti_da_caricare
+                        .filter(oggetto=oggetto)
+                        .exclude(pk__in=righe_assegnate)
+                        .order_by('id')
+                        .first()
+                    )
+                except Exception:
                     riga_origine = None
             if riga_origine is not None and riga_origine.oggetto_id != oggetto.id:
                 raise ValidationError({
                     "oggetti": "La riga origine non corrisponde all'oggetto posizionato."
                 })
+
+            # Traccia la riga assegnata per evitare duplicati nel fallback.
+            if riga_origine is not None:
+                righe_assegnate.add(riga_origine.pk)
+
+            # Il colore della riga ha la precedenza sul colore inviato dal
+            # frontend: quando la riga è nota, usa il suo colore per-riga;
+            # altrimenti usa il colore dello snapshot (preview o legacy).
+            colore_finale = item.get("colore", "#4488ff")
+            if riga_origine is not None and riga_origine.colore:
+                colore_finale = riga_origine.colore
 
             nuovi.append(OggettoPosizionato(
                 piano_di_carico=piano,
@@ -1498,9 +1686,17 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 dimensione_x_mm=dx_mm,
                 dimensione_y_mm=dy_mm,
                 dimensione_z_mm=dz_mm,
-                colore=item.get("colore", "#4488ff"),
+                colore=colore_finale,
                 rotazione_applicata=item.get("rotazione", "XYZ"),
             ))
+
+        # Le priorità hanno la precedenza su tutto: la barriera di fase deve
+        # valere anche per i payload salvati direttamente (soluzioni
+        # alternative generate prima del fix, client legacy). Un oggetto a
+        # priorità 0 che risulterebbe posizionato prima della fine X dei
+        # prioritari viene ripiazzato in coda, altrimenti non sarebbe
+        # scaricabile senza smontare il carico.
+        _applica_barriera_priorita(nuovi, piano)
 
         # Cancella solo dopo aver validato tutto il payload. La transazione
         # mantiene comunque l'operazione atomica anche in caso di errore DB.

@@ -440,6 +440,7 @@ var _ghostState = {
     _eccentricStep: 0,     // step macchina a 4 stati per rotazione eccentrica
     _existingGroup: null,  // gruppo esistente in riposizionamento (ghost su oggetto in scena)
     _oldPosition: null,    // posizione originale prima del riposizionamento
+    colore: null,          // colore della riga del pannello (se ghost avviato da una riga)
 };
 
 function _isGhostActive() { return _ghostState.active; }

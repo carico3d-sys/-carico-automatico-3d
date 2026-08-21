@@ -32,6 +32,10 @@ cpu_locale.txt
 spatial_indexing.txt
 riempimento_buchi.txt
 
+# === Gestione processi (ops/dev.sh) ===
+ops/.dev_pids
+ops/logs/
+
 # === Deploy locale ===
 .env.bak
 

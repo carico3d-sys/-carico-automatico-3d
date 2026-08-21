@@ -97,9 +97,13 @@ function _ricostruisciGhostGeometria() {
 /**
  * Attiva la modalità ghost piazzamento per un oggetto.
  */
-function _attivaModalitaGhost(oggetto) {
+function _attivaModalitaGhost(oggetto, coloreOverride) {
     // Se già attivo, annulla il precedente
     if (_ghostState.active) _annullaGhost(true);
+
+    // Colore della riga del pannello (se il ghost parte da una riga
+    // specifica), altrimenti colore dell'anagrafica.
+    _ghostState.colore = coloreOverride || null;
 
     // Resetta step rotazione eccentrica per nuova attivazione
     _ghostState._eccentricStep = 0;
@@ -129,7 +133,10 @@ function _attivaModalitaGhost(oggetto) {
         }
     }
 
-    var colore = coloreOggetto(oggetto);
+    // Il colore della riga del pannello (se selezionata) ha precedenza su
+    // quello dell'anagrafica, così anche il ghost preview mostra il colore
+    // del lotto che si sta posizionando.
+    var colore = _ghostState.colore || coloreOggetto(oggetto);
     var ghost = _creaGhostMesh(dimCm, tjsPos, oggetto.codice, colore);
 
     STATE.scene.add(ghost.group);
@@ -514,7 +521,10 @@ function _confermaGhost() {
     var oggetto = gs.oggetto;
     var tjsPos = gs.group.position.clone();
     var dimCm = gs.dims;
-    var colore = coloreOggetto(oggetto);
+    // Colore della riga del pannello (se il ghost è stato avviato da una
+    // riga specifica) o dell'anagrafica: due lotti dello stesso oggetto
+    // devono restare distinguibili anche in piazzamento manuale.
+    var colore = gs.colore || coloreOggetto(oggetto);
     var existingGroup = gs._existingGroup;
     var oldPosition = gs._oldPosition;
     var orientamento = gs.orientamento;  // salva prima che _annullaGhost lo cancelli
@@ -618,6 +628,7 @@ function _annullaGhost(silent) {
     _ghostState.dims = null;
     _ghostState._existingGroup = null;
     _ghostState._oldPosition = null;
+    _ghostState.colore = null;
 
     // Ripristina l'oggetto esistente alla posizione originale
     if (existingGroup && oldPosition) {

@@ -305,6 +305,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "user": "60/minute",        # 60 richieste API al minuto per utente
+        "panel": "200/minute",       # operazioni pannello (DELETE + N POST righe)
         "ottimizza": "10/minute",    # max 10 ottimizzazioni al minuto (6s ciascuna ≈ saturazione 100%)
     },
 }

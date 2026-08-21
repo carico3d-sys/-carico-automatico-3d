@@ -299,6 +299,38 @@ def _popola_tre_d(packer, oggetti_da_caricare) -> None:
         codice = o_dc.oggetto.codice
         _gruppi_per_codice.setdefault(codice, []).append(o_dc)
 
+    # Fase 1: conta quante righe condividono lo stesso colore effettivo.
+    # Un colore "bloccato" è un colore custom usato da UNA SOLA riga:
+    # quella riga lo mantiene.  Se il colore è condiviso da 2+ righe
+    # (anche se custom) va riassegnato per distinguere i lotti.
+    _colore_effettivo = {}  # o_dc.id → colore effettivo della riga
+    _conteggio_colori = {}  # codice → {colore.lower(): n}
+    for o_dc in oggetti_da_caricare:
+        colore_custom = (o_dc.colore or '').strip()
+        colore_eff = colore_custom or _genera_colore_da_oggetto(
+            o_dc.oggetto_id, o_dc.oggetto.colore
+        )
+        _colore_effettivo[o_dc.id] = colore_eff
+        codice = o_dc.oggetto.codice
+        conteggi = _conteggio_colori.setdefault(codice, {})
+        conteggi[colore_eff.lower()] = (
+            conteggi.get(colore_eff.lower(), 0) + 1
+        )
+
+    # Colori già assegnati (o bloccati) per codice, così due righe
+    # dello stesso codice non ottengono mai lo stesso colore dalla palette.
+    _usati_per_codice = {
+        codice: set(
+            _colore_effettivo[r.id].lower()
+            for r in righe
+            if (r.colore or '').strip()
+            and _conteggio_colori[codice].get(
+                _colore_effettivo[r.id].lower(), 0
+            ) == 1
+        )
+        for codice, righe in _gruppi_per_codice.items()
+    }
+
     # Contatore per evitare che due righe dello stesso codice ottengano
     # lo stesso colore dalla palette.
     _idx_per_codice = {}  # codice → indice corrente nella palette
@@ -315,57 +347,57 @@ def _popola_tre_d(packer, oggetti_da_caricare) -> None:
                 vincoli = None
 
             # ── Assegnazione colore ──
-            # 1. Se la riga ha un colore personalizzato, usalo.
+            # Replica la logica di _assegnaColoriAutomatici() nel frontend:
+            # 1. Un colore custom usato da UNA sola riga dello stesso
+            #    codice è "bloccato": quella riga lo mantiene.
             # 2. Se la riga è l'unica con questo codice, usa il colore
             #    dell'anagrafica (o la palette derivata dall'id).
-            # 3. Se ci sono righe duplicate con lo stesso codice:
-            #    • La prima riga senza custom prende il colore anagrafica.
-            #    • Le righe successive prendono un colore diverso dalla
-            #      palette, evitando il colore anagrafica e i colori
-            #      già usati da righe custom dello stesso codice.
+            # 3. Le altre righe (senza custom OPPURE con colore condiviso
+            #    da 2+ righe) prendono colori distinti dalla palette,
+            #    evitando il colore anagrafica e i colori bloccati.
             colore_custom = (o_dc.colore or '').strip()
-            if colore_custom:
+            colore_eff = _colore_effettivo[o_dc.id]
+            conteggi_codice = _conteggio_colori.get(codice, {})
+            bloccato = bool(
+                colore_custom
+                and conteggi_codice.get(colore_eff.lower(), 0) == 1
+            )
+            righe_stesso_codice = _gruppi_per_codice.get(codice, [])
+            if bloccato:
                 colore = _genera_colore_da_oggetto(
                     oggetto.id, colore_custom
                 )
-            else:
-                righe_stesso_codice = _gruppi_per_codice.get(
-                    codice, []
+            elif len(righe_stesso_codice) <= 1:
+                # Nessuna riga duplicata: colore anagrafica.
+                colore = _genera_colore_da_oggetto(
+                    oggetto.id, oggetto.colore
                 )
-                if len(righe_stesso_codice) <= 1:
-                    # Nessuna riga duplicate: colore anagrafica.
-                    colore = _genera_colore_da_oggetto(
-                        oggetto.id, oggetto.colore
-                    )
+            else:
+                # Righe duplicate: assegna colori distinti dalla palette,
+                # evitando il colore anagrafica e i colori bloccati
+                # (custom usati da una sola riga) dello stesso codice.
+                idx = _idx_per_codice.get(codice, 0)
+                anagrafica_col = _genera_colore_da_oggetto(
+                    oggetto.id, oggetto.colore
+                )
+                usati = _usati_per_codice[codice]
+                # Trova il prossimo colore valido dalla palette.
+                colore = anagrafica_col  # fallback
+                for k in range(len(COLORI_PACCHI)):
+                    candidato = COLORI_PACCHI[
+                        (idx + k) % len(COLORI_PACCHI)
+                    ]
+                    if (
+                        candidato.lower() != anagrafica_col.lower()
+                        and candidato.lower() not in usati
+                    ):
+                        colore = candidato
+                        _idx_per_codice[codice] = idx + k + 1
+                        usati.add(candidato.lower())
+                        break
                 else:
-                    # Righe duplicate: assegna colori distinti.
-                    idx = _idx_per_codice.get(codice, 0)
-                    # Calcola il colore anagrafica (per evitarlo).
-                    anagrafica_col = _genera_colore_da_oggetto(
-                        oggetto.id, oggetto.colore
-                    )
-                    # Raccogli i colori già usati da righe custom.
-                    usati = set()
-                    for r in righe_stesso_codice:
-                        rc = (r.colore or '').strip()
-                        if rc and rc != anagrafica_col:
-                            usati.add(rc.lower())
-                    # Trova il prossimo colore valido dalla palette.
-                    colore = anagrafica_col  # fallback
-                    for k in range(len(COLORI_PACCHI)):
-                        candidato = COLORI_PACCHI[
-                            (idx + k) % len(COLORI_PACCHI)
-                        ]
-                        if (
-                            candidato.lower() != anagrafica_col.lower()
-                            and candidato.lower() not in usati
-                        ):
-                            colore = candidato
-                            _idx_per_codice[codice] = idx + k + 1
-                            break
-                    else:
-                        # Palette esaurita: fallback al colore anagrafica.
-                        _idx_per_codice[codice] = idx + 1
+                    # Palette esaurita: fallback al colore anagrafica.
+                    _idx_per_codice[codice] = idx + 1
 
             packer.aggiungi_oggetto(
                 oggetto,

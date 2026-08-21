@@ -973,7 +973,10 @@ function _aggiungiOggettoDaPanel() {
     // Ghost mode ON → piazzamento interattivo col fantasma
     // Ghost mode OFF → piazzamento automatico con algoritmo
     if (_ghostModeEnabled) {
-        _attivaModalitaGhost(oggetto);
+        // Il colore della riga (se personalizzato) ha precedenza su quello
+        // dell'anagrafica, così anche in ghost mode due lotti con lo stesso
+        // codice restano distinguibili.
+        _attivaModalitaGhost(oggetto, coloreRiga(selectedItem));
     } else {
         // Auto-place: trova posizione libera con algoritmo 3D
         var risultato = _trovaPosizione3D(L, P, H, oggetto);

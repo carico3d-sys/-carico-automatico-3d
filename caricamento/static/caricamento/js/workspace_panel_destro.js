@@ -267,6 +267,7 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale, ri
     if (prioInput) {
         prioInput.addEventListener('change', function () {
             div.dataset.priorita = this.value || '0';
+            _persistiPrioritaRiga(div);
             if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
                 _registraModificaManuale();
             }
@@ -346,32 +347,47 @@ function _assegnaColoriAutomatici() {
 
     Object.keys(byCodice).forEach(function (codice) {
         var gruppo = byCodice[codice];
-        var senzaCustom = gruppo.filter(function (row) {
-            return row.dataset.coloreCustom !== '1';
+        if (gruppo.length <= 1) return;
+
+        var oid0 = parseInt(gruppo[0].dataset.oggettoId, 10) || 0;
+        var anagraficaCol = coloreOggetto(trovaOggetto(oid0));
+
+        // Fase 1: contalette quante righe condividono lo stesso colore.
+        // Un colore "bloccato" è un colore custom usato da UNA SOLA riga:
+        // quella riga lo mantiene.  Se il colore è condiviso da 2+ righe
+        // (anche se custom) va riassegnato per distinguere i lotti.
+        var coloreCount = {};
+        gruppo.forEach(function (row) {
+            var col = coloreRiga(row);
+            coloreCount[col] = (coloreCount[col] || 0) + 1;
         });
 
-        if (senzaCustom.length <= 1) {
-            // Una sola riga (o nessuna) senza personalizzazione: usa l'anagrafica.
-            senzaCustom.forEach(function (row) {
-                var oid = parseInt(row.dataset.oggettoId, 10) || 0;
-                row.dataset.colore = coloreOggetto(trovaOggetto(oid));
+        var usati = {};
+        var needsReassignment = [];
+        gruppo.forEach(function (row) {
+            var col = coloreRiga(row);
+            var isCustom = row.dataset.coloreCustom === '1';
+            if (isCustom && coloreCount[col] === 1) {
+                // Colore personalizzato unico: bloccato, non toccare.
+                usati[col] = true;
                 row.dataset.coloreAuto = '';
-            });
+            } else {
+                // Non-custom OPPURE colore duplicato: va riassegnato.
+                needsReassignment.push(row);
+            }
+        });
+
+        if (needsReassignment.length === 0) return;
+
+        // Fase 2: assegna colori distinti dalla palette a chi necessita.
+        if (needsReassignment.length === 1 && Object.keys(usati).length === 0) {
+            needsReassignment[0].dataset.colore = anagraficaCol;
+            needsReassignment[0].dataset.coloreAuto = '';
             return;
         }
 
-        // Più righe duplicate senza colore personalizzato: palette distinta,
-        // evitando il colore anagrafica e quelli già usati dalle righe custom.
-        var oid0 = parseInt(gruppo[0].dataset.oggettoId, 10) || 0;
-        var anagraficaCol = coloreOggetto(trovaOggetto(oid0));
-        var usati = {};
-        gruppo.forEach(function (row) {
-            if (row.dataset.coloreCustom === '1' && row.dataset.colore) {
-                usati[row.dataset.colore] = true;
-            }
-        });
         var idx = 0;
-        senzaCustom.forEach(function (row) {
+        needsReassignment.forEach(function (row) {
             var col = null;
             for (var k = 0; k < COLORI_PACCHI.length && !col; k++) {
                 var cand = COLORI_PACCHI[(idx + k) % COLORI_PACCHI.length];
@@ -505,6 +521,13 @@ function raccogliOggettiDaPanel() {
         var qty = parseInt(div.querySelector('.panel-qty-input').value) || 1;
         var oggetto = trovaOggetto(oggettoId);
         if (!oggetto) return;
+        // Priorità: preferisce dataset.priorita, ma se non è stato ancora
+        // aggiornato (es. input modificato senza evento change) legge il
+        // valore vivo dell'input, così la priorità visibile nel pannello non
+        // viene mai persa nelle elaborazioni successive.
+        var prioInput = div.querySelector('.panel-prio-input');
+        var prioDataset = parseInt(div.dataset.priorita) || 0;
+        var prioInputVal = prioInput ? (parseInt(prioInput.value) || 0) : 0;
         oggetti.push({
             oggetto_id: oggettoId,
             codice: oggetto.codice,
@@ -513,13 +536,34 @@ function raccogliOggettiDaPanel() {
             altezza_cm: formatCm(oggetto.altezza_mm),
             peso_kg: oggetto.peso_kg,
             quantita: qty,
-            priorita: parseInt(div.dataset.priorita) || 0,
+            priorita: prioDataset || prioInputVal,
             colore: div.dataset.colore || '',
             riga_id: div.dataset.rigaId || null,
             riga_key: div.dataset.rigaKey || null,
         });
     });
     return oggetti;
+}
+
+/**
+ * Persiste subito la priorità della riga via PATCH se la riga esiste già
+ * nel DB. L'input priorità del pannello aggiorna solo lo stato locale: senza
+ * questo salvataggio, la priorità andrebbe persa se l'utente non rilancia
+ * subito l'elaborazione (o se il pannello viene ricostruito da DB).
+ */
+async function _persistiPrioritaRiga(itemDiv) {
+    if (!itemDiv || !itemDiv.dataset.rigaId || !WS.activePianoId) return;
+    var priorita = parseInt(itemDiv.dataset.priorita) || 0;
+    try {
+        var resp = await fetch('/api/piani/' + WS.activePianoId + '/oggetti_da_caricare/', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify({ riga_id: itemDiv.dataset.rigaId, priorita: priorita }),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    } catch (e) {
+        console.warn('Errore salvataggio priorità riga:', e);
+    }
 }
 
 // =============================================================================
@@ -897,6 +941,7 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
     if (prioInput2) {
         prioInput2.addEventListener('change', function () {
             itemDiv.dataset.priorita = this.value || '0';
+            _persistiPrioritaRiga(itemDiv);
             if (typeof WS !== 'undefined' && WS.manualMode && typeof _registraModificaManuale === 'function') {
                 _registraModificaManuale();
             }

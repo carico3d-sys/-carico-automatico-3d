@@ -42,26 +42,39 @@ def priorita_esplicita(obj) -> int:
 
 
 
+def chiave_priorita(obj) -> object:
+    """Chiave di priorità per una singola istanza.
+
+    Due righe dello stesso oggetto (lotti distinti con priorità indipendenti)
+    condividono lo stesso ``oggetto_id``: raggruppare per anagrafica farebbe
+    ereditare la priorità di un lotto all'altro. La chiave è quindi la riga
+    (``riga_origine_id``), con fallback sull'id dell'oggetto per gli oggetti
+    legacy/test privi di riga.
+    """
+    return getattr(obj, "riga_origine_id", None) or getattr(obj, "oggetto_id", None)
+
+
+
 def priorita_effettive(objects: Sequence, vincoli_sopra: Optional[Mapping] = None) -> Dict[int, int]:
-    """Restituisce la priorità esplicita per ogni codice presente.
+    """Restituisce la priorità esplicita per ogni riga (o oggetto legacy) presente.
 
     Il nome resta per compatibilità con i percorsi random e v3, ma non esiste
     più una priorità tecnica derivata dai vincoli: ``A sopra B`` non promuove
     tutte le istanze di B e non può far passare B davanti ad A. La relazione
     viene verificata solamente dal motore geometrico e dal validatore finale.
     """
-    ids = {getattr(obj, "oggetto_id", None) for obj in objects}
+    ids = {chiave_priorita(obj) for obj in objects}
     return {
-        obj_id: min(
+        chiave: min(
             (
                 priorita_esplicita(obj)
                 for obj in objects
-                if getattr(obj, "oggetto_id", None) == obj_id
+                if chiave_priorita(obj) == chiave
                 and priorita_esplicita(obj) > 0
             ),
             default=0,
         )
-        for obj_id in ids
+        for chiave in ids
     }
 
 
@@ -103,7 +116,9 @@ def riordina_per_fasi(
 
     def phase_key(obj):
         obj_id = getattr(obj, "oggetto_id", None)
-        p = effective.get(obj_id, priorita_esplicita(obj))
+        # La priorità è per-riga (lotti distinti dello stesso oggetto hanno
+        # fasi diverse); le dipendenze geometriche restano per oggetto.
+        p = effective.get(chiave_priorita(obj), priorita_esplicita(obj))
         # A parità di priorità, preparare prima le basi e poi gli oggetti
         # dipendenti. Questo tie-breaker non può superare una priorità
         # esplicita diversa.

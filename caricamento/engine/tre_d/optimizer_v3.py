@@ -29,6 +29,7 @@ from .packer_3d_v2 import (
     _valuta_compattezza_locale,
 )
 from .priority_policy import priorita_effettive, priorita_esplicita, score_soluzione
+from .priority_policy import chiave_priorita
 
 
 # ============================
@@ -115,7 +116,7 @@ def _shuffle_blocchi(objects: List[Obj], vincoli_sopra=None) -> List[Obj]:
     effective = priorita_effettive(objects)
     gruppi_fase: Dict[object, Dict[str, List[Obj]]] = {}
     for obj in objects:
-        fase = effective.get(obj.oggetto_id, priorita_esplicita(obj))
+        fase = effective.get(chiave_priorita(obj), priorita_esplicita(obj))
         gruppi_fase.setdefault(fase, {}).setdefault(_estrai_tipo(obj), []).append(obj)
 
     risultato: List[Obj] = []
@@ -134,7 +135,7 @@ def _mescola_testa_coda(
     effective = priorita_effettive(objects)
     gruppi_fase: Dict[object, Dict[str, List[Obj]]] = {}
     for obj in objects:
-        fase = effective.get(obj.oggetto_id, priorita_esplicita(obj))
+        fase = effective.get(chiave_priorita(obj), priorita_esplicita(obj))
         gruppi_fase.setdefault(fase, {}).setdefault(_estrai_tipo(obj), []).append(obj)
 
     risultato: List[Obj] = []
@@ -418,7 +419,7 @@ def _backtracking_ricorsivo(
         # base coinvolta in un vincolo non viene promossa tecnicamente.
         effective_priorities = priorita_effettive(all_objects)
         priorita_colpevole = effective_priorities.get(
-            colpevole.oggetto_id, priorita_esplicita(colpevole)
+            chiave_priorita(colpevole), priorita_esplicita(colpevole)
         )
 
         # PRIORITÀ CANDIDATI SOSTITUTI (simula deferimento)

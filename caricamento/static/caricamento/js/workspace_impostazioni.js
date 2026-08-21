@@ -10,7 +10,7 @@ function getImpostazioniDefault() {
     return {
         strategia_ottimizzazione: {
             algoritmo_base: 'Algoritmo 3D Semplificato',
-            distribuzione_pesi_attiva: true,
+            distribuzione_pesi_attiva: false,
             ordinamento_casuale: false,
             compattazione_aggressiva: false,
             backtracking_avanzato: false
@@ -403,14 +403,6 @@ function renderCardStrategia() {
                 '</label>' +
                 '<span class="field-hint">Se attivo, l\'algoritmo esegue 5 iterazioni mirate di backtracking a blocchi con early termination (~0.8s). Migliora la disposizione rispetto al deterministico base. Disattivalo se preferisci la velocità massima.</span>' +
             '</div>' +
-
-            '<div class="field-group checkbox-group">' +
-                '<label class="checkbox-label">' +
-                    '<input type="checkbox" id="imp-distribuzione-pesi" ' + (s.distribuzione_pesi_attiva !== false ? 'checked' : '') + '> ' +
-                    '<i class="bi bi-speedometer2 settings-distribuzione-icon"></i> Distribuzione pesi sulle sezioni' +
-                '</label>' +
-                '<span class="field-hint">Se attivo, l\'algoritmo rispetta i limiti di peso definiti per ogni sezione/asse del contenitore. Disattiva per ignorare i vincoli di peso sulle sezioni.</span>' +
-            '</div>' +
         '</div>' +
     '</div>';
 }
@@ -548,12 +540,6 @@ function agganciaEventiImpostazioni(sezione) {
             _aggiornaIndicatoreStrategia();
         });
 
-        // Toggle distribuzione pesi
-        var distPesi = document.getElementById('imp-distribuzione-pesi');
-        if (distPesi) distPesi.addEventListener('change', function () {
-            _impostazioniDirty = true;
-            IMPOSTAZIONI.strategia_ottimizzazione.distribuzione_pesi_attiva = this.checked;
-        });
     }
 
     if (sezione === 'manuale') {
