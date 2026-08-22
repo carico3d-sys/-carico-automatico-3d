@@ -21,6 +21,9 @@
     <title>Carico 3D – Workspace</title>
     <link rel="icon" type="image/png" href="{% static 'caricamento/img/icons8-3d-64.png' %}">
 
+    <!-- Lemon Squeezy checkout overlay -->
+    <script src="https://app.lemonsqueezy.com/js/lemon.js" defer></script>
+
     <!-- Three.js via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -126,6 +129,128 @@
             background: #e9ecef;
             color: #2c3e50;
         }
+
+        /* --- Abbonamento / Pagamenti --- */
+        .abbonamento-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .abbonamento-banner--active {
+            background: #eafaf1;
+            border: 1px solid #2ecc71;
+            color: #1a5e2a;
+        }
+        .abbonamento-banner--trial {
+            background: #fef9e7;
+            border: 1px solid #f39c12;
+            color: #7d6608;
+        }
+        .abbonamento-banner--expired {
+            background: #fdedec;
+            border: 1px solid #e74c3c;
+            color: #922b21;
+        }
+        .abbonamento-info {
+            margin-bottom: 6px;
+        }
+        .abbonamento-trial-end {
+            font-size: 11px;
+            color: #999;
+            text-align: right;
+        }
+        .abbonamento-cards {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .abbonamento-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .abbonamento-card--selected {
+            border-color: #1f6feb;
+            box-shadow: 0 0 0 2px rgba(31,111,235,0.2);
+        }
+        .abbonamento-card:hover {
+            border-color: #447e9b;
+        }
+        .abbonamento-card input { display: none; }
+        .abbonamento-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .abbonamento-card-nome {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+        .abbonamento-card-badge {
+            font-size: 11px;
+            color: #666;
+            background: #f0f2f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .abbonamento-card-prezzo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f6feb;
+        }
+        .abbonamento-card-prezzo small {
+            font-size: 12px;
+            font-weight: 400;
+            color: #888;
+        }
+        .abbonamento-selettore {
+            text-align: center;
+        }
+        .abbonamento-quantity-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin: 8px 0;
+        }
+        .abbonamento-qty-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .abbonamento-qty-value {
+            font-size: 22px;
+            font-weight: 700;
+            min-width: 28px;
+            text-align: center;
+        }
+        .abbonamento-totale {
+            font-size: 13px;
+            color: #555;
+            margin: 6px 0 12px 0;
+        }
+        .abbonamento-hint {
+            font-size: 11px;
+            color: #999;
+            line-height: 1.5;
+        }
     </style>
 
     <!-- Three.js visualizzatore: core + rendering + orchestratore -->
@@ -172,17 +297,17 @@
     <script src="{% static 'caricamento/js/preview_oggetto_3d.js' %}?v=9" defer></script>
 
     <!-- 6. Pannello Destro: selezione mezzo, carico, editor inline, viewport, export -->
-    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=15" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=16" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
-    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=16" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=17" defer></script>
     <!-- 7a. Panel Mezzi (lista e form) -->
     <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=17" defer></script>
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
     <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=6" defer></script>
 
     <!-- 8. Soluzioni alternative generate dal Simulated Annealing -->
-    <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=7" defer></script>
+    <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=8" defer></script>
 
     <!-- 9. Ottimizzazione: camera controls, distribuzione pesi, elaboraOttimizzazione -->
     <script src="{% static 'caricamento/js/workspace_ottimizzazione.js' %}?v=21" defer></script>
@@ -201,8 +326,11 @@
     <!-- 10. Impostazioni: strategia, performance, output -->
     <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=3" defer></script>
 
+    <!-- 10b. Abbonamento / Pagamenti (Lemon Squeezy) -->
+    <script src="{% static 'caricamento/js/workspace_abbonamento.js' %}?v=1" defer></script>
+
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
-    <script src="{% static 'caricamento/js/workspace.js' %}?v=32" defer></script>
+    <script src="{% static 'caricamento/js/workspace.js' %}?v=34" defer></script>
 
     <script>
         window.WORKSPACE_CONFIG = {
@@ -237,6 +365,7 @@
                 {% endfor %}
             ],
             activePianoId: {{ piano_id|default:"null" }},
+            lsVariantIds: { mensile: "{{ ls_variant_ids.mensile|escapejs }}", annuale: "{{ ls_variant_ids.annuale|escapejs }}" },
             user: { username: "{{ request.user.username }}", isStaff: {% if request.user.is_staff %}true{% else %}false{% endif %} }
         };
     </script>

@@ -6,494 +6,618 @@
     <link rel="icon" type="image/png" href="{% static 'caricamento/img/icons8-3d-64.png' %}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carico 3D — Ottimizzazione del carico tridimensionale</title>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --header-h: 48px; --sidebar-w: 220px; --panel-w: 320px; --color-header: #1a1a2e; --color-accent: #447e9b; --color-bg: #f0f2f5; }
-
+        :root {
+            --accent: #447e9b;
+            --accent-dark: #3a6d87;
+            --accent-light: #5095b5;
+            --header: #1a1a2e;
+            --bg: #f0f2f5;
+        }
+        html { scroll-behavior: smooth; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            font-size: 14px; color: #333; background: #fff; overflow: hidden; height: 100vh;
-        }
-        #app { display: flex; flex-direction: column; height: 100vh; }
-        .hidden { display: none !important; }
-
-        /* HEADER */
-        #header {
-            height: var(--header-h); min-height: var(--header-h);
-            background: var(--color-header); display: flex; align-items: center;
-            justify-content: space-between; padding: 0 20px; color: #fff; flex-shrink: 0; z-index: 100;
-        }
-        #header-brand { display: flex; align-items: center; gap: 6px; }
-        #header-logo { font-size: 17px; font-weight: 700; color: #fff; text-decoration: none; letter-spacing: -0.3px; }
-        #header-nav { display: flex; align-items: center; gap: 2px; }
-        .header-nav-btn {
-            padding: 6px 12px; background: transparent; border: 1px solid transparent;
-            border-radius: 4px; color: rgba(255,255,255,0.5); font-size: 12px;
-            font-family: inherit; cursor: default; display: flex; align-items: center; gap: 5px;
-        }
-        .header-nav-btn .icon { font-size: 14px; }
-        #header-user {
-            font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.8);
-            padding: 4px 12px; background: rgba(255,255,255,0.06); border-radius: 4px;
+            font-size: 15px; color: #333; background: #fff; line-height: 1.6;
         }
 
-        /* PAGE */
-        #page { display: flex; flex: 1; overflow: hidden; height: calc(100vh - var(--header-h)); }
-
-        /* SIDEBAR */
-        #sidebar {
-            width: var(--sidebar-w); min-width: var(--sidebar-w); background: #f5f5f5;
-            border-right: 1px solid #e2e2e2; display: flex; flex-direction: column; overflow: hidden;
+        /* ============================================================
+           NAVBAR
+           ============================================================ */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            height: 60px; background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid #e8e8e8;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 40px;
         }
-        #sidebar-tabs { display: flex; border-bottom: 1px solid #ddd; flex-shrink: 0; background: #fff; }
-        .sidebar-tab {
-            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
-            padding: 7px 2px 5px; background: #f8f8f8; border: none; border-bottom: 2px solid transparent;
-            font-family: inherit; font-size: 9px; color: #999; cursor: default;
+        .navbar-brand {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 18px; font-weight: 800; color: var(--header); text-decoration: none;
         }
-        .sidebar-tab.active { background: #f5f5f5; color: var(--color-accent); border-bottom-color: var(--color-accent); font-weight: 700; }
-        .sidebar-tab-icon { font-size: 15px; }
-        .sidebar-tab-label { text-transform: uppercase; letter-spacing: 0.4px; font-weight: 500; }
-        #sidebar-nav { flex: 1; overflow-y: auto; padding: 0; }
-        .sidebar-section-title { display: block; padding: 10px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #888; }
-        .sidebar-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; color: #555; font-size: 13px; cursor: default; border-left: 3px solid transparent; }
-        .sidebar-nav-item:hover { background: #eaeaea; }
-        .sidebar-nav-item .icon { font-size: 15px; width: 20px; text-align: center; }
-        .sidebar-nav-separator { height: 1px; background: #ddd; margin: 8px 16px; }
-        #sidebar-riepilogo { border-top: 1px solid #ddd; flex-shrink: 0; background: #fafafa; padding: 10px 14px; }
-        .sidebar-mezzo-row { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #444; text-transform: uppercase; }
-        .sidebar-stats { display: flex; gap: 0; margin-top: 6px; }
-        .sidebar-stat { flex: 1; text-align: center; padding: 6px 2px; background: #fff; }
-        .sidebar-stat strong { font-size: 13px; font-weight: 700; color: #1a1a2e; display: block; }
-        .sidebar-stat span { font-size: 8px; text-transform: uppercase; color: #888; }
+        .navbar-brand i { font-size: 22px; color: var(--accent); }
+        .navbar-links { display: flex; align-items: center; gap: 8px; }
+        .navbar-links a {
+            padding: 8px 16px; font-size: 14px; font-weight: 500; color: #555;
+            text-decoration: none; border-radius: 6px; transition: all 0.2s;
+        }
+        .navbar-links a:hover { background: #f0f2f5; color: #333; }
+        .navbar-actions { display: flex; align-items: center; gap: 10px; }
+        .btn-login {
+            padding: 8px 18px; font-size: 14px; font-weight: 600; color: var(--accent);
+            background: transparent; border: 2px solid var(--accent); border-radius: 8px;
+            cursor: pointer; text-decoration: none; transition: all 0.2s;
+        }
+        .btn-login:hover { background: var(--accent); color: #fff; }
+        .btn-demo {
+            padding: 8px 18px; font-size: 14px; font-weight: 600; color: #fff;
+            background: var(--accent); border: 2px solid var(--accent); border-radius: 8px;
+            cursor: pointer; text-decoration: none; transition: all 0.2s;
+        }
+        .btn-demo:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 
-        /* MAIN / VIEWPORT */
-        #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--color-bg); position: relative; }
-        #viewport-toolbar { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: rgba(26,26,46,0.85); flex-shrink: 0; z-index: 10; }
-        .vp-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: 4px; color: rgba(255,255,255,0.5); font-size: 15px; cursor: default; }
-        .vp-separator { width: 1px; height: 18px; background: rgba(255,255,255,0.12); margin: 0 6px; }
-        #viewport-3d { flex: 1; position: relative; overflow: hidden; background: var(--color-bg); }
+        /* ============================================================
+           HERO
+           ============================================================ */
+        .hero {
+            padding: 120px 40px 60px;
+            display: flex; flex-direction: column; align-items: center;
+            max-width: 1200px; margin: 0 auto;
+            background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+        }
+        .hero-title {
+            font-size: 56px; font-weight: 800; color: var(--header);
+            line-height: 1.1; margin-bottom: 25px; text-align: center;
+            max-width: 800px;
+        }
+        .hero-title span { color: var(--accent); }
+        .hero-split {
+            display: flex; align-items: center; gap: 50px;
+            width: 100%;
+        }
+        .hero-text {
+            flex: 0 0 400px;
+        }
+        .hero-image {
+            flex: 1; max-width: 900px;
+            border-radius: 16px; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+            border: 1px solid #e8e8e8; background: #fff;
+        }
+        .hero-image img {
+            width: 100%; height: auto; display: block;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; background: #eaf4fb; border: 1px solid #c5dfe9;
+            border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--accent);
+            margin-bottom: 20px;
+        }
 
-        /* LOGIN OVERLAY */
-        #login-overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-        #login-card {
-            pointer-events: auto; background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); border-radius: 16px;
-            padding: 36px 32px 28px; width: 380px; max-width: 90vw;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: cardIn 0.6s cubic-bezier(0.16,1,0.3,1);
+        .hero p {
+            font-size: 18px; color: #666; margin-bottom: 30px; line-height: 1.6;
+        }
+        .hero-buttons { display: flex; gap: 14px; margin-bottom: 30px; }
+        .btn-hero-primary {
+            padding: 14px 32px; font-size: 16px; font-weight: 700; color: #fff;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none; border-radius: 10px; cursor: pointer; text-decoration: none;
+            transition: all 0.2s; box-shadow: 0 4px 20px rgba(68,126,155,0.3);
+        }
+        .btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(68,126,155,0.4); }
+        .btn-hero-secondary {
+            padding: 14px 32px; font-size: 16px; font-weight: 700; color: #555;
+            background: #fff; border: 2px solid #ddd; border-radius: 10px;
+            cursor: pointer; text-decoration: none; transition: all 0.2s;
+        }
+        .btn-hero-secondary:hover { border-color: #bbb; background: #fafafa; }
+        .hero-stats {
+            display: flex; gap: 30px; margin-top: 10px;
+        }
+        .hero-stat { text-align: left; }
+        .hero-stat strong {
+            display: block; font-size: 26px; font-weight: 800; color: var(--accent);
+        }
+        .hero-stat span { font-size: 12px; color: #999; text-transform: uppercase; }
+
+
+
+        /* ============================================================
+           SECTIONS (Features, Vantaggi, Pricing)
+           ============================================================ */
+        .section { padding: 60px 40px; }
+        .section-title {
+            text-align: center; font-size: 32px; font-weight: 800;
+            color: var(--header); margin-bottom: 8px;
+        }
+        .section-subtitle {
+            text-align: center; font-size: 16px; color: #888;
+            max-width: 520px; margin: 0 auto 35px;
+        }
+
+        /* Features 3 columns */
+        .features-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 30px; max-width: 1100px; margin: 0 auto;
+        }
+        .feature-card {
+            padding: 30px; background: #fff; border: 1px solid #eee;
+            border-radius: 14px; transition: all 0.2s;
+        }
+        .feature-card:hover { border-color: var(--accent); box-shadow: 0 8px 30px rgba(68,126,155,0.08); }
+        .feature-icon {
+            width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+            background: #eaf4fb; border-radius: 12px; font-size: 22px; color: var(--accent);
+            margin-bottom: 16px;
+        }
+        .feature-card h3 { font-size: 18px; font-weight: 700; color: var(--header); margin-bottom: 8px; }
+        .feature-card p { font-size: 14px; color: #666; line-height: 1.5; }
+
+        /* Vantaggi */
+        .vantaggi-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 30px; max-width: 1100px; margin: 0 auto;
+        }
+        .vantaggio {
+            text-align: center; padding: 0;
+        }
+        .vantaggio-icon {
+            font-size: 40px; margin-bottom: 12px;
+        }
+        .vantaggio h4 { font-size: 17px; font-weight: 700; color: var(--header); margin-bottom: 6px; }
+        .vantaggio p { font-size: 14px; color: #888; }
+
+        /* Pricing */
+        .pricing-bg { background: #f8fbff; padding: 60px 40px; }
+        .pricing-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 24px; max-width: 720px; margin: 0 auto;
+        }
+        .pricing-card {
+            padding: 36px 30px; background: #fff; border: 2px solid #e8e8e8;
+            border-radius: 16px; text-align: center; position: relative; transition: all 0.2s;
+        }
+        .pricing-card:hover { border-color: var(--accent); }
+        .pricing-card.popular { border-color: var(--accent); box-shadow: 0 8px 30px rgba(68,126,155,0.12); }
+        .pricing-badge {
+            position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+            padding: 4px 16px; background: var(--accent); color: #fff;
+            border-radius: 20px; font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .pricing-card h3 { font-size: 20px; font-weight: 700; color: var(--header); margin-bottom: 4px; }
+        .pricing-card .period { font-size: 13px; color: #999; margin-bottom: 20px; }
+        .pricing-price {
+            font-size: 42px; font-weight: 800; color: var(--accent); margin-bottom: 4px;
+        }
+        .pricing-price small { font-size: 16px; font-weight: 500; color: #999; }
+        .pricing-per { font-size: 13px; color: #999; margin-bottom: 24px; }
+        .pricing-features { list-style: none; text-align: left; margin-bottom: 28px; }
+        .pricing-features li {
+            padding: 8px 0; font-size: 14px; color: #555;
+            border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px;
+        }
+        .pricing-features li:last-child { border-bottom: none; }
+        .pricing-features li i { color: #2ecc71; font-size: 14px; }
+        .btn-pricing {
+            display: block; width: 100%; padding: 13px; font-size: 15px; font-weight: 700;
+            border: none; border-radius: 10px; cursor: pointer; text-decoration: none;
+            transition: all 0.2s; text-align: center;
+        }
+        .btn-pricing-primary { background: var(--accent); color: #fff; }
+        .btn-pricing-primary:hover { background: var(--accent-dark); }
+        .btn-pricing-outline { background: #fff; color: var(--accent); border: 2px solid var(--accent); }
+        .btn-pricing-outline:hover { background: #eaf4fb; }
+        .pricing-savings {
+            text-align: center; margin-top: 12px; font-size: 13px; color: #2ecc71; font-weight: 600;
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        .footer {
+            padding: 40px; background: var(--header); color: rgba(255,255,255,0.6);
+            text-align: center; font-size: 13px;
+        }
+        .footer a { color: rgba(255,255,255,0.8); text-decoration: none; }
+        .footer a:hover { color: #fff; }
+        .footer-links { display: flex; justify-content: center; gap: 24px; margin-bottom: 12px; }
+
+        /* ============================================================
+           LOGIN MODAL
+           ============================================================ */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .login-card {
+            background: #fff; border-radius: 16px; padding: 36px 32px 28px;
+            width: 400px; max-width: 92vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: cardIn 0.4s cubic-bezier(0.16,1,0.3,1);
         }
         @keyframes cardIn { from { opacity:0; transform:translateY(16px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-        #login-card.shake { animation: shake 0.4s ease; }
+        .login-card.shake { animation: shake 0.4s ease; }
         @keyframes shake { 0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-8px); } 40%{ transform:translateX(8px); } 60%{ transform:translateX(-5px); } 80%{ transform:translateX(5px); } }
-
         .login-logo-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
-        .login-logo-icon { font-size: 36px; }
-        .login-logo-text { font-size: 24px; font-weight: 800; background: linear-gradient(135deg,#447e9b,#5095b5,#66aacc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        .login-subtitle { text-align: center; font-size: 13px; color: #666; margin-bottom: 22px; line-height: 1.4; }
-        .login-error { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; color: #c33; font-size: 13px; text-align: center; }
-        .login-warning { background: #fff8e1; border: 1px solid #ffe0b2; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; color: #e65100; font-size: 13px; text-align: center; }
-        .google-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; background: #fff; border: 2px solid #dadce0; border-radius: 10px; color: #444; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; text-decoration: none; margin-bottom: 14px; }
+        .login-logo-icon { font-size: 32px; }
+        .login-logo-text { font-size: 22px; font-weight: 800; color: var(--accent); }
+        .login-subtitle { text-align: center; font-size: 13px; color: #888; margin-bottom: 20px; }
+        .login-close {
+            position: absolute; top: 14px; right: 18px; font-size: 22px;
+            color: #999; cursor: pointer; background: none; border: none;
+        }
+        .login-close:hover { color: #333; }
+        .login-error {
+            background: #fff0f0; border: 1px solid #fcc; border-radius: 8px;
+            padding: 10px 14px; margin-bottom: 16px; color: #c33;
+            font-size: 13px; text-align: center;
+        }
+        .login-warning {
+            background: #fff8e1; border: 1px solid #ffe0b2; border-radius: 8px;
+            padding: 10px 14px; margin-bottom: 16px; color: #e65100;
+            font-size: 13px; text-align: center;
+        }
+        .google-btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 12px; background: #fff; border: 2px solid #dadce0;
+            border-radius: 10px; color: #444; font-size: 14px; font-weight: 600;
+            font-family: inherit; cursor: pointer; transition: all 0.2s;
+            text-decoration: none; margin-bottom: 14px;
+        }
         .google-btn:hover { background: #f8fbff; border-color: #aaccff; box-shadow: 0 2px 8px rgba(68,126,155,0.12); }
         .google-btn img { width: 20px; height: 20px; }
-        .login-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: #aaa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .login-divider {
+            display: flex; align-items: center; gap: 12px; margin: 16px 0;
+            color: #aaa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
         .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
         .login-field { margin-bottom: 14px; }
         .login-field label { display: block; font-size: 11px; font-weight: 700; color: #666; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .login-field input { width: 100%; padding: 12px 14px; background: #f5f7fa; border: 2px solid #e2e6ea; border-radius: 10px; color: #333; font-size: 15px; font-family: inherit; outline: none; transition: all 0.2s; }
-        .login-field input:focus { border-color: var(--color-accent); background: #fff; box-shadow: 0 0 0 3px rgba(68,126,155,0.1); }
+        .login-field input {
+            width: 100%; padding: 12px 14px; background: #f5f7fa; border: 2px solid #e2e6ea;
+            border-radius: 10px; color: #333; font-size: 15px; font-family: inherit;
+            outline: none; transition: all 0.2s;
+        }
+        .login-field input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(68,126,155,0.1); }
         .login-field input::placeholder { color: #bbb; }
-        .login-submit { width: 100%; padding: 13px; background: linear-gradient(135deg,#447e9b,#3a6d87); border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
-        .login-submit:hover { background: linear-gradient(135deg,#5095b5,#447e9b); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(68,126,155,0.3); }
+        .login-submit {
+            width: 100%; padding: 13px; background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: 700;
+            font-family: inherit; cursor: pointer; transition: all 0.2s;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .login-submit:hover { background: linear-gradient(135deg, var(--accent-light), var(--accent)); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(68,126,155,0.3); }
         .login-submit:active { transform: translateY(0); }
-
-        /* Campo "Conferma password": opaco/disabilitato quando lo username esiste */
-        #password-confirm-field { transition: opacity 0.2s ease; }
-        #password-confirm-field.confirm-hidden { opacity: 0.45; }
-        #password-confirm-field.confirm-hidden input { pointer-events: none; background: #eef1f4; }
-
-        .demo-badge { text-align: center; margin-top: 20px; padding: 12px 16px; background: #f0f6fa; border: 1px solid #d0dde8; border-radius: 10px; }
+        .demo-badge {
+            text-align: center; margin-top: 20px; padding: 12px 16px;
+            background: #f0f6fa; border: 1px solid #d0dde8; border-radius: 10px;
+        }
         .demo-badge-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #888; margin-bottom: 4px; }
-        .demo-badge-creds { font-family: 'SF Mono','Consolas','Monaco',monospace; font-size: 16px; font-weight: 700; color: var(--color-accent); letter-spacing: 1px; }
         .demo-badge-hint { font-size: 11px; color: #999; margin-top: 2px; }
-        .demo-badge button { margin-top: 6px; padding: 5px 14px; background: var(--color-accent); border: none; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; }
-        .demo-badge button:hover { background: #5095b5; }
-        .login-footer { text-align: center; margin-top: 16px; font-size: 11px; color: #bbb; }
 
-        /* PANEL DESTRO */
-        #panel-destro { width: var(--panel-w); min-width: var(--panel-w); background: #fff; border-left: 1px solid #e2e2e2; display: flex; flex-direction: column; overflow: hidden; }
-        .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #e2e2e2; flex-shrink: 0; background: #fafafa; }
-        .panel-header h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #555; }
-        .panel-header .badge { min-width: 22px; padding: 2px 8px; background: var(--color-accent); color: #fff; border-radius: 12px; font-size: 11px; font-weight: 700; text-align: center; }
-        .panel-body { flex: 1; overflow-y: auto; padding: 12px; }
-        /* Add row */
-        .panel-add-row { display: flex; gap: 6px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
-        .panel-add-input { flex: 1; padding: 7px 10px; background: #fff; border: 1px solid #ccc; border-radius: 4px; color: #333; font-size: 13px; font-family: inherit; outline: none; }
-        .panel-add-input::placeholder { color: #aaa; font-size: 12px; }
-        .btn-icon { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: var(--color-accent); border: 1px solid var(--color-accent); border-radius: 4px; color: #fff; font-size: 16px; cursor: default; flex-shrink: 0; }
-        /* Column headers */
-        .panel-items-header { display: flex; align-items: center; gap: 8px; padding: 4px 12px; margin-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
-        .panel-header-col { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #888; user-select: none; }
-        .panel-header-col-color { width: 4px; flex-shrink: 0; }
-        .panel-header-col-info { flex: 1; min-width: 0; }
-        .panel-header-col-qty { flex-shrink: 0; width: 42px; text-align: center; }
-        .panel-header-col-azioni { flex-shrink: 0; width: 56px; text-align: center; }
-        /* Items */
-        .panel-items-list { display: flex; flex-direction: column; gap: 4px; }
-        .panel-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; cursor: default; transition: all 0.15s; }
-        .panel-item:hover { background: #f0f0f0; border-color: #ccc; }
-        .panel-item-color { width: 4px; height: 28px; border-radius: 2px; flex-shrink: 0; }
-        .panel-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-        .panel-item-info strong { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .panel-item-info span { font-size: 11px; color: #888; }
-        .panel-item-qty { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-        .panel-item-azioni { display: flex; gap: 2px; flex-shrink: 0; }
-        .panel-qty-input { width: 42px; padding: 3px 4px; background: #fff; border: 1px solid #ccc; border-radius: 3px; color: #333; font-size: 12px; font-family: inherit; outline: none; text-align: center; }
-        .btn-item-action { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: 3px; color: #bbb; cursor: default; font-size: 12px; }
-        .btn-item-action:hover { background: #fce4e4; border-color: #e74c3c; color: #e74c3c; }
-        .panel-footer { padding: 10px 16px; border-top: 1px solid #e2e2e2; flex-shrink: 0; background: #fafafa; }
-        .panel-footer select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit; color: #888; background: #fff; appearance: none; }
-        @media (max-width:900px) { #sidebar,#panel-destro { display: none; } }
+        /* Responsive */
+        @media (max-width: 900px) {
+            .hero { flex-direction: column; text-align: center; padding: 100px 20px 40px; }
+            .hero-text { max-width: 100%; }
+            .hero h1 { font-size: 32px; }
+            .hero p { font-size: 15px; }
+            .hero-buttons { justify-content: center; }
+            .hero-stats { justify-content: center; }
+            .hero-3d { max-width: 100%; width: 100%; }
+            .features-grid, .vantaggi-grid { grid-template-columns: 1fr; }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .navbar-links { display: none; }
+        }
     </style>
 </head>
 <body>
-<div id="app">
-    <!-- HEADER -->
-    <header id="header">
-        <div id="header-brand"><span id="header-logo">📦 Carico 3D</span></div>
-        <nav id="header-nav">
-            <span class="header-nav-btn"><span class="icon">📁</span>Documenti</span>
-            <span class="header-nav-btn"><span class="icon">📋</span>Anagrafica</span>
-            <span class="header-nav-btn"><span class="icon">⚡</span>Auto</span>
-            <span class="header-nav-btn"><span class="icon">✋</span>Manuale</span>
-            <span class="header-nav-btn"><span class="icon">📊</span>Report</span>
-            <span class="header-nav-btn"><span class="icon">⚙️</span>Sistema</span>
-        </nav>
-        <span id="header-user">Provalo gratis</span>
-    </header>
 
-    <!-- PAGE -->
-    <div id="page">
-        <!-- SIDEBAR -->
-        <nav id="sidebar">
-            <div id="sidebar-tabs">
-                <span class="sidebar-tab active"><span class="sidebar-tab-icon">🧭</span><span class="sidebar-tab-label">Navigaz.</span></span>
-                <span class="sidebar-tab"><span class="sidebar-tab-icon">✋</span><span class="sidebar-tab-label">Manuale</span></span>
-                <span class="sidebar-tab"><span class="sidebar-tab-icon">⚡</span><span class="sidebar-tab-label">Auto</span></span>
-            </div>
-            <div id="sidebar-nav">
-                <div class="sidebar-section-title">📁 Gestione Documenti</div>
-                <span class="sidebar-nav-item"><span class="icon">📄</span>Nuovo Carico</span>
-                <span class="sidebar-nav-item"><span class="icon">📂</span>Apri Piano</span>
-                <span class="sidebar-nav-item"><span class="icon">💾</span>Salva</span>
-                <span class="sidebar-nav-item"><span class="icon">📤</span>Esporta</span>
-                <span class="sidebar-nav-item"><span class="icon">📥</span>Importa</span>
-                <div class="sidebar-nav-separator"></div>
-                <div class="sidebar-section-title">⚡ Strumenti Rapidi</div>
-                <span class="sidebar-nav-item"><span class="icon">📄</span>Nuovo Carico</span>
-                <span class="sidebar-nav-item"><span class="icon">📊</span>Vista Carico</span>
-                <span class="sidebar-nav-item"><span class="icon">⚖️</span>Distribuzione Pesi</span>
-            </div>
-            <div id="sidebar-riepilogo">
-                <div class="sidebar-mezzo-row"><span>🚛</span>Camion Bilico 13.6m</div>
-                <div class="sidebar-stats">
-                    <div class="sidebar-stat"><strong>47</strong><span>Pezzi</span></div>
-                    <div class="sidebar-stat"><strong>8.4 t</strong><span>Peso</span></div>
-                    <div class="sidebar-stat"><strong>8</strong><span>Oggetti</span></div>
-                    <div class="sidebar-stat"><strong>11.2 m</strong><span>Lineari</span></div>
+<!-- ============================================================
+     NAVBAR
+     ============================================================ -->
+<nav class="navbar">
+    <a href="/" class="navbar-brand">
+        <i class="bi bi-box-seam"></i> Carico 3D
+    </a>
+    <div class="navbar-links">
+        <a href="#features">Features</a>
+        <a href="#vantaggi">Vantaggi</a>
+        <a href="#prezzi">Prezzi</a>
+    </div>
+    <div class="navbar-actions">
+        <button class="btn-login" id="btn-open-login">Accedi</button>
+        <button class="btn-demo" id="btn-hero-demo-nav">Prova Gratis</button>
+    </div>
+</nav>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->    <section class="hero">
+        <h1 class="hero-title">Ottimizza il carico in <span>3D</span> in pochi secondi</h1>
+        <div class="hero-split">
+            <div class="hero-text">
+                <p>Algoritmo di ottimizzazione 3D + editor manuale drag &amp; drop + report PDF. Riduci spazio sprecato e costi di trasporto.</p>
+                <div class="hero-buttons">
+                    <button class="btn-hero-primary" id="btn-hero-demo">
+                        <i class="bi bi-play-fill"></i> Prova Gratis 14 giorni
+                    </button>
+                    <a href="#features" class="btn-hero-secondary">
+                        <i class="bi bi-info-circle"></i> Scopri di più
+                    </a>
                 </div>
-            </div>
-        </nav>
-
-        <!-- MAIN / VIEWPORT -->
-        <main id="main">
-            <div id="viewport-toolbar">
-                <span class="vp-btn">⬆</span><span class="vp-btn">⬛</span><span class="vp-btn">➡</span><span class="vp-btn">⊞</span>
-                <span class="vp-separator"></span>
-                <span class="vp-btn">➖</span><span style="font-size:13px;color:rgba(255,255,255,0.45);padding:0 2px;">🔍</span><span class="vp-btn">➕</span>
-                <span class="vp-separator"></span>
-                <span class="vp-btn">🔍</span><span class="vp-btn">🏠</span><span class="vp-btn">⛶</span>
-            </div>
-            <div id="viewport-3d">
-                <!-- LOGIN CARD -->
-                <div id="login-overlay">
-                    <div id="login-card" class="{% if login_error %}shake{% endif %}">
-                        <div class="login-logo-row">
-                            <span class="login-logo-icon">📦</span>
-                            <span class="login-logo-text">Carico 3D</span>
-                        </div>
-                        <p class="login-subtitle">Ottimizza i tuoi carichi in 3D in pochi secondi</p>
-
-                        {% if login_error %}
-                        <div class="login-error">❌ Credenziali non valide. Riprova.</div>
-                        {% endif %}
-                        {% if password_confirmation_error %}
-                        <div class="login-error">❌ Per una nuova registrazione inserisci due volte la stessa password.</div>
-                        {% endif %}
-                        {% if account_disabled %}
-                        <div class="login-warning">🔒 Questo account è stato disattivato.<br>Contatta l'amministratore per richiedere la riattivazione.</div>
-                        {% elif trial_used %}
-                        <div class="login-warning">🆓 Il periodo di prova gratuito è già stato utilizzato.<br>Accedi con l'account esistente oppure contatta l'amministratore.</div>
-                        {% elif trial_expired %}
-                        <div class="login-warning">⏰ Periodo di prova scaduto.<br>Contatta l'amministratore per attivare un abbonamento.</div>
-                        {% elif demo_disabled %}
-                        <div class="login-warning">🚫 Le nuove prove gratuite sono momentaneamente disattivate.<br>Contatta l'amministratore per richiedere l'accesso.</div>
-                        {% endif %}
-
-                        {% if google_oauth_attivo %}
-                        <a href="/accounts/google/login/?process=login{% if switch_account %}&prompt=select_account{% endif %}" class="google-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                            Accedi con Google
-                        </a>
-                        <div class="login-divider">oppure</div>
-                        {% endif %}
-
-                        <form method="post" action="/">
-                            {% csrf_token %}
-                            {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
-                            <div class="login-field">
-                                <label for="id_username">Username</label>
-                                <input type="text" name="username" id="id_username"
-                                       placeholder="Scegli un username" required autofocus>
-                            </div>
-                            <div class="login-field">
-                                <label for="id_password">Password</label>
-                                <input type="password" name="password" id="id_password"
-                                       placeholder="Scegli una password" required>
-                            </div>
-                            <div class="login-field" id="password-confirm-field">
-                                <label for="id_password_confirm">Conferma password</label>
-                                <input type="password" name="password_confirm" id="id_password_confirm"
-                                       placeholder="Ripeti la password">
-                                <div style="font-size:11px;color:#999;margin-top:4px;">Richiesta solo alla prima registrazione: se accedi a un account esistente, lasciala vuota.</div>
-                            </div>
-                            <button type="submit" class="login-submit">🔓 Accedi / Registrati</button>
-                        </form>
-
-                        {% if demo_attiva %}
-                        <div class="demo-badge">
-                            <div class="demo-badge-title">🆓 Prova gratuita</div>
-                            <div class="demo-badge-hint">Inserisci username e password a scelta.<br>Se è la prima volta, il tuo account verrà creato automaticamente.</div>
-                        </div>
-                        {% endif %}
-
-                        <div class="login-footer">Carico Tridimensionale — 3D Bin Packing Optimizer</div>
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <strong>+30%</strong>
+                        <span>Spazio utilizzato</span>
+                    </div>
+                    <div class="hero-stat">
+                        <strong>2 min</strong>
+                        <span>Tempo di piano</span>
+                    </div>
+                    <div class="hero-stat">
+                        <strong>2.500+</strong>
+                        <span>Aziende</span>
                     </div>
                 </div>
             </div>
-        </main>
-
-        <!-- PANEL DESTRO -->
-        <aside id="panel-destro">
-            <div class="panel-header"><h3>📦 Oggetti nel Carico</h3><span class="badge">{{ oggetti_demo|length }}</span></div>
-            <div class="panel-body">
-                <!-- Aggiungi oggetto (finto) -->
-                <div class="panel-add-row">
-                    <input type="text" class="panel-add-input" placeholder="Cerca oggetto per codice..." disabled>
-                    <span class="btn-icon">+</span>
-                </div>
-                <!-- Intestazione colonne -->
-                <div class="panel-items-header">
-                    <span class="panel-header-col panel-header-col-color"></span>
-                    <span class="panel-header-col panel-header-col-info">Oggetto</span>
-                    <span class="panel-header-col panel-header-col-qty">Qtà</span>
-                    <span class="panel-header-col panel-header-col-azioni">Azioni</span>
-                </div>
-                <!-- Lista oggetti -->
-                <div class="panel-items-list">
-                    {% for o in oggetti_demo %}
-                    <div class="panel-item">
-                        <div class="panel-item-color" style="background:{{ o.colore }};"></div>
-                        <div class="panel-item-info">
-                            <strong>{{ o.codice }}</strong>
-                            <span>{{ o.descrizione|truncatechars:35 }} · {{ o.dimensioni }} · {{ o.peso_kg }}</span>
-                        </div>
-                        <div class="panel-item-qty">
-                            <input type="number" class="panel-qty-input" value="{{ o.quantita }}" disabled>
-                        </div>
-                        <div class="panel-item-azioni">
-                            <span class="btn-item-action" title="Modifica">✏️</span>
-                            <span class="btn-item-action" title="Rimuovi">🗑️</span>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <div class="panel-item" style="justify-content:center;color:#999;">📦 Nessun oggetto censito</div>
-                    {% endfor %}
-                </div>
+            <div class="hero-image">
+                <img src="{% static 'caricamento/img/img_landig.png' %}" alt="Carico 3D - Ottimizzazione carico 3D">
             </div>
-            <div class="panel-footer"><select disabled><option>🚛 Camion Bilico 13.6m</option></select></div>
-        </aside>
+        </div>
+    </section>
+
+<!-- ============================================================
+     FEATURES
+     ============================================================ -->
+<section class="section" id="features">
+    <h2 class="section-title">Tutto ciò che ti serve</h2>
+    <p class="section-subtitle">Carico automatico, editing manuale e report professionali — tutto in un'unica piattaforma web.</p>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon"><i class="bi bi-lightning-charge"></i></div>
+            <h3>Carico Automatico 3D</h3>
+            <p>L'algoritmo posiziona automaticamente gli oggetti nel mezzo rispettando pesi, dimensioni e vincoli. In pochi secondi.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><i class="bi bi-hand-index-thumb"></i></div>
+            <h3>Modifica Manuale</h3>
+            <p>Editor drag &amp; drop con snap automatico, undo/redo e scelta libera della posizione e rotazione di ogni oggetto.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><i class="bi bi-file-earmark-bar-graph"></i></div>
+            <h3>Report Professionali</h3>
+            <p>Genera report PDF con vista 3D, tabelle posizioni e distribuzione pesi per sezione. Pronto da inviare al cliente.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================
+     VANTAGGI
+     ============================================================ -->
+<section class="section" id="vantaggi" style="background:#f8fbff;">
+    <h2 class="section-title">Perché scegliere Carico 3D</h2>
+    <p class="section-subtitle">Risparmia spazio, tempo e denaro ad ogni spedizione.</p>
+    <div class="vantaggi-grid">
+        <div class="vantaggio">
+            <div class="vantaggio-icon">📦</div>
+            <h4>+30% spazio utilizzato</h4>
+            <p>L'algoritmo 3D trova la disposizione ottimale, riducendo lo spazio sprecato.</p>
+        </div>
+        <div class="vantaggio">
+            <div class="vantaggio-icon">⏱️</div>
+            <h4>Da 1 ora a 2 minuti</h4>
+            <p>Ciò che facevi a mano ora lo fa l'algoritmo in pochi secondi.</p>
+        </div>
+        <div class="vantaggio">
+            <div class="vantaggio-icon">💰</div>
+            <h4>Meno camion, meno costi</h4>
+            <p>Più oggetti per ogni mezzo = meno viaggi = risparmio reale.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================
+     PREZZI
+     ============================================================ -->
+<section class="section pricing-bg" id="prezzi">
+    <h2 class="section-title">Prezzi semplici</h2>
+    <p class="section-subtitle">Nascosti costi. Paga solo per gli utenti che usano Carico 3D.</p>
+    <div class="pricing-grid">
+        <div class="pricing-card">
+            <h3>Mensile</h3>
+            <p class="period">Nessun impegno</p>
+            <div class="pricing-price">$19 <small>/mese</small></div>
+            <p class="pricing-per">per utente</p>
+            <ul class="pricing-features">
+                <li><i class="bi bi-check-circle-fill"></i> Carico automatico 3D</li>
+                <li><i class="bi bi-check-circle-fill"></i> Modifica manuale drag &amp; drop</li>
+                <li><i class="bi bi-check-circle-fill"></i> Report PDF</li>
+                <li><i class="bi bi-check-circle-fill"></i> Supporto email</li>
+            </ul>
+            <button class="btn-pricing btn-pricing-outline btn-pricing-plan" data-next="/workspace/?view=abbonamento">Scegli Mensile</button>
+        </div>
+        <div class="pricing-card popular">
+            <div class="pricing-badge">Più popolare</div>
+            <h3>Annuale</h3>
+            <p class="period">Risparmi il 20%</p>
+            <div class="pricing-price">$190 <small>/anno</small></div>
+            <p class="pricing-per">per utente</p>
+            <ul class="pricing-features">
+                <li><i class="bi bi-check-circle-fill"></i> Tutto del piano Mensile</li>
+                <li><i class="bi bi-check-circle-fill"></i> Priorità nel supporto</li>
+                <li><i class="bi bi-check-circle-fill"></i> Aggiornamenti futuri inclusi</li>
+                <li><i class="bi bi-check-circle-fill"></i> <strong>Risparmi $38/anno</strong></li>
+            </ul>
+            <button class="btn-pricing btn-pricing-primary btn-pricing-plan" data-next="/workspace/?view=abbonamento">Scegli Annuale</button>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer class="footer">
+    <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#prezzi">Prezzi</a>
+        <a href="mailto:info@carico3d.com">Contatti</a>
+    </div>
+    <p>&copy; 2026 Carico 3D — Ottimizzazione del carico tridimensionale</p>
+</footer>
+
+<!-- ============================================================
+     LOGIN MODAL
+     ============================================================ -->
+<div class="modal-overlay" id="login-modal">
+    <div class="login-card {% if login_error %}shake{% endif %}" style="position:relative;">
+        <button class="login-close" id="btn-close-login">&times;</button>
+        <div class="login-logo-row">
+            <span class="login-logo-icon">📦</span>
+            <span class="login-logo-text">Carico 3D</span>
+        </div>
+        <p class="login-subtitle">Ottimizza i tuoi carichi in 3D in pochi secondi</p>
+
+        {% if login_error %}
+        <div class="login-error">❌ Credenziali non valide. Riprova.</div>
+        {% endif %}
+        {% if trial_expired %}
+        <div class="login-warning">⏰ Periodo di prova scaduto.<br>Contatta l'amministratore per attivare un abbonamento.</div>
+        {% endif %}
+        {% if trial_used %}
+        <div class="login-warning">🆓 Il periodo di prova gratuito è già stato utilizzato.<br>Accedi con l'account esistente oppure contatta l'amministratore.</div>
+        {% endif %}
+
+        {% if google_oauth_attivo %}
+        <a href="/accounts/google/login/?process=login{% if switch_account %}&prompt=select_account{% endif %}" class="google-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Accedi con Google
+        </a>
+        <div class="login-divider">oppure</div>
+        {% endif %}
+
+        <form method="post" action="/">
+            <input type="hidden" name="next" id="login-next-url" value="">
+            {% csrf_token %}
+            <div class="login-field">
+                <label for="id_username">Username</label>
+                <input type="text" name="username" id="id_username"
+                       placeholder="Scegli un username" required autofocus>
+            </div>
+            <div class="login-field">
+                <label for="id_password">Password</label>
+                <input type="password" name="password" id="id_password"
+                       placeholder="Scegli una password" required>
+            </div>
+            <div class="login-field" id="password-confirm-field">
+                <label for="id_password_confirm">Conferma password</label>
+                <input type="password" name="password_confirm" id="id_password_confirm"
+                       placeholder="Ripeti la password">
+                <div style="font-size:11px;color:#999;margin-top:4px;">Richiesta solo alla prima registrazione.</div>
+            </div>
+            <button type="submit" class="login-submit">🔓 Accedi / Registrati</button>
+        </form>
+
+        {% if demo_attiva %}
+        <div class="demo-badge">
+            <div class="demo-badge-title">🆓 Prova gratuita 14 giorni</div>
+            <div class="demo-badge-hint">Inserisci username e password a scelta.<br>Se è la prima volta, il tuo account verrà creato automaticamente.</div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- THREE.JS: Bilico 13.6m (sotto) + Container ISO 20' (sopra) — dati reali scalati 50% -->
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
 <script>
-(function(){
-var $=document.getElementById('viewport-3d'),W=$.clientWidth,H=$.clientHeight;
-var scene=new THREE.Scene(); scene.background=new THREE.Color(0xf0f2f5);
-var camera=new THREE.PerspectiveCamera(50,W/H,50,50000);
-camera.position.set(6000,9000,14000); camera.lookAt(-3200,1500,-500);
-var R=new THREE.WebGLRenderer({antialias:true}); R.setSize(W,H); R.setPixelRatio(Math.min(devicePixelRatio,2));
-R.shadowMap.enabled=true; $.appendChild(R.domElement); R.domElement.style.zIndex='0';
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-var L=new THREE.DirectionalLight(0xffffff,0.8); L.position.set(8000,12000,6000);
-L.castShadow=true; L.shadow.mapSize.set(1024,1024);
-L.shadow.camera.near=50; L.shadow.camera.far=50000;
-L.shadow.camera.left=-15000;L.shadow.camera.right=15000;L.shadow.camera.top=15000;L.shadow.camera.bottom=-15000;
-scene.add(L);
+// --- Login modal toggle ---
+var loginModal = document.getElementById('login-modal');
+document.getElementById('btn-open-login').addEventListener('click', function() {
+    loginModal.classList.add('active');
+});
+document.getElementById('btn-hero-demo').addEventListener('click', function() {
+    loginModal.classList.add('active');
+});
+document.getElementById('btn-hero-demo-nav').addEventListener('click', function() {
+    loginModal.classList.add('active');
+});
+document.getElementById('btn-close-login').addEventListener('click', function() {
+    loginModal.classList.remove('active');
+});
+loginModal.addEventListener('click', function(e) {
+    if (e.target === loginModal) loginModal.classList.remove('active');
+});
 
-function addBox(b,cont){
-  var g=new THREE.BoxGeometry(b.w,b.h,b.d);
-  var m=new THREE.Mesh(g,new THREE.MeshPhongMaterial({color:b.colore,specular:0x111111,shininess:25}));
-  m.position.set(b.x+b.w/2,b.y+b.h/2,b.z+b.d/2);m.castShadow=true;m.receiveShadow=true;
-  var e=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:0,transparent:true,opacity:0.12}));
-  m.add(e);cont.group.add(m);
+// Apre il modale login impostando il parametro "next" per il redirect post-login.
+var _planBtns = document.querySelectorAll('.btn-pricing-plan');
+for (var _i = 0; _i < _planBtns.length; _i++) {
+    _planBtns[_i].addEventListener('click', function () {
+        var nextUrl = this.getAttribute('data-next') || '';
+        document.getElementById('login-next-url').value = nextUrl;
+        loginModal.classList.add('active');
+    });
 }
 
-// === BILICO 13.6m (56 oggetti, scalati 50%) ===
-var c1=makeContainer(6800,1240,1350,-26400,-8675,-1120);
-var b1=[
-{x:0,y:0,z:0,w:350,h:500,d:800,colore:0x27ae60},{x:0,y:500,z:0,w:350,h:500,d:800,colore:0x27ae60},
-{x:0,y:0,z:800,w:800,h:500,d:350,colore:0x27ae60},{x:0,y:500,z:800,w:800,h:500,d:350,colore:0x27ae60},
-{x:350,y:0,z:0,w:350,h:500,d:800,colore:0x27ae60},{x:350,y:500,z:0,w:350,h:500,d:800,colore:0x27ae60},
-{x:700,y:0,z:0,w:350,h:500,d:800,colore:0x27ae60},{x:700,y:500,z:0,w:350,h:500,d:800,colore:0x27ae60},
-{x:800,y:0,z:800,w:800,h:500,d:350,colore:0x27ae60},{x:800,y:500,z:800,w:800,h:500,d:350,colore:0x27ae60},
-{x:1050,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:1050,y:500,z:0,w:500,h:500,d:600,colore:0xe1ff00},
-{x:1550,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:1550,y:500,z:0,w:500,h:500,d:600,colore:0xe1ff00},
-{x:1600,y:0,z:600,w:500,h:500,d:600,colore:0xe1ff00},{x:1600,y:500,z:600,w:500,h:500,d:600,colore:0xe1ff00},
-{x:2050,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:2050,y:500,z:0,w:500,h:500,d:600,colore:0xe1ff00},
-{x:2100,y:0,z:600,w:500,h:500,d:600,colore:0xe1ff00},{x:2100,y:500,z:600,w:500,h:500,d:600,colore:0xe1ff00},
-{x:2550,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:2550,y:500,z:0,w:500,h:500,d:600,colore:0xe1ff00},
-{x:2600,y:0,z:600,w:500,h:500,d:600,colore:0xe1ff00},{x:2600,y:500,z:600,w:500,h:500,d:600,colore:0xe1ff00},
-{x:3050,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:3050,y:500,z:0,w:400,h:500,d:600,colore:0xff0000},
-{x:3100,y:0,z:600,w:400,h:500,d:600,colore:0xff0000},{x:3100,y:500,z:600,w:400,h:500,d:600,colore:0xff0000},
-{x:3500,y:0,z:600,w:400,h:500,d:600,colore:0xff0000},{x:3500,y:500,z:600,w:400,h:500,d:600,colore:0xff0000},
-{x:3550,y:0,z:0,w:400,h:500,d:600,colore:0xff0000},{x:3550,y:500,z:0,w:400,h:500,d:600,colore:0xff0000},
-{x:3900,y:0,z:600,w:400,h:500,d:600,colore:0xff0000},{x:3900,y:500,z:600,w:400,h:500,d:600,colore:0xff0000},
-{x:3950,y:0,z:0,w:400,h:500,d:600,colore:0xff0000},{x:3950,y:500,z:0,w:400,h:500,d:600,colore:0xff0000},
-{x:4300,y:0,z:600,w:400,h:500,d:600,colore:0xff0000},{x:4300,y:500,z:600,w:400,h:500,d:600,colore:0xff0000},
-{x:4350,y:0,z:0,w:300,h:500,d:400,colore:0x00ff2a},{x:4350,y:500,z:0,w:300,h:500,d:400,colore:0x00ff2a},
-{x:4650,y:0,z:0,w:300,h:500,d:400,colore:0x00ff2a},{x:4650,y:500,z:0,w:300,h:500,d:400,colore:0x00ff2a},
-{x:4700,y:0,z:400,w:300,h:500,d:400,colore:0x00ff2a},{x:4700,y:500,z:400,w:300,h:500,d:400,colore:0x00ff2a},
-{x:4700,y:0,z:800,w:300,h:500,d:400,colore:0x00ff2a},{x:4700,y:500,z:800,w:300,h:500,d:400,colore:0x00ff2a},
-{x:4950,y:0,z:0,w:300,h:500,d:400,colore:0x00ff2a},{x:4950,y:500,z:0,w:300,h:500,d:400,colore:0x00ff2a},
-{x:5000,y:0,z:400,w:300,h:500,d:400,colore:0x00ff2a},{x:5000,y:500,z:400,w:300,h:500,d:400,colore:0x00ff2a},
-{x:5000,y:0,z:800,w:800,h:500,d:350,colore:0x27ae60},{x:5000,y:500,z:800,w:800,h:500,d:350,colore:0x27ae60},
-{x:5250,y:0,z:0,w:800,h:500,d:350,colore:0x27ae60},{x:5250,y:500,z:0,w:800,h:500,d:350,colore:0x27ae60},
-{x:5300,y:0,z:350,w:800,h:500,d:350,colore:0x27ae60},{x:5300,y:500,z:350,w:800,h:500,d:350,colore:0x27ae60}
-];
-b1.forEach(function(b){addBox(b,c1);});
-
-// === CONTAINER ISO 20' (20 oggetti, scalati 50%) ===
-var c2=makeContainer(2930,1175,1195,-8600,5000,6000,0);
-var b2=[
-{x:0,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:0,y:500,z:0,w:500,h:500,d:600,colore:0xe1ff00},
-{x:0,y:0,z:600,w:600,h:500,d:500,colore:0xe1ff00},{x:0,y:500,z:600,w:600,h:500,d:500,colore:0xe1ff00},
-{x:500,y:0,z:0,w:500,h:500,d:600,colore:0xe1ff00},{x:500,y:500,z:0,w:500,h:500,d:600,colore:0xe1ff00},
-{x:600,y:0,z:600,w:600,h:500,d:500,colore:0xe1ff00},{x:600,y:500,z:600,w:600,h:500,d:400,colore:0xff0000},
-{x:1000,y:0,z:0,w:400,h:500,d:600,colore:0xff0000},{x:1000,y:500,z:0,w:400,h:500,d:600,colore:0xff0000},
-{x:1200,y:0,z:600,w:600,h:500,d:400,colore:0xff0000},{x:1400,y:0,z:0,w:300,h:500,d:400,colore:0x00ff2a},
-{x:1400,y:500,z:0,w:300,h:500,d:400,colore:0x00ff2a},{x:1700,y:0,z:0,w:300,h:500,d:400,colore:0x00ff2a},
-{x:1700,y:500,z:0,w:300,h:500,d:400,colore:0x00ff2a},{x:1800,y:0,z:400,w:300,h:500,d:400,colore:0x00ff2a},
-{x:1800,y:500,z:400,w:300,h:500,d:400,colore:0x00ff2a},{x:1800,y:0,z:800,w:400,h:500,d:300,colore:0x00ff2a},
-{x:1800,y:500,z:800,w:400,h:500,d:300,colore:0x00ff2a},{x:2000,y:0,z:0,w:300,h:500,d:400,colore:0x00ff2a}
-];
-b2.forEach(function(b){addBox(b,c2);});
-
-// Etichette
-var el1=document.createElement('div');el1.style.cssText='position:absolute;bottom:12%;left:14%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#888;text-transform:uppercase;pointer-events:none;z-index:2;';el1.textContent='Bilico 13.6m — 56 oggetti';$.appendChild(el1);
-var el2=document.createElement('div');el2.style.cssText='position:absolute;top:16%;left:14%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#888;text-transform:uppercase;pointer-events:none;z-index:2;';el2.textContent='Container ISO 20\' — 20 oggetti';$.appendChild(el2);
-
-// Pivot rotazione
-var P1=new THREE.Object3D();P1.position.copy(c1.center);scene.add(P1);scene.remove(c1.group);c1.group.position.sub(P1.position);P1.add(c1.group);P1.scale.set(1.8,1.8,1.8);
-var P2=new THREE.Object3D();P2.position.copy(c2.center);scene.add(P2);scene.remove(c2.group);c2.group.position.sub(P2.position);P2.add(c2.group);
-
-function animate(){requestAnimationFrame(animate);P1.rotation.y+=0.003;P2.rotation.y+=0.004;R.render(scene,camera);}
-animate();
-
-window.addEventListener('resize',function(){W=$.clientWidth;H=$.clientHeight;camera.aspect=W/H;camera.updateProjectionMatrix();R.setSize(W,H);});
-
-function makeContainer(l,w,h,px,py,pz){
-  var grp=new THREE.Group();grp.position.set(px,py,pz);
-  var geom=new THREE.BoxGeometry(l,h,w);
-  var ln=new THREE.LineSegments(new THREE.EdgesGeometry(geom),new THREE.LineBasicMaterial({color:0x447e9b,transparent:true,opacity:0.5}));
-  ln.position.set(l/2,h/2,w/2);grp.add(ln);
-  var fl=new THREE.Mesh(new THREE.PlaneGeometry(l,w),new THREE.MeshPhongMaterial({color:0xe8e8e8,side:THREE.DoubleSide,transparent:true,opacity:0.2}));
-  fl.rotation.x=-Math.PI/2;fl.position.set(l/2,0.5,w/2);fl.receiveShadow=true;grp.add(fl);
-  scene.add(grp);
-  return{group:grp,l:l,w:w,h:h,center:new THREE.Vector3(px+l/2,py+h/2,pz+w/2)};
-}
-})();
-</script>
-
-<!-- Browser Fingerprint per anti-abuso demo -->
-<script>
-(function(){
-  try{
-    var c=document.createElement('canvas'),ctx=c.getContext('2d');
-    c.width=200;c.height=50;
-    ctx.textBaseline='top';ctx.font='14px Arial';
-    ctx.fillStyle='#f60';ctx.fillRect(10,10,30,30);
-    ctx.fillStyle='#069';ctx.fillText('Carico3D',40,10);
-    var fp=btoa(c.toDataURL().slice(0,120)+navigator.language+screen.width+'x'+screen.height+Intl.DateTimeFormat().resolvedOptions().timeZone).slice(0,40);
-    var d=new Date();d.setFullYear(d.getFullYear()+1);
-    document.cookie='cb_fp='+fp+'; expires='+d.toUTCString()+'; path=/; SameSite=Lax';
-  }catch(e){}
-})();
-</script>
-
-<!-- Toggle campo "Conferma password" in base all'esistenza dello username -->
-<script>
+// --- Toggle "Conferma password" in base all'esistenza dello username ---
 (function () {
     var usernameInput = document.getElementById('id_username');
     var confirmField = document.getElementById('password-confirm-field');
     var confirmInput = document.getElementById('id_password_confirm');
     if (!usernameInput || !confirmField || !confirmInput) return;
-
     var checkTimer = null;
-
     function applyState(exists) {
         if (exists) {
-            // Account esistente: accesso. La conferma password non serve.
-            confirmField.classList.add('confirm-hidden');
+            confirmField.style.opacity = '0.45';
             confirmInput.disabled = true;
-            confirmInput.removeAttribute('required');
             confirmInput.value = '';
         } else {
-            // Nuovo account: registrazione. Serve la conferma password.
-            confirmField.classList.remove('confirm-hidden');
+            confirmField.style.opacity = '1';
             confirmInput.disabled = false;
-            confirmInput.setAttribute('required', 'required');
         }
     }
-
     function checkUsername() {
         var u = (usernameInput.value || '').trim();
-        if (!u) {
-            // Stato neutro: campo visibile ma non obbligatorio.
-            confirmField.classList.remove('confirm-hidden');
-            confirmInput.disabled = false;
-            confirmInput.removeAttribute('required');
-            return;
-        }
+        if (!u) { confirmField.style.opacity = '1'; confirmInput.disabled = false; return; }
         fetch('/api/check-username/?username=' + encodeURIComponent(u), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-            .then(function (d) {
-                // Ignora risposte arrivate dopo un'altra digitazione.
-                if ((usernameInput.value || '').trim() !== u) return;
-                applyState(!!d.exists);
-            })
-            .catch(function () { /* in caso di errore non bloccare il form */ });
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if ((usernameInput.value || '').trim() !== u) return;
+            applyState(!!d.exists);
+        })
+        .catch(function () {});
     }
-
     usernameInput.addEventListener('blur', checkUsername);
     usernameInput.addEventListener('input', function () {
         clearTimeout(checkTimer);
         checkTimer = setTimeout(checkUsername, 350);
     });
 })();
+
+
 </script>
+
+<!-- Browser Fingerprint per anti-abuso demo -->
+<script>
+(function(){
+    try {
+        var c = document.createElement('canvas'), ctx = c.getContext('2d');
+        c.width = 200; c.height = 50;
+        ctx.textBaseline = 'top'; ctx.font = '14px Arial';
+        ctx.fillStyle = '#f60'; ctx.fillRect(10, 10, 30, 30);
+        ctx.fillStyle = '#069'; ctx.fillText('Carico3D', 40, 10);
+        var fp = btoa(c.toDataURL().slice(0,120) + navigator.language + screen.width + 'x' + screen.height + Intl.DateTimeFormat().resolvedOptions().timeZone).slice(0,40);
+        var d = new Date(); d.setFullYear(d.getFullYear()+1);
+        document.cookie = 'cb_fp=' + fp + '; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
+    } catch(e) {}
+})();
+</script>
+
 </body>
 </html>

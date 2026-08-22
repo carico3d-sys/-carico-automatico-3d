@@ -802,6 +802,40 @@ class UserProfile(models.Model):
         default=False,
         help_text=_("Utente pagante: accesso illimitato senza scadenza trial."),
     )
+    # --- Lemon Squeezy ---
+    ls_customer_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        unique=True,
+        help_text=_("ID cliente su Lemon Squeezy."),
+    )
+    ls_subscription_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        unique=True,
+        help_text=_("ID abbonamento attivo su Lemon Squeezy."),
+    )
+    ls_subscription_item_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        help_text=_("ID subscription-item per aggiornare la quantity."),
+    )
+    ls_variant_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        help_text=_("Variante Lemon Squeezy scelta (mensile/annuale)."),
+    )
+    ls_quantity = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text=_("Numero di utenti (seat) acquistati nell'abbonamento."),
+    )
+    ls_plan = models.CharField(
+        max_length=32,
+        default="",
+        blank=True,
+        help_text=_("Nome del piano acquistato (es. 'Mensile', 'Annuale')."),
+    )
     impostazioni_ottimizzatore = models.JSONField(
         default=dict,
         blank=True,
@@ -836,6 +870,20 @@ class UserProfile(models.Model):
         from django.utils import timezone
         delta = self.trial_end - timezone.now()
         return max(0, delta.days)
+
+    @property
+    def has_active_access(self):
+        """True se l'utente ha accesso completo (pagante o trial attivo)."""
+        return self.is_trial_active
+
+    @property
+    def team_slots(self):
+        """Posti utente disponibili (per futuro modello Team).
+
+        Oggi con account singolo vale ls_quantity; in futuro i membri del team
+        consumeranno uno slot ciascuno.
+        """
+        return self.ls_quantity if self.is_paying else 0
 
 
 # ---------------------------------------------------------------------------
@@ -961,10 +1009,19 @@ class ImpostazioniSistema(models.Model):
 
 def _crea_profilo_utente(sender, instance, created, **kwargs):
     """Alla creazione di un User, crea automaticamente il UserProfile
-    se non già presente. Garantisce che ogni utente abbia sempre un profilo,
-    anche se creato direttamente dall'admin Django."""
-    if created:
-        UserProfile.objects.get_or_create(user=instance)
+    se non già presente, con il periodo di prova iniziale.
+    Garantisce che ogni utente abbia sempre un profilo, anche se creato
+    direttamente dall'admin Django o dal management command."""
+    if not created:
+        return
+    from datetime import timedelta
+    from django.utils import timezone
+    profile, was_created = UserProfile.objects.get_or_create(user=instance)
+    if was_created and profile.trial_start is None:
+        imp = ImpostazioniSistema.get()
+        profile.trial_start = timezone.now()
+        profile.trial_end = timezone.now() + timedelta(days=imp.giorni_prova)
+        profile.save(update_fields=["trial_start", "trial_end"])
 
 
 models.signals.post_save.connect(

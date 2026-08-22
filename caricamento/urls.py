@@ -10,6 +10,7 @@ from django.urls import include, path
 from django.views.generic.base import RedirectView
 from rest_framework.routers import DefaultRouter
 
+from . import payments
 from . import views
 
 # ---------------------------------------------------------------------------
@@ -60,4 +61,9 @@ urlpatterns = [
     path("api/icone-file/", views.api_icone_file_delete, name="api_icone_file_delete"),
     # Helper landing: verifica esistenza username (form login/registrazione)
     path("api/check-username/", views.check_username, name="check_username"),
+
+    # Pagamenti — Lemon Squeezy
+    path("api/payments/checkout/", payments.checkout, name="payments_checkout"),
+    path("api/payments/webhook/", payments.webhook, name="payments_webhook"),
+    path("api/payments/status/", payments.status_, name="payments_status"),
 ]

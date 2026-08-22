@@ -67,8 +67,13 @@ function mostraPanelView(viewType) {
     _panelViewEpoch += 1;
     distruggiMiniViewportVincolo();
     if (typeof _vtDistruggiCanvases === 'function') _vtDistruggiCanvases();
-    // Nascondi il pannello distribuzione pesi quando si esce dalla vista principale
+    // Nascondi i pannelli flottanti quando si esce dalla vista principale:
+    // distribuzione pesi e soluzioni alternative devono essere visibili SOLO
+    // nel main view (viewport 3D), mai sopra le viste anagrafiche.
     nascondiDistribuzionePesi();
+    if (typeof nascondiPannelloAlternative === 'function') {
+        nascondiPannelloAlternative();
+    }
     // Nascondi paginazione (verranno mostrate solo dalle rispettive render functions)
     var pagEl = document.getElementById('piani-pagination');
     if (pagEl) pagEl.style.display = 'none';
@@ -98,6 +103,9 @@ function mostraPanelView(viewType) {
         case 'vincoli-tra': renderVincoliTraPanel(); break;
         case 'piani': renderPianiPanel(); break;
         case 'impostazioni': renderImpostazioniPanel(); break;
+        case 'abbonamento':
+            if (typeof renderAbbonamentoPanel === 'function') renderAbbonamentoPanel();
+            break;
     }
 }
 
@@ -108,6 +116,12 @@ function mostraViewport() {
     _ripristinaFormOggetti();
     DOM.panelView.style.display = 'none';
     DOM.viewport3d.style.display = '';
+    // Tornati al main view: ripristina il pannello alternative se l'utente
+    // aveva ancora soluzioni in memoria (la lista non viene rigenerata,
+    // resta la selezione corrente).
+    if (typeof mostraPannelloAlternativeSePresente === 'function') {
+        mostraPannelloAlternativeSePresente();
+    }
     // Toolbar orizzontale sostituita dalla palette flottante — non mostrarla
     setActiveView('carico');
 }

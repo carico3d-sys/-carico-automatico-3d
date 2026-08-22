@@ -561,6 +561,12 @@ def workspace(request, piano_id=None):
     # icone Bootstrap. Stessa fonte dell'endpoint /api/icone-config/.
     icon_config = _load_icon_config()
 
+    # Varianti Lemon Squeezy per la vista Abbonamento (vuote finché non configurate)
+    ls_variant_ids = {
+        "mensile": getattr(settings, "LEMONSQUEEZY_VARIANT_MENSILE_ID", ""),
+        "annuale": getattr(settings, "LEMONSQUEEZY_VARIANT_ANNUALE_ID", ""),
+    }
+
     return render(request, "caricamento/workspace.html", {
         "piani": piani,
         "contenitori": contenitori,
@@ -570,6 +576,7 @@ def workspace(request, piano_id=None):
         "vincoli_tra_oggetti": vincoli_tra_js,
         "piano_id": piano_id,
         "icon_config": icon_config,
+        "ls_variant_ids": ls_variant_ids,
     })
 
 

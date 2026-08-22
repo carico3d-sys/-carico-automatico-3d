@@ -1014,6 +1014,12 @@ async function caricaScena3D(pianoId) {
         // preview automatica: impedisci che uno snapshot precedente venga
         // riutilizzato da un successivo salvataggio.
         if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
+        // Un piano caricato dal DB non ha soluzioni alternative in memoria:
+        // svuota anche quelle del piano precedente, così il pannello non
+        // riappare sopra la nuova scena.
+        if (typeof nascondiSoluzioniAlternative === 'function') {
+            nascondiSoluzioniAlternative();
+        }
         if (typeof avviaVisualizzatore !== 'function') {
             showToast('Modulo 3D non caricato.', 'error');
             return;

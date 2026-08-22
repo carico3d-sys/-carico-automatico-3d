@@ -121,6 +121,16 @@ Q_CLUSTER = {
 # Ottimizzatore 3D — stima tempi e soglia sync/async
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Lemon Squeezy — Pagamenti (Merchant of Record)
+# ---------------------------------------------------------------------------
+
+LEMONSQUEEZY_API_KEY = os.environ.get('LEMONSQUEEZY_API_KEY', '')
+LEMONSQUEEZY_STORE_ID = os.environ.get('LEMONSQUEEZY_STORE_ID', '')
+LEMONSQUEEZY_WEBHOOK_SECRET = os.environ.get('LEMONSQUEEZY_WEBHOOK_SECRET', '')
+LEMONSQUEEZY_VARIANT_MENSILE_ID = os.environ.get('LEMONSQUEEZY_VARIANT_MENSILE_ID', '')
+LEMONSQUEEZY_VARIANT_ANNUALE_ID = os.environ.get('LEMONSQUEEZY_VARIANT_ANNUALE_ID', '')
+
 # Millisecondi stimati per "operazione" (un tentativo di piazzamento con una
 # singola orientazione). Default conservativo per una vCPU condivisa (es.
 # Contabo entry-level): la telemetria restituisce il valore reale (ms_per_op)

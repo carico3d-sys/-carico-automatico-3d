@@ -485,6 +485,9 @@ function eseguiNavigazione(view) {
         case 'impostazioni':
             mostraPanelView('impostazioni');
             break;
+        case 'abbonamento':
+            mostraPanelView('abbonamento');
+            break;
         case 'nuovo-carico':
             nuovoCarico();
             setActiveView('carico');
@@ -631,6 +634,9 @@ function _renderSidebarNavigazione(cat) {
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="piani">' +
                     '<i class="bi bi-folder2 sidebar-icon"></i> Apri Piano' +
+                '</button>' +
+                '<button class="sidebar-nav-item" data-view="abbonamento">' +
+                    '<i class="bi bi-credit-card sidebar-icon"></i> Abbonamento' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="salva-db">' +
                     '<i class="bi bi-save sidebar-icon"></i> Salva' +

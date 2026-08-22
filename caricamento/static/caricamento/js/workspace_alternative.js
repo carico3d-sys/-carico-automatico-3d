@@ -144,6 +144,31 @@ function nascondiSoluzioniAlternative() {
 }
 
 /**
+ * Nasconde SOLO il pannello (per es. quando si apre una vista anagrafica),
+ * conservando le soluzioni in memoria: tornando al main view il pannello
+ * può essere ripristinato senza perdere le alternative.
+ */
+function nascondiPannelloAlternative() {
+    var panel = document.getElementById('soluzioni-alternative-panel');
+    if (panel) panel.style.display = 'none';
+    _resizeViewport3D();
+}
+
+/**
+ * Ripristina il pannello delle soluzioni alternative se ci sono soluzioni
+ * ancora in memoria (dopo essere tornati al main view da una vista
+ * anagrafica). Non rigenera la lista: la card selezionata resta quella
+ * visibile.
+ */
+function mostraPannelloAlternativeSePresente() {
+    if (!WS.soluzioniAlternative || WS.soluzioniAlternative.length === 0) return;
+    var panel = document.getElementById('soluzioni-alternative-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    _resizeViewport3D();
+}
+
+/**
  * Costruisce i dati 3D per una soluzione alternativa.
  */
 function _costruisciDati3DdaSoluzione(soluzione) {

@@ -261,6 +261,18 @@ function inizializza() {
         }
     });
 
+    // --- Deep-link: se l'URL contiene ?view=abbonamento (es. dal pricing della
+    //     landing page), apri direttamente il pannello abbonamento.
+    var urlParams = new URLSearchParams(window.location.search);
+    var deepView = urlParams.get('view');
+    if (deepView && typeof mostraPanelView === 'function') {
+        mostraPanelView(deepView);
+        // Pulisci l'URL per evitare che un refresh riapra il pannello
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }
+
     // --- Avvio con piano pre-caricato ---
     if (WS.activePianoId) {
         caricaScena3D(WS.activePianoId);

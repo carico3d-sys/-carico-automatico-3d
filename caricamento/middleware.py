@@ -122,21 +122,32 @@ class TrialRequiredMiddleware:
 
         # Verifica trial
         if not profile.is_trial_active:
-            # Revoca la sessione anche sulle API. Per le chiamate AJAX restituisce
-            # JSON invece di un redirect HTML alla landing.
+            # API: blocca scritture (POST/PUT/PATCH/DELETE), permetti letture.
+            # Il frontend chiama GET /api/payments/status/ e mostra il banner.
+            if path.startswith("/api/"):
+                if request.method not in ("GET", "HEAD", "OPTIONS"):
+                    return JsonResponse(
+                        {
+                            "error": {
+                                "code": "trial_expired",
+                                "message": "Il periodo di prova è scaduto. Sottoscrivi un abbonamento per continuare.",
+                            },
+                        },
+                        status=403,
+                    )
+                # GET / HEAD / OPTIONS: permetti letture (così il frontend
+                # può caricare piani esistenti e lo stato pagamenti).
+                return self.get_response(request)
+
+            # Workspace: NON reindirizzare. L'utente può accedere, consultare
+            # i piani esistenti e aprire la vista "Abbonamento" per pagare.
+            # Il frontend disabilita le azioni costose (Elabora, Ottimizza, Salva).
+            if path.startswith("/workspace/"):
+                return self.get_response(request)
+
+            # Altri percorsi protetti: reindirizza alla landing.
             from django.contrib.auth import logout
             logout(request)
-
-            if path.startswith("/api/"):
-                return JsonResponse(
-                    {
-                        "error": {
-                            "code": "trial_expired",
-                            "message": "Il periodo di prova è scaduto.",
-                        },
-                    },
-                    status=403,
-                )
 
             landing_url = reverse("caricamento:homepage") + "?trial=expired"
             return redirect(landing_url)
