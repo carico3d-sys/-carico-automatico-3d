@@ -38,6 +38,15 @@ if [ -n "$ICON_UPLOAD_DIR" ]; then
     if [ -z "$(ls -A "$ICON_UPLOAD_DIR" 2>/dev/null)" ]; then
         cp -a /opt/img_original/. "$ICON_UPLOAD_DIR"
         echo "[entrypoint] Upload PNG inizializzati in $ICON_UPLOAD_DIR"
+    else
+        # Copia solo i file che mancano (nuove icone aggiunte nel codice)
+        for f in /opt/img_original/*; do
+            fname=$(basename "$f")
+            if [ ! -f "$ICON_UPLOAD_DIR/$fname" ]; then
+                cp -a "$f" "$ICON_UPLOAD_DIR/$fname"
+                echo "[entrypoint] Nuovo PNG aggiunto: $fname"
+            fi
+        done
     fi
 fi
 
