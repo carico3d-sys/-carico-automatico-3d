@@ -1,0 +1,209 @@
+================================================================================
+  GUIDA AGGIORNAMENTO VM UBUNTU (VirtualBox)
+  Branch: auto_7_1
+  Data: agosto 2026
+================================================================================
+
+
+1. CONNESSIONE SSH
+------------------
+
+  ssh -p 2222 gianni@127.0.0.1
+
+  Password: gianni
+
+
+2. TROVARE LA CARTELLA DEL PROGETTO
+-------------------------------------
+
+  cd /home/gianni/carico3d
+
+  Se non trovi la cartella:
+  find /home -name "manage.py" -type f 2>/dev/null
+
+
+3. AGGIORNARE IL CODICE
+------------------------
+
+  cd /home/gianni/carico3d
+
+  Verifica branch:
+  git branch --show-current
+  Deve dire: auto_7_1
+
+  Verifica ultimi commit:
+  git log --oneline -3
+
+  Pull delle modifiche:
+  git pull origin auto_7_1
+
+  Se esce CONFLICT, fermarsi e contattare prima di procedere.
+
+
+4. REBUILD DOCKER (webapp + worker)
+-------------------------------------
+
+  cd /home/gianni/carico3d
+  docker compose up -d --build
+
+  Questo comando:
+  - ricostruisce l'immagine Docker con il codice nuovo
+  - riavvia tutti i container in background
+  - NON cancella i dati del database (PostgreSQL e' persistente)
+  - tempo stimato: 2-5 minuti
+
+
+5. VERIFICARE CHE TUTTO FUNZIONI
+---------------------------------
+
+  Stato container (devono essere tutti healthy):
+  docker compose ps
+
+  Output atteso:
+  carico3d-nginx-1      Up ... (healthy)
+  carico3d-postgres-1   Up ... (healthy)
+  carico3d-web-1        Up ... (healthy)
+  carico3d-worker-1     Up ... (healthy)
+
+  Test HTTP (deve rispondere 200):
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/
+
+  Test pagina specifica:
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/workspace/
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/
+
+
+6. POSTGRESQL (come funziona)
+-------------------------------
+
+  PostgreSQL e' un container Docker con volume dedicato (carico3d_pgdata).
+  I dati del database SONO PERSISTENTI:
+  - docker compose up -d --build   → dati preservati
+  - docker compose down            → dati preservati
+  - docker compose down -v         → ATTENZIONE: cancella tutto
+
+  Il migrate parte automaticamente al rebuild (docker-entrypoint.sh).
+  Per farlo manualmente:
+  docker compose exec web python manage.py migrate --noinput
+
+  Verifica connessione PostgreSQL:
+  docker compose exec web python manage.py dbshell
+  (se apre la shell psql, il DB funziona)
+
+  Backup del database:
+  docker compose exec -T postgres pg_dump -U carico carico_3d > backup_$(date +%Y%m%d).sql
+
+  Ripristino backup:
+  docker compose exec -T postgres psql -U carico carico_3d < backup_20260822.sql
+
+
+7. TUTTO INSIEME (copia e incolla)
+------------------------------------
+
+  ssh -p 2222 gianni@127.0.0.1
+
+  cd /home/gianni/carico3d
+  git branch --show-current
+  git pull origin auto_7_1
+  docker compose up -d --build
+  docker compose ps
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/
+
+
+8. COMANDI UTILI RAPIDI
+--------------------------
+
+  Stato container:
+  docker compose ps
+
+  Log web (ultime 50 righe):
+  docker compose logs web --tail=50
+
+  Log PostgreSQL (ultime 20 righe):
+  docker compose logs postgres --tail=20
+
+  Log worker:
+  docker compose logs worker --tail=50
+
+  Log nginx:
+  docker compose logs nginx --tail=50
+
+  Riavvia solo il web:
+  docker compose restart web
+
+  Riavvia tutti i container:
+  docker compose restart
+
+  Ferma tutto (dati preservati):
+  docker compose down
+
+  Ferma tutto E cancella dati (DISTRUTTIVO):
+  docker compose down -v
+
+  Crea un nuovo admin:
+  docker compose exec web python manage.py createsuperuser
+
+  Entra nella shell Django:
+  docker compose exec web python manage.py shell
+
+  Verifica stati task Q2:
+  docker compose exec web python manage.py qinfo
+
+
+9. TROUBLESHOOTING (errori comuni)
+-------------------------------------
+
+  Errore "Permission denied" su SSH:
+  ssh -p 2222 gianni@127.0.0.1
+  (inserire password: gianni)
+
+  Errore "not a git repository":
+  find /home -name "manage.py" -type f 2>/dev/null
+  cd /percorso/trovato
+
+  Container non parte dopo rebuild:
+  docker compose logs web --tail=100
+
+  PostgreSQL non risponde:
+  docker compose exec web python manage.py dbshell
+  Se da errore: docker compose ps postgres
+
+  Pagina non si aggiorna nel browser:
+  Ctrl + Shift + Delete → Cancella cache
+  Oppure Ctrl + F5 (hard refresh)
+  Oppure finestra di navigazione in incognito
+
+  .env mancante:
+  cp .env.example .env
+  nano .env
+
+  Worker Q2 non funziona (task ottimizzazione restano in coda):
+  docker compose logs worker --tail=50
+  docker compose restart worker
+
+
+10. ARCHITETTURA
+-----------------
+
+  Windows (PC locale) → GitHub (branch auto_7_1) → Ubuntu VM (produzione)
+
+  Flusso:
+  1. Da Windows: git push origin auto_7_1
+  2. Da SSH nella VM: git pull origin auto_7_1
+  3. Da SSH nella VM: docker compose up -d --build
+
+  Docker Compose Stack (4 container):
+  - postgres   → database PostgreSQL (volume: carico3d_pgdata)
+  - web        → Django + gunicorn (porta interna 8000)
+  - worker     → Django Q2 (task asincroni ottimizzazione)
+  - nginx      → reverse proxy (porta 80 esterna)
+
+  Volumes Docker (persistenti):
+  - carico3d_pgdata      → dati database
+  - carico3d_staticfiles → file CSS/JS collectstatic
+  - carico3d_appdata     → icone config + immagini upload
+
+  URL:
+  http://127.0.0.1/             → landing page
+  http://127.0.0.1/workspace/   → workspace (dopo login)
+  http://127.0.0.1/admin/       → admin Django
