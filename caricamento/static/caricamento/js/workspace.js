@@ -301,6 +301,15 @@ function inizializza() {
 
     setStatus('idle', 'Pronto');
     console.log('🏗️ Workspace Carico 3D v4 inizializzato (layout 3 colonne, header categorie)');
+
+    // --- Inizializza Lemon.js checkout overlay (dopo render dinamico) ---
+    if (typeof window.createLemonSqueezy === 'function') {
+        try { window.createLemonSqueezy(); } catch (_) { /* ignore */ }
+    }
+    // Inizializza l'event handler Checkout.Success
+    if (typeof _initLemonSqueezy === 'function') {
+        _initLemonSqueezy();
+    }
 }
 
 // --- Avvio ---

@@ -74,7 +74,8 @@ def checkout(request):
     Corpo atteso (JSON):
         {
             "variant_id": "12345",       // ID variante Lemon Squeezy
-            "quantity": 1                // numero utenti (seat)
+            "quantity": 1,               // numero utenti (seat)
+            "redirect_url": "https://..."  // (opzionale) URL post-pagamento
         }
 
     Risposta:
@@ -84,6 +85,7 @@ def checkout(request):
     """
     variant_id = request.data.get("variant_id")
     quantity = int(request.data.get("quantity", 1))
+    redirect_url = request.data.get("redirect_url", "")
 
     if not variant_id:
         raise ValidationError({"variant_id": "Campo obbligatorio."})
@@ -98,22 +100,30 @@ def checkout(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+    # Costruisci product_options solo se redirect_url è fornito
+    checkout_attributes = {
+        "checkout_data": {
+            "variant_quantities": [
+                {
+                    "variant_id": int(variant_id),
+                    "quantity": quantity,
+                }
+            ],
+            "custom": {
+                "user_id": str(request.user.id),
+            },
+        },
+    }
+
+    if redirect_url:
+        checkout_attributes["product_options"] = {
+            "redirect_url": redirect_url,
+        }
+
     body = {
         "data": {
             "type": "checkouts",
-            "attributes": {
-                "checkout_data": {
-                    "variant_quantities": [
-                        {
-                            "variant_id": int(variant_id),
-                            "quantity": quantity,
-                        }
-                    ],
-                    "custom": {
-                        "user_id": str(request.user.id),
-                    },
-                },
-            },
+            "attributes": checkout_attributes,
             "relationships": {
                 "store": {
                     "data": {

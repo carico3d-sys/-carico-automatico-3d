@@ -27,6 +27,39 @@ if (typeof WORKSPACE_CONFIG !== 'undefined' && WORKSPACE_CONFIG.lsVariantIds) {
 
 var _abbonamentoStatus = null;  // cache dello stato pagamenti
 var _abbonamentoRichiesta = 0;  // sequencer per evitare risposte race-condition
+var _checkoutInCorso = false;   // evita doppi click sul checkout
+
+
+// =============================================================================
+// LEMON.JS: Setup event handler (Checkout.Success)
+// =============================================================================
+
+function _initLemonSqueezy() {
+    if (typeof LemonSqueezy === 'undefined') return;
+    try {
+        LemonSqueezy.Setup({
+            eventHandler: function (data) {
+                if (!data || !data.event) return;
+                if (data.event === 'Checkout.Success') {
+                    _checkoutInCorso = false;
+                    if (typeof setStatus === 'function') setStatus('idle', '');
+                    if (typeof showToast === 'function') {
+                        showToast('Pagamento completato! Aggiornamento stato...', 'success');
+                    }
+                    // L'overlay si chiude: ricarica lo stato abbonamento
+                    renderAbbonamentoPanel();
+                }
+            }
+        });
+    } catch (e) {
+        // Lemon.js non disponibile o Setup non supportato: nessun handler
+    }
+}
+
+// Inizializza Lemon.js appena possibile (se lo script è già caricato)
+if (typeof LemonSqueezy !== 'undefined') {
+    _initLemonSqueezy();
+}
 
 
 // =============================================================================
@@ -248,8 +281,19 @@ function _avviaCheckout(tipo, quantity) {
         return;
     }
 
+    if (_checkoutInCorso) return;
+    _checkoutInCorso = true;
+
+    // Assicurati che Lemon.js sia inizializzato (script potrebbe caricarsi dopo)
+    if (typeof LemonSqueezy !== 'undefined') {
+        _initLemonSqueezy();
+    }
+
     if (typeof showToast === 'function') showToast('Preparazione checkout...', 'info');
     if (typeof setStatus === 'function') setStatus('busy', 'Checkout...');
+
+    // Redirect post-pagamento (fallback se l'overlay non è disponibile)
+    var redirectUrl = window.location.origin + '/workspace/?view=abbonamento';
 
     fetch('/api/payments/checkout/', {
         method: 'POST',
@@ -257,12 +301,13 @@ function _avviaCheckout(tipo, quantity) {
             'Content-Type': 'application/json',
             'X-CSRFToken': typeof getCSRFToken === 'function' ? getCSRFToken() : '',
         },
-        body: JSON.stringify({ variant_id: piano.variantId, quantity: quantity }),
+        body: JSON.stringify({ variant_id: piano.variantId, quantity: quantity, redirect_url: redirectUrl }),
     })
     .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || 'HTTP ' + r.status); }); })
     .then(function (data) {
-        if (typeof setStatus === 'function') setStatus('idle', '');
         if (!data.url) {
+            _checkoutInCorso = false;
+            if (typeof setStatus === 'function') setStatus('idle', '');
             showToast('Errore: nessun URL checkout ricevuto.', 'error');
             return;
         }
@@ -274,6 +319,7 @@ function _avviaCheckout(tipo, quantity) {
         }
     })
     .catch(function (err) {
+        _checkoutInCorso = false;
         if (typeof setStatus === 'function') setStatus('idle', '');
         showToast('❌ ' + err.message, 'error');
     });
