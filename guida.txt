@@ -22,8 +22,109 @@
   find /home -name "manage.py" -type f 2>/dev/null
 
 
-3. AGGIORNARE IL CODICE
-------------------------
+3. AVVIO COMPLETO DA SESSIONE NUOVA (dopo reboot VM o crash)
+--------------------------------------------------------------
+
+  Quando la VM riparte, Docker parte in automatico grazie a systemd.
+  Ma se Docker non parte, ecco la sequenza completa:
+
+  Step 1 - SSH nella VM:
+  ssh -p 2222 gianni@127.0.0.1
+
+  Step 2 - Verifica Docker:
+  sudo systemctl status docker
+  Se non e' attivo:
+  sudo systemctl start docker
+
+  Step 3 - Avvia i container:
+  cd /home/gianni/carico3d
+  docker compose up -d
+
+  Step 4 - Verifica i container:
+  docker compose ps
+  Devono essere tutti "Up ... (healthy)"
+
+  Step 5 - Verifica il tunnel Cloudflare:
+  sudo systemctl status quicktunnel.service
+  Se non e' attivo:
+  sudo systemctl start quicktunnel.service
+
+  Step 6 - Verifica HTTP:
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/
+  Deve rispondere: HTTP 200
+
+  Step 7 - Verifica tunnel:
+  sudo journalctl -u quicktunnel.service --no-pager -n 5
+  Cerca l'URL tipo: https://xxxx.trycloudflare.com
+
+
+4. SISTEMA DI AUTO-AVVIO (systemd)
+-------------------------------------
+
+  Al boot della VM, systemd avvia automaticamente 3 servizi:
+
+  Servizio 1 - Docker:
+  File: /usr/lib/systemd/system/docker.service (di default Ubuntu)
+  Cosa fa: avvia il demone Docker
+  Comando: sudo systemctl start docker
+  Verifica: sudo systemctl status docker
+
+  Servizio 2 - Cloudflared (tunnel persistente):
+  File: /etc/systemd/system/cloudflared.service
+  Cosa fa: tunnel Cloudflare con token fisso (URL stabile)
+  Comando: sudo systemctl start cloudflared.service
+  Verifica: sudo systemctl status cloudflared.service
+
+  Servizio 3 - QuickTunnel (tunnel temporaneo):
+  File: /etc/systemd/system/quicktunnel.service
+  Cosa fa: tunnel trycloudflare (URL diverso ad ogni riavvio)
+  Comando: sudo systemctl start quicktunnel.service
+  Verifica: sudo systemctl status quicktunnel.service
+
+  I container Docker (postgres, web, worker, nginx) partono grazie
+  al policy "restart: unless-stopped" in docker-compose.yml.
+  Quando Docker si avvia, riavvia automaticamente i container attivi.
+
+
+5. FLUSSO DI AVVIO AL BOOT
+-----------------------------
+
+  VM si accende
+    ├── systemd avvia docker.service
+    │     └── Docker avvia i 4 container (postgres, web, worker, nginx)
+    │           └── docker-entrypoint.sh esegue: migrate + collectstatic
+    │
+    ├── systemd avvia quicktunnel.service
+    │     └── cloudflared → tunnel verso trycloudflare.com
+    │
+    └── systemd avvia cloudflared.service
+          └── cloudflared → tunnel con token (se configurato)
+
+  URL accessibili dopo il boot:
+  - http://127.0.0.1/             → landing page
+  - https://xxxx.trycloudflare.com/ → landing via tunnel
+  - http://127.0.0.1/workspace/   → workspace (dopo login)
+  - http://127.0.0.1/admin/       → admin Django
+
+
+6. COMANDI RAPIDI PER RIARVIARE TUTTO
+---------------------------------------
+
+  Se Docker non parte:
+  sudo systemctl start docker
+  cd /home/gianni/carico3d && docker compose up -d
+
+  Se il tunnel non parte:
+  sudo systemctl start quicktunnel.service
+
+  Se TUTTO deve essere riavviato:
+  sudo systemctl restart docker
+  cd /home/gianni/carico3d && docker compose up -d
+  sudo systemctl restart quicktunnel.service
+
+
+7. AGGIORNARE IL CODICE (git pull)
+------------------------------------
 
   cd /home/gianni/carico3d
 
@@ -40,7 +141,7 @@
   Se esce CONFLICT, fermarsi e contattare prima di procedere.
 
 
-4. REBUILD DOCKER (webapp + worker)
+8. REBUILD DOCKER (webapp + worker)
 -------------------------------------
 
   cd /home/gianni/carico3d
@@ -52,8 +153,11 @@
   - NON cancella i dati del database (PostgreSQL e' persistente)
   - tempo stimato: 2-5 minuti
 
+  NOTA: il rebuild NON richiede riavvio della VM.
+  La VM resta accesa, vengono ricostruiti solo i container.
 
-5. VERIFICARE CHE TUTTO FUNZIONI
+
+9. VERIFICARE CHE TUTTO FUNZIONI
 ---------------------------------
 
   Stato container (devono essere tutti healthy):
@@ -73,7 +177,7 @@
   curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/
 
 
-6. POSTGRESQL (come funziona)
+10. POSTGRESQL (come funziona)
 -------------------------------
 
   PostgreSQL e' un container Docker con volume dedicato (carico3d_pgdata).
@@ -97,20 +201,18 @@
   docker compose exec -T postgres psql -U carico carico_3d < backup_20260822.sql
 
 
-7. TUTTO INSIEME (copia e incolla)
-------------------------------------
+11. TUTTO INSIEME — AGGIORNAMENTO COMPLETO
+---------------------------------------------
 
   ssh -p 2222 gianni@127.0.0.1
-
   cd /home/gianni/carico3d
-  git branch --show-current
   git pull origin auto_7_1
   docker compose up -d --build
   docker compose ps
   curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/
 
 
-8. COMANDI UTILI RAPIDI
+12. COMANDI UTILI RAPIDI
 --------------------------
 
   Stato container:
@@ -127,6 +229,9 @@
 
   Log nginx:
   docker compose logs nginx --tail=50
+
+  Log tunnel:
+  sudo journalctl -u quicktunnel.service --no-pager -n 20
 
   Riavvia solo il web:
   docker compose restart web
@@ -150,7 +255,7 @@
   docker compose exec web python manage.py qinfo
 
 
-9. TROUBLESHOOTING (errori comuni)
+13. TROUBLESHOOTING (errori comuni)
 -------------------------------------
 
   Errore "Permission denied" su SSH:
@@ -168,6 +273,15 @@
   docker compose exec web python manage.py dbshell
   Se da errore: docker compose ps postgres
 
+  Tunnel non funziona:
+  sudo systemctl status quicktunnel.service
+  sudo journalctl -u quicktunnel.service --no-pager -n 20
+  Riavvia: sudo systemctl restart quicktunnel.service
+
+  Docker non parte:
+  sudo systemctl status docker
+  sudo systemctl start docker
+
   Pagina non si aggiorna nel browser:
   Ctrl + Shift + Delete → Cancella cache
   Oppure Ctrl + F5 (hard refresh)
@@ -181,8 +295,13 @@
   docker compose logs worker --tail=50
   docker compose restart worker
 
+  Kernel panic / crash VM:
+  Riavvia la VM da VirtualBox (chiusura forzata)
+  Dopo il riavvio, Docker parte in automatico
+  Verifica: docker compose ps
 
-10. ARCHITETTURA
+
+14. ARCHITETTURA
 -----------------
 
   Windows (PC locale) → GitHub (branch auto_7_1) → Ubuntu VM (produzione)
@@ -198,12 +317,18 @@
   - worker     → Django Q2 (task asincroni ottimizzazione)
   - nginx      → reverse proxy (porta 80 esterna)
 
+  Systemd Services (auto-start al boot):
+  - docker.service        → demone Docker
+  - quicktunnel.service   → tunnel trycloudflare (URL diverso ogni riavvio)
+  - cloudflared.service   → tunnel con token (URL fisso)
+
   Volumes Docker (persistenti):
   - carico3d_pgdata      → dati database
   - carico3d_staticfiles → file CSS/JS collectstatic
   - carico3d_appdata     → icone config + immagini upload
 
   URL:
-  http://127.0.0.1/             → landing page
-  http://127.0.0.1/workspace/   → workspace (dopo login)
-  http://127.0.0.1/admin/       → admin Django
+  http://127.0.0.1/                  → landing page (locale)
+  https://xxxx.trycloudflare.com/    → landing page (tunnel)
+  http://127.0.0.1/workspace/        → workspace (dopo login)
+  http://127.0.0.1/admin/            → admin Django
