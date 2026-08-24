@@ -98,11 +98,6 @@ def checkout(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # URL di ritorno dopo pagamento (o annullamento)
-    base = request.build_absolute_uri("/").rstrip("/")
-    success_url = f"{base}/workspace/?view=abbonamento&payment=success"
-    cancel_url = f"{base}/workspace/?view=abbonamento&payment=cancelled"
-
     body = {
         "data": {
             "type": "checkouts",
@@ -118,8 +113,6 @@ def checkout(request):
                         "user_id": str(request.user.id),
                     },
                 },
-                "success_url": success_url,
-                "cancel_url": cancel_url,
             },
             "relationships": {
                 "store": {
