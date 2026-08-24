@@ -102,6 +102,9 @@ def checkout(request):
         "data": {
             "type": "checkouts",
             "attributes": {
+                "product_options": {
+                    "redirect_url": "https://accounts-everyone-excessive-ideal.trycloudflare.com/workspace/?view=abbonamento&payment=success",
+                },
                 "checkout_data": {
                     "variant_quantities": [
                         {
