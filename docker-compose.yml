@@ -53,6 +53,12 @@ services:
       # Proxy fidati per X-Real-IP (opzionale: vuoto = fidati solo peer privati)
       TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # --- Email (Resend) ---
+      # Il backend viene selezionato automaticamente in settings.py:
+      # se RESEND_API_KEY è impostata → ResendEmailBackend, altrimenti console.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
       ICON_CONFIG_PATH: /data/icon_config.json
       ICON_UPLOAD_DIR: /data/img_uploads
       LEMONSQUEEZY_API_KEY: ${LEMONSQUEEZY_API_KEY:-}

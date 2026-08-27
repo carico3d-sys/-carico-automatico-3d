@@ -1,0 +1,23 @@
+[Unit]
+Description=Carico 3D — Tunnel Cloudflare persistente (URL stabile)
+After=network-online.target
+Wants=network-online.target
+# Dopo la pulizia processi orfani, cosi' eventuali cloudflared zombie
+# vengono terminati PRIMA che questo servizio parta.
+After=carico3d-cleanup.service
+
+[Service]
+Type=simple
+# Il token NON va hardcodato nel file unit: si mette in /etc/default/cloudflared
+#   sudo echo 'TUNNEL_TOKEN=eyJ...' | sudo tee /etc/default/cloudflared
+#   sudo chmod 600 /etc/default/cloudflared
+# (systemd espande ${TUNNEL_TOKEN} in ExecStart dalla EnvironmentFile)
+EnvironmentFile=/etc/default/cloudflared
+ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+Restart=always
+RestartSec=5
+# Evita che un cloudflared orfano con configurazione vecchia sopravviva
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

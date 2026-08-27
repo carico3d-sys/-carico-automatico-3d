@@ -81,6 +81,23 @@
   Comando: sudo systemctl start quicktunnel.service
   Verifica: sudo systemctl status quicktunnel.service
 
+  NOTA: i file unit di cloudflared.service e quicktunnel.service sono
+  versionati in ops/ (insieme a carico3d-cleanup.service) e si installano
+  sulla VM con:
+    sudo bash ops/installa_tunnel.sh
+  Il token del tunnel persistente va messo in /etc/default/cloudflared
+  (riga TUNNEL_TOKEN=...), NON nel file unit. Il quicktunnel non richiede
+  token: l'URL trycloudflare si trova nei log.
+
+  Servizio 4 - Carico 3D Cleanup (pulizia processi orfani):
+  File: /etc/systemd/system/carico3d-cleanup.service
+  Cosa fa: uccide processi orfani (cloudflared, Python, gunicorn,
+           qcluster) e libera le porte PRIMA che Docker parta.
+  Esecuzione: si esegue UNA VOLTA al boot, poi termina.
+  Verifica: sudo systemctl status carico3d-cleanup
+  Log: sudo journalctl -u carico3d-cleanup --no-pager
+  Installazione: sudo bash ops/installa_cleanup.sh
+
   I container Docker (postgres, web, worker, nginx) partono grazie
   al policy "restart: unless-stopped" in docker-compose.yml.
   Quando Docker si avvia, riavvia automaticamente i container attivi.
@@ -90,14 +107,19 @@
 -----------------------------
 
   VM si accende
-    ├── systemd avvia docker.service
+    ├── 1. carico3d-cleanup.service (PRIMA)
+    │     └── Pulisce: cloudflared orfani, Python, gunicorn, qcluster
+    │         Libera: porte 8000/5432
+    │         (si esegue una volta e termina)
+    │
+    ├── 2. docker.service (DOPO la pulizia)
     │     └── Docker avvia i 4 container (postgres, web, worker, nginx)
     │           └── docker-entrypoint.sh esegue: migrate + collectstatic
     │
-    ├── systemd avvia quicktunnel.service
+    ├── 3. quicktunnel.service
     │     └── cloudflared → tunnel verso trycloudflare.com
     │
-    └── systemd avvia cloudflared.service
+    └── 4. cloudflared.service
           └── cloudflared → tunnel con token (se configurato)
 
   URL accessibili dopo il boot:
@@ -117,10 +139,52 @@
   Se il tunnel non parte:
   sudo systemctl start quicktunnel.service
 
-  Se TUTTO deve essere riavviato:
+  Se TUTTO deve essere riavviato (con pulizia processi orfani):
+  sudo bash /home/gianni/carico3d/ops/vm_cleanup.sh start
+
+  Se TUTTO deve essere riavviato (senza pulizia):
   sudo systemctl restart docker
   cd /home/gianni/carico3d && docker compose up -d
   sudo systemctl restart quicktunnel.service
+
+
+6b. PULIZIA PROCESSI ORFANI (carico3d-cleanup.service)
+-------------------------------------------------------
+
+  Problema: quando la VM si riavvia o crasha, possono restare:
+  - Container Docker orfani (web, postgres, worker)
+  - Processi cloudflared (tunnel) che bloccano le porte
+  - Worker Django Q2 con codice vecchio che processa dalla coda
+  - Processi Python/gunicorn fantasma sulla porta 8000
+
+  Soluzione: il servizio systemd carico3d-cleanup.service pulisce
+  tutto PRIMA che Docker parta, evitando conflitti.
+
+  Installazione (una tantum, dalla cartella del progetto):
+  sudo bash ops/installa_cleanup.sh
+
+  Comandi manuali:
+  sudo bash ops/vm_cleanup.sh cleanup   # Pulisci processi orfani
+  sudo bash ops/vm_cleanup.sh status    # Mostra processi sospetti
+  sudo bash ops/vm_cleanup.sh start     # Pulisci + avvia stack Docker
+  sudo bash ops/vm_cleanup.sh stop      # Ferma tutto
+
+  Verifica servizio:
+  sudo systemctl status carico3d-cleanup
+  sudo journalctl -u carico3d-cleanup --no-pager
+
+  Disabilitare (se non serve):
+  sudo systemctl disable carico3d-cleanup
+
+  Cosa pulisce (4 passi, vedi ops/vm_cleanup.sh):
+  1) Container Docker orfani (web, postgres, worker, nginx)
+  2) Processi cloudflared (tunnel) fuori da Docker
+  3) Processi Python orfani: manage.py (runserver, qcluster), gunicorn
+  4) Porte 8000/5432 bloccate da processi fantasma
+
+  Ogni passo è idempotente: eseguirlo due volte non crea danni.
+  Il servizio systemd si esegue UNA VOLTA al boot e termina.
+  Non resta in ascolto: pulisce e passa il testimone a Docker.
 
 
 7. AGGIORNARE IL CODICE (git pull)
@@ -318,9 +382,10 @@
   - nginx      → reverse proxy (porta 80 esterna)
 
   Systemd Services (auto-start al boot):
-  - docker.service        → demone Docker
-  - quicktunnel.service   → tunnel trycloudflare (URL diverso ogni riavvio)
-  - cloudflared.service   → tunnel con token (URL fisso)
+  - carico3d-cleanup.service → pulizia processi orfani PRIMA di Docker
+  - docker.service           → demone Docker
+  - quicktunnel.service      → tunnel trycloudflare (URL diverso ogni riavvio)
+  - cloudflared.service      → tunnel con token (URL fisso)
 
   Volumes Docker (persistenti):
   - carico3d_pgdata      → dati database

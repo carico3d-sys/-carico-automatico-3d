@@ -1,0 +1,19 @@
+[Unit]
+Description=Carico 3D — Tunnel Cloudflare temporaneo trycloudflare (URL diverso a ogni riavvio)
+After=network-online.target
+Wants=network-online.target
+# Dopo la pulizia processi orfani, come cloudflared.service.
+After=carico3d-cleanup.service
+
+[Service]
+Type=simple
+# Pubblica il servizio web (nginx su porta 80) su un URL trycloudflare.com.
+# L'URL cambia a ogni riavvio: si legge nei log con:
+#   sudo journalctl -u quicktunnel.service --no-pager -n 20
+ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:80
+Restart=always
+RestartSec=5
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
