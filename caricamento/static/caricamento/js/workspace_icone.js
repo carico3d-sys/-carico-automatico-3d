@@ -115,8 +115,6 @@ var ICON_CATALOG = [
     // --- Manuale Help (dentro sidebar tab Manuale) ---
     { id: 'manuale-help-mouse', type: 'bootstrap', iconClass: 'bi bi-mouse',             file: '', dims: [16, 16], desc: 'Manuale: pulsante Aiuto Mouse (modale)',    location: 'Sidebar', selector: '#manuale-btn-help-mouse > .bi' },
     { id: 'manuale-help-tastiera', type: 'bootstrap', iconClass: 'bi bi-keyboard',       file: '', dims: [16, 16], desc: 'Manuale: pulsante Aiuto Tastiera (modale)', location: 'Sidebar', selector: '#manuale-btn-help-tastiera > .bi' },
-    { id: 'manuale-impostazioni', type: 'bootstrap', iconClass: 'bi bi-gear',             file: '', dims: [16, 16], desc: 'Manuale: pulsante Impostazioni',             location: 'Sidebar', selector: '#manuale-btn-impostazioni > .bi' },
-
     // --- D-Pad ---
     { id: 'dpad-up',            type: 'bootstrap', iconClass: 'bi bi-chevron-up',        file: '', dims: [14, 14], desc: 'D-Pad: freccia su',                        location: 'Sidebar', selector: '#manuale-dpad-up > i' },
     { id: 'dpad-down',          type: 'bootstrap', iconClass: 'bi bi-chevron-down',      file: '', dims: [14, 14], desc: 'D-Pad: freccia giu',                       location: 'Sidebar', selector: '#manuale-dpad-down > i' },
@@ -147,9 +145,11 @@ var ICON_CATALOG = [
 
 var BUTTON_CATALOG = [
     // --- Tab Auto (bottoni alti 52px) ---
-    { id: 'auto-ottimizza', selector: '#btn-ottimizza',       iconSelRelative: 'i',          iconClass: 'bi bi-lightning-charge', extraClass: '',            label_default: 'OTTIMIZZA E SALVA',  location: 'Tab Auto',    dims_px: [30, 30], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    // Il flusso è unico: ELABORA (principale, genera l'anteprima) + SALVA
+    // (conferma sul piano reale). Il vecchio "OTTIMIZZA E SALVA" è stato
+    // rimosso per semplificare la UI.
+    { id: 'auto-elabora',   selector: '#btn-elabora-auto',    iconSelRelative: 'i',          iconClass: 'bi bi-play-fill',         extraClass: '',            label_default: 'ELABORA',            location: 'Tab Auto',    dims_px: [30, 30], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     { id: 'auto-salva',     selector: '#btn-salva-auto',      iconSelRelative: 'i',          iconClass: 'bi bi-save',              extraClass: '',            label_default: 'SALVA',              location: 'Tab Auto',    dims_px: [24, 24], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
-    { id: 'auto-elabora',   selector: '#btn-elabora-auto',    iconSelRelative: 'i',          iconClass: 'bi bi-play-fill',         extraClass: '',            label_default: 'ELABORA',            location: 'Tab Auto',    dims_px: [24, 24], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#6f42c1' },
     { id: 'auto-pesi',      selector: '#auto-btn-pesi',       iconSelRelative: 'i',          iconClass: 'bi bi-bar-chart-fill',    extraClass: '',            label_default: 'Distribuzione Pesi', location: 'Tab Auto',    dims_px: [26, 26], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#17a2b8' },
 
     // --- Tab Manuale (bottoni alti 33px) ---
@@ -159,6 +159,7 @@ var BUTTON_CATALOG = [
     { id: 'man-salva',      selector: '#manuale-btn-salva',     iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Salva',               location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
     { id: 'man-ghost',      selector: '#manuale-btn-ghost-toggle', iconSelRelative: '.manuale-emoji', iconClass: '',               extraClass: 'manuale-emoji', label_default: 'Ghost: OFF',          location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-arrow-counterclockwise', extraClass: '',            label_default: 'Annulla ultima modifica', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-marquee',    selector: '#manuale-btn-marquee-toggle', iconSelRelative: 'i',   iconClass: 'bi bi-check2-square',          extraClass: '',            label_default: 'Selezione multipla',     location: 'Tab Manuale', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#1f6feb' },
 
     // --- Tab Impostazioni (renderizzati dinamicamente) ---
     { id: 'settings-salva',  selector: '#btn-save-impostazioni',  iconSelRelative: 'i', iconClass: 'bi bi-save',                  extraClass: '', label_default: 'Salva impostazioni',  location: 'Tab Impostazioni', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
@@ -679,10 +680,11 @@ function apriModaleIcone() {
             '<button type="button" class="icone-tab" data-icone-tab="finestre"><i class="bi bi-window"></i> Bottoni Finestre</button>' +
             '<button type="button" class="icone-tab" data-icone-tab="colori"><i class="bi bi-palette2"></i> Colori</button>' +
             '<button type="button" class="icone-tab" data-icone-tab="header"><i class="bi bi-arrows-expand-vertical"></i> Header</button>' +
+            '<button type="button" class="icone-tab" data-icone-tab="privacy"><i class="bi bi-shield-lock"></i> Privacy</button>' +
         '</div>' +
         '<div class="icone-toolbar">' +
             '<div class="icone-toolbar-info">' +
-                '<span class="icone-toolbar-count" id="icone-toolbar-count">' + ICON_CATALOG.length + ' icone · ' + _countCatalogButtons('tab') + ' bottoni · ' + _countCatalogButtons('finestre') + ' finestre · ' + COLOR_CATALOG.length + ' colori · ' + HEADER_CATALOG.length + ' header</span>' +
+                '<span class="icone-toolbar-count" id="icone-toolbar-count">' + ICON_CATALOG.length + ' icone · ' + _countCatalogButtons('tab') + ' bottoni · ' + _countCatalogButtons('finestre') + ' finestre · ' + COLOR_CATALOG.length + ' colori · ' + HEADER_CATALOG.length + ' header · Privacy</span>' +
             '</div>' +
             '<div class="icone-toolbar-actions">' +
                 '<button class="btn btn-sm" id="icone-btn-refresh" title="Ripristina i valori predefiniti della tabella (poi clicca Salva)"><i class="bi bi-arrow-repeat"></i> Ricarica default</button>' +
@@ -785,6 +787,40 @@ function apriModaleIcone() {
                     '<tbody id="icone-table-body-header"></tbody>' +
                 '</table>' +
             '</div>' +
+        '</div>' +
+        '<div class="icone-tab-panel" data-icone-panel="privacy">' +
+            '<div class="privacy-form">' +
+                '<p class="privacy-intro">Dati mostrati nelle pagine pubbliche ' +
+                '<a href="/privacy/" target="_blank" rel="noopener">Privacy</a>, ' +
+                '<a href="/cookie-policy/" target="_blank" rel="noopener">Cookie Policy</a>, ' +
+                '<a href="/termini/" target="_blank" rel="noopener">Termini</a> e ' +
+                '<a href="/rimborsi/" target="_blank" rel="noopener">Rimborsi</a>. ' +
+                'In produzione imposta l\'URL reale del sito (es. https://carico3d.com).</p>' +
+                '<div class="privacy-field">' +
+                    '<label for="privacy-titolare">Titolare del trattamento <span class="privacy-req">*</span></label>' +
+                    '<input type="text" class="form-input" id="privacy-titolare" placeholder="Es. Carico 3D">' +
+                '</div>' +
+                '<div class="privacy-field">' +
+                    '<label for="privacy-email">Email di contatto (diritti GDPR / rimborsi) <span class="privacy-req">*</span></label>' +
+                    '<input type="email" class="form-input" id="privacy-email" placeholder="info@carico3d.com">' +
+                '</div>' +
+                '<div class="privacy-field">' +
+                    '<label for="privacy-sede">Sede / indirizzo</label>' +
+                    '<input type="text" class="form-input" id="privacy-sede" placeholder="Facoltativo">' +
+                '</div>' +
+                '<div class="privacy-field">' +
+                    '<label for="privacy-piva">Partita IVA / Codice fiscale</label>' +
+                    '<input type="text" class="form-input" id="privacy-piva" placeholder="Facoltativo">' +
+                '</div>' +
+                '<div class="privacy-field">' +
+                    '<label for="privacy-sito">URL base del sito</label>' +
+                    '<input type="text" class="form-input" id="privacy-sito" placeholder="http://127.0.0.1:8000">' +
+                '</div>' +
+                '<div class="privacy-actions">' +
+                    '<button type="button" class="btn btn-primary btn-sm" id="privacy-btn-salva"><i class="bi bi-save"></i> Salva dati Privacy</button>' +
+                    '<span class="privacy-status" id="privacy-status"></span>' +
+                '</div>' +
+            '</div>' +
         '</div>';
 
     DOM.modalTitle.textContent = 'Gestione Icone';
@@ -836,6 +872,90 @@ function apriModaleIcone() {
     document.getElementById('icone-btn-refresh').addEventListener('click', _resetIconConfig);
     document.getElementById('icone-btn-aggiorna').addEventListener('click', _aggiornaIconeLive);
     document.getElementById('icone-btn-salva').addEventListener('click', _salvaIconConfig);
+
+    // Tab Privacy: carica i dati correnti e salva
+    _caricaPrivacySettings();
+    var btnPrivacySalva = document.getElementById('privacy-btn-salva');
+    if (btnPrivacySalva) {
+        btnPrivacySalva.addEventListener('click', _salvaPrivacySettings);
+    }
+}
+
+/**
+ * Carica i dati Privacy/Titolare dal server e popola il tab Privacy.
+ */
+async function _caricaPrivacySettings() {
+    var status = document.getElementById('privacy-status');
+    try {
+        var resp = await fetch('/api/privacy-settings/');
+        if (!resp.ok) return;
+        var data = await resp.json();
+        var p = (data && data.privacy) || {};
+        var set = function (id, val) {
+            var el = document.getElementById(id);
+            if (el) el.value = (val === null || val === undefined) ? '' : val;
+        };
+        set('privacy-titolare', p.titolare);
+        set('privacy-email', p.email);
+        set('privacy-sede', p.sede);
+        set('privacy-piva', p.piva);
+        set('privacy-sito', p.sito_url);
+    } catch (e) {
+        console.warn('Privacy settings: could not load', e.message);
+    }
+    if (status) status.textContent = '';
+}
+
+/**
+ * Salva i dati Privacy/Titolare sul server (solo admin).
+ */
+async function _salvaPrivacySettings() {
+    var status = document.getElementById('privacy-status');
+    var titolare = (document.getElementById('privacy-titolare') || {}).value || '';
+    var email = (document.getElementById('privacy-email') || {}).value || '';
+    var sede = (document.getElementById('privacy-sede') || {}).value || '';
+    var piva = (document.getElementById('privacy-piva') || {}).value || '';
+    var sito = (document.getElementById('privacy-sito') || {}).value || '';
+
+    if (!titolare.trim()) {
+        if (status) status.textContent = '⚠ Il titolare è obbligatorio.';
+        return;
+    }
+    if (!email.trim()) {
+        if (status) status.textContent = '⚠ L\'email è obbligatoria.';
+        return;
+    }
+    if (sito.trim() && !/^https?:\/\//i.test(sito.trim())) {
+        if (status) status.textContent = '⚠ L\'URL deve iniziare con http:// o https://.';
+        return;
+    }
+    if (status) status.textContent = '';
+
+    try {
+        var resp = await fetch('/api/privacy-settings/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify({ privacy: {
+                titolare: titolare.trim(),
+                email: email.trim(),
+                sede: sede.trim(),
+                piva: piva.trim(),
+                sito_url: sito.trim()
+            }})
+        });
+        var data = await resp.json();
+        if (!resp.ok) {
+            var msg = (data && data.error) || ('HTTP ' + resp.status);
+            if (status) status.textContent = '⚠ ' + msg;
+            else showToast('Errore salvataggio: ' + msg, 'error');
+            return;
+        }
+        if (status) status.textContent = '✅ ' + ((data && data.message) || 'Dati Privacy salvati.');
+        showToast('Dati Privacy salvati!', 'success');
+    } catch (e) {
+        if (status) status.textContent = '⚠ Errore: ' + e.message;
+        showToast('Errore salvataggio: ' + e.message, 'error');
+    }
 }
 
 function _inizializzaDragModaleIcone(container) {

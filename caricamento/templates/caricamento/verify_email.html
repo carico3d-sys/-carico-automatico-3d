@@ -1,0 +1,22 @@
+{% autoescape off %}
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;">
+<div style="max-width:480px;margin:0 auto;background:#fff;border-radius:8px;padding:30px;">
+  <h2 style="color:#069;margin-top:0;">📦 Carico 3D</h2>
+  <p>Ciao <strong>{{ user.username }}</strong>,</p>
+  <p>Grazie per esserti registrato! Per completare la registrazione verifica il tuo indirizzo email.</p>
+  <p style="text-align:center;margin:25px 0;">
+    <a href="{{ verify_url }}"
+       style="background:#069;color:#fff;padding:12px 24px;text-decoration:none;border-radius:5px;font-weight:bold;">
+       ✅ Verifica email
+    </a>
+  </p>
+  <p style="font-size:13px;color:#666;">Questo link scade tra 24 ore. Se non hai creato tu questo account, ignora questa email.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:20px 0;">
+  <p style="font-size:12px;color:#999;">Carico 3D — Ottimizzazione del carico tridimensionale</p>
+</div>
+</body>
+</html>
+{% endautoescape %}

@@ -270,6 +270,31 @@ def _setup_trial_for_user(user):
     return profile
 
 
+def _send_verification_email(request, user, profile):
+    """Invia email di verifica con link token-based (monouso, 24h)."""
+    import secrets
+    from django.core.mail import send_mail
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+
+    token = secrets.token_urlsafe(32)
+    profile.email_verification_token = token
+    profile.email_verification_sent_at = timezone.now()
+    profile.save(update_fields=["email_verification_token", "email_verification_sent_at"])
+
+    verify_url = request.build_absolute_uri(f"/verify-email/{token}/")
+
+    subject = "Verifica la tua email — Carico 3D"
+    html_message = render_to_string("caricamento/verify_email.html", {
+        "user": user,
+        "verify_url": verify_url,
+    })
+    plain_message = strip_tags(html_message)
+
+    send_mail(subject, plain_message, None, [user.email], html_message=html_message)
+    logger.info("Email di verifica inviata: user=%s email=%s", user.username, user.email)
+
+
 def _save_demo_fingerprints(request, user):
     """Salva i segnali solo quando l'anti-abuso è attivo."""
     from .models import DemoFingerprint, ImpostazioniSistema, UserProfile
@@ -329,6 +354,13 @@ def homepage(request):
 
     if request.user.is_authenticated:
         profile = _setup_trial_for_user(request.user)
+        # Se email non verificata e l'utente ha un'email, blocca l'accesso
+        # (ma non logout: l'utente può ancora vedere la pagina pagamenti)
+        email_not_verified = (
+            request.user.email
+            and not profile.email_verified
+            and not request.user.is_staff
+        )
         if not profile.is_trial_active and not request.user.is_staff:
             from django.contrib.auth import logout
             logout(request)
@@ -336,6 +368,23 @@ def homepage(request):
                 "login_error": False,
                 "trial_expired": True,
                 "trial_used": False,
+                "email_verification_sent": False,
+                "demo_user": "",
+                "demo_pass": "",
+                "oggetti_demo": [],
+                "google_oauth_attivo": imp.google_oauth_attivo,
+                "demo_attiva": imp.demo_attiva,
+                "switch_account": False,
+            })
+            return _attach_demo_cookie(request, response)
+        # Blocca accesso al workspace se email non verificata.
+        # L'utente rimane autenticato per vedere la pagina pagamenti.
+        if email_not_verified:
+            response = render(request, "caricamento/landing.html", {
+                "login_error": False,
+                "trial_expired": False,
+                "trial_used": False,
+                "email_verification_sent": True,
                 "demo_user": "",
                 "demo_pass": "",
                 "oggetti_demo": [],
@@ -348,6 +397,7 @@ def homepage(request):
 
     login_error = False
     password_confirmation_error = False
+    email_verification_sent = False
     trial_expired = request.GET.get("trial") == "expired"
     trial_used = request.GET.get("trial") == "used"
     account_disabled = request.GET.get("account") == "disabled"
@@ -358,6 +408,7 @@ def homepage(request):
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "").strip()
         password_confirm = request.POST.get("password_confirm", "")
+        email = request.POST.get("email", "").strip()
 
         if not username or not password:
             login_error = True
@@ -368,11 +419,18 @@ def homepage(request):
                 # Account esistente: nessun blocco fingerprint. Il trial già
                 # scaduto resta scaduto, mentre un account pagante passa sempre.
                 profile = _setup_trial_for_user(user)
+                # Email non verificata: blocca il login finché l'utente non
+                # clicca il link ricevuto via email. Se il vecchio link è
+                # scaduto, ne inviamo uno nuovo al volo.
+                if user.email and not profile.email_verified and not user.is_staff:
+                    _send_verification_email(request, user, profile)
+                    email_verification_sent = True
+                    logger.info("Login bloccato: email non verificata user=%s", user.username)
                 # ``demo_attiva`` controlla solo la creazione di nuovi
                 # account demo. Un account già esistente deve poter accedere
                 # finché è attivo e il suo trial non è scaduto (come già
                 # avviene per un'identità Google esistente).
-                if not profile.is_trial_active and not user.is_staff:
+                elif not profile.is_trial_active and not user.is_staff:
                     trial_expired = True
                 else:
                     auth_login(request, user)
@@ -396,7 +454,9 @@ def homepage(request):
                     # Un nuovo account richiede sempre la conferma password.
                     # Il controllo server-side evita account creati con un refuso,
                     # indipendentemente da quanto mostrato dal frontend.
-                    if not password_confirm or password != password_confirm:
+                    if not email:
+                        login_error = True
+                    elif not password_confirm or password != password_confirm:
                         password_confirmation_error = True
                     else:
                         # Serializza il controllo e la registrazione locale:
@@ -411,15 +471,28 @@ def homepage(request):
                                 user = User.objects.create_user(
                                     username=username,
                                     password=password,
+                                    email=email,
                                 )
-                                _setup_trial_for_user(user)
-                                auth_login(
-                                    request, user,
-                                    backend="django.contrib.auth.backends.ModelBackend",
-                                )
-                                _save_demo_fingerprints(request, user)
-                                logger.info("Demo auto-created: user=%s", username)
-                                return _attach_demo_cookie(request, redirect(_safe_next(request)))
+                                profile = _setup_trial_for_user(user)
+                                # Invia email di verifica
+                                _send_verification_email(request, user, profile)
+                                # Messaggio di conferma registrazione + verifica email
+                                response = render(request, "caricamento/landing.html", {
+                                    "login_error": False,
+                                    "password_confirmation_error": False,
+                                    "trial_expired": False,
+                                    "trial_used": False,
+                                    "account_disabled": False,
+                                    "demo_disabled": False,
+                                    "email_verification_sent": True,
+                                    "demo_user": "",
+                                    "demo_pass": "",
+                                    "oggetti_demo": [],
+                                    "google_oauth_attivo": imp.google_oauth_attivo,
+                                    "demo_attiva": imp.demo_attiva,
+                                    "switch_account": False,
+                                })
+                                return _attach_demo_cookie(request, response)
 
     # GET: prepara il contesto per la landing page
 
@@ -459,6 +532,7 @@ def homepage(request):
         "trial_used": trial_used,
         "account_disabled": account_disabled,
         "demo_disabled": demo_disabled,
+        "email_verification_sent": email_verification_sent,
         "demo_user": "",
         "demo_pass": "",
         "oggetti_demo": oggetti_demo,
@@ -466,6 +540,40 @@ def homepage(request):
         "demo_attiva": imp.demo_attiva,
         "switch_account": switch_account,
     })
+
+
+def verify_email(request, token):
+    """Verifica email tramite token monouso (scadenza 24h).
+
+    Dopo la verifica, fa il login automatico e reindirizza al workspace.
+    """
+    from .models import UserProfile
+    from django.contrib.auth import login as auth_login
+
+    profile = UserProfile.objects.filter(email_verification_token=token).select_related("user").first()
+
+    if not profile or not profile.email_verification_sent_at:
+        return render(request, "caricamento/verify_email_confirm.html", {"success": False})
+
+    # Scadenza 24 ore
+    from datetime import timedelta
+    if timezone.now() - profile.email_verification_sent_at > timedelta(hours=24):
+        return render(request, "caricamento/verify_email_confirm.html", {"success": False})
+
+    profile.email_verified = True
+    profile.email_verification_token = ""
+    profile.email_verification_sent_at = None
+    profile.save(update_fields=["email_verified", "email_verification_token", "email_verification_sent_at"])
+
+    logger.info("Email verificata: user=%s email=%s", profile.user.username, profile.user.email)
+
+    # Login automatico dopo la verifica
+    user = profile.user
+    user.backend = "django.contrib.auth.backends.ModelBackend"
+    auth_login(request, user)
+    _setup_trial_for_user(user)
+
+    return redirect("caricamento:workspace")
 
 
 def check_username(request):
@@ -491,6 +599,42 @@ def logout_completo(request):
     from django.contrib.auth import logout
     logout(request)
     return redirect("/?switch_account=1")
+
+
+# ---------------------------------------------------------------------------
+# Pagine legali (Privacy, Cookie Policy, Termini, Rimborsi)
+# ---------------------------------------------------------------------------
+
+# Slug -> (template, titolo pagina). Solo questi slug sono ammessi.
+_PAGINE_LEGALI = {
+    "privacy": ("caricamento/privacy.html", "Privacy Policy"),
+    "cookie-policy": ("caricamento/cookie_policy.html", "Cookie Policy"),
+    "termini": ("caricamento/termini.html", "Termini di Servizio"),
+    "rimborsi": ("caricamento/rimborsi.html", "Informativa Rimborsi"),
+}
+
+
+def pagina_legale(request, slug):
+    """Rende le pagine legali pubbliche (senza login).
+
+    I dati del titolare (nome, email, sede, P.IVA, URL base) arrivano dal
+    singleton ``ImpostazioniSistema``, configurabile dall'admin nella sezione
+    "Privacy — Dati del Titolare".
+    """
+    pagina = _PAGINE_LEGALI.get(slug)
+    if pagina is None:
+        return redirect("/")
+    template, titolo = pagina
+    imp = ImpostazioniSistema.get()
+    context = {
+        "titolo_pagina": titolo,
+        "titolare": imp.privacy_titolare,
+        "email_titolare": imp.privacy_email,
+        "sede_titolare": imp.privacy_sede,
+        "piva_titolare": imp.privacy_piva,
+        "sito_url": imp.privacy_sito_url,
+    }
+    return render(request, template, context)
 
 
 @login_required
@@ -1214,6 +1358,29 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             pass
         return []
 
+    def _task_pronto(self, piano):
+        """True se il task Q2 ha già scritto il suo risultato.
+
+        Django Q scrive ``success`` (True/False) solo a task terminato: il
+        worker marca il piano ``completato`` PRIMA di scrivere il result del
+        task, dove stanno le soluzioni alternative. Il frontend usa questo
+        flag per continuare il polling finché il risultato non è disponibile,
+        senza tempi fissi: appena il task è pronto, le alternative ci sono o
+        non ci saranno (strategia senza Monte Carlo).
+        """
+        if not piano.task_id:
+            return True
+        try:
+            from django_q.models import Task
+            task = Task.objects.filter(id=piano.task_id).first()
+            if task is None:
+                # Task non ancora scritto dal worker: risultato non disponibile.
+                return False
+            return task.success is not None
+        except Exception:
+            # Backend Q non interrogabile: non bloccare il polling.
+            return True
+
     @action(detail=True, methods=["get"])
     def stato(self, request, pk=None):
         """Restituisce lo stato corrente del piano di carico.
@@ -1261,6 +1428,7 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 "peso_totale_kg": piano.peso_totale_kg,
                 "completato_at": piano.completato_at,
                 "messaggio_errore": messaggio_errore,
+                "task_pronto": self._task_pronto(piano),
                 "soluzioni_alternative": self._soluzioni_alternative_transitorie(piano),
             }
         )
@@ -2002,6 +2170,81 @@ def api_icone_config(request):
 
         _save_icon_config(data)
         return JsonResponse({"success": True, "message": "Configurazione salvata."})
+
+    return _json_api_error(request, "Metodo non consentito.", 405, "method_not_allowed")
+
+
+def api_privacy_settings(request):
+    """GET/POST dei dati Privacy/Titolare usati dalle pagine legali.
+
+    GET  /api/privacy-settings/  → dati correnti (lettura libera: sono gli
+                                   stessi valori mostrati dalle pagine legali)
+    POST /api/privacy-settings/  → salva (solo admin)
+
+    I valori vivono nel singleton ``ImpostazioniSistema`` e vengono
+    mostrati dalle pagine pubbliche privacy/cookie-policy/termini/rimborsi.
+    """
+    imp = ImpostazioniSistema.get()
+
+    if request.method == "GET":
+        return JsonResponse({
+            "privacy": {
+                "titolare": imp.privacy_titolare,
+                "email": imp.privacy_email,
+                "sede": imp.privacy_sede,
+                "piva": imp.privacy_piva,
+                "sito_url": imp.privacy_sito_url,
+            }
+        })
+
+    if request.method == "POST":
+        if not request.user.is_staff:
+            return _json_api_error(request, "Solo amministratori.", 403, "permission_denied")
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return _json_api_error(request, "JSON non valido.", 400, "invalid_json")
+        payload = (data or {}).get("privacy") or {}
+        if not isinstance(payload, dict):
+            return _json_api_error(
+                request, "Campo 'privacy' deve essere un oggetto JSON.", 400, "invalid_payload"
+            )
+
+        titolare = str(payload.get("titolare", "")).strip()
+        email = str(payload.get("email", "")).strip()
+        sede = str(payload.get("sede", "")).strip()
+        piva = str(payload.get("piva", "")).strip()
+        sito_url = str(payload.get("sito_url", "")).strip()
+
+        errors = {}
+        if not titolare:
+            errors["titolare"] = "Obbligatorio."
+        if not email:
+            errors["email"] = "Obbligatoria."
+        else:
+            from django.core.validators import validate_email
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                validate_email(email)
+            except DjangoValidationError:
+                errors["email"] = "Email non valida."
+        if sito_url and not (sito_url.startswith("http://") or sito_url.startswith("https://")):
+            errors["sito_url"] = "Deve iniziare con http:// o https://."
+        if errors:
+            return _json_api_error(
+                request, "Campi non validi.", 400, "validation_error", errors=errors
+            )
+
+        imp.privacy_titolare = titolare
+        imp.privacy_email = email
+        imp.privacy_sede = sede
+        imp.privacy_piva = piva
+        imp.privacy_sito_url = sito_url
+        imp.save(update_fields=[
+            "privacy_titolare", "privacy_email", "privacy_sede",
+            "privacy_piva", "privacy_sito_url",
+        ])
+        return JsonResponse({"success": True, "message": "Dati Privacy salvati."})
 
     return _json_api_error(request, "Metodo non consentito.", 405, "method_not_allowed")
 

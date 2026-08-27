@@ -525,6 +525,24 @@ def optimize_solution_v3(
     if vincoli_sopra is None:
         vincoli_sopra = {}
 
+    def _compatta_finale(placed):
+        """Chiude vuoti XY e appiattisce i gradini sull'asse X.
+
+        Richiamato a fine esecuzione, DOPO il backtracking ricorsivo che puo'
+        ricreare i gradini. Entrambe le routine sono transazionali (rollback
+        locale per colonna) e non modificano il numero di oggetti piazzati.
+        """
+        from .packer_3d_v2 import _compatta_gradini_x, _riempi_vuoti_xy
+
+        _riempi_vuoti_xy(
+            placed, container_dim, vincoli_sopra, tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
+        )
+        _compatta_gradini_x(
+            placed, container_dim, vincoli_sopra, tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
+        )
+
     if telemetria is not None:
         telemetria["passate_max"] = 1 + max(0, int(iterations))
         telemetria["passate_eseguite"] = 0
@@ -562,6 +580,7 @@ def optimize_solution_v3(
     # ciò che faceva sembrare "piantato" Ottimizza e Salva rispetto a Elabora.
     best_placed, _ = filter_unfitted(best_solution)
     if len(best_placed) >= len(objects):
+        _compatta_finale(best_solution)
         if telemetria is not None:
             telemetria["motivo_stop"] = "soluzione_completa"
         return best_solution
@@ -680,6 +699,12 @@ def optimize_solution_v3(
         # Il backtracking finale può aver mutato la soluzione scelta; il
         # confronto è già stato protetto dallo scoring lessicografico, quindi
         # non la sostituiamo con una soluzione peggiore senza rivalutazione.
+
+    # Compattazione finale: il backtracking ricorsivo ricompone le colonne
+    # allineate alle estremita' delle colonne vicine e puo' ricreare i
+    # gradini tra fasce Y che il postprocessing di load_truck_v2 aveva
+    # chiuso. L'ultima passata li elimina senza peggiorare lo score.
+    _compatta_finale(best_solution)
 
     if telemetria is not None:
         telemetria["motivo_stop"] = motivo_stop

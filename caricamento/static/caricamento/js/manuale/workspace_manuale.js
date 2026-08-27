@@ -402,21 +402,20 @@ function _aggiornaMarqueeToggleUI() {
     var btn = document.getElementById('manuale-btn-marquee-toggle');
     if (!btn) return;
     var enabled = !!_marqueeModeEnabled;
-    var testoBase = 'Selezione';
-    var textNodes = Array.prototype.slice.call(btn.childNodes).filter(function (n) {
-        return n.nodeType === Node.TEXT_NODE;
-    });
-    textNodes.forEach(function (n) { n.textContent = ' ' + testoBase + (enabled ? ': ON' : ': OFF'); });
     if (enabled) {
-        btn.classList.add('active');
-        btn.style.backgroundColor = '#1f6feb';
-        btn.style.color = '#fff';
-        btn.style.boxShadow = '0 0 6px rgba(31,111,235,0.5)';
+        btn.classList.add('marquee-active');
+        btn.style.background = 'rgba(31,111,235,0.22)';
+        btn.style.borderColor = '#1f6feb';
+        btn.style.color = '#1f6feb';
+        btn.style.boxShadow = '0 0 0 1px rgba(31,111,235,0.18) inset';
+        btn.title = 'Selezione multipla: ON (M)';
     } else {
-        btn.classList.remove('active');
-        btn.style.backgroundColor = '';
+        btn.classList.remove('marquee-active');
+        btn.style.background = '';
+        btn.style.borderColor = '';
         btn.style.color = '';
         btn.style.boxShadow = '';
+        btn.title = 'Selezione multipla: OFF (M)';
     }
 }
 

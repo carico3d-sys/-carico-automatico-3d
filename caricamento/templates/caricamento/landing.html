@@ -466,6 +466,10 @@
         <a href="#features">Features</a>
         <a href="#prezzi">Prezzi</a>
         <a href="mailto:info@carico3d.com">Contatti</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/cookie-policy/">Cookie Policy</a>
+        <a href="/termini/">Termini</a>
+        <a href="/rimborsi/">Rimborsi</a>
     </div>
     <p>&copy; 2026 Carico 3D — Ottimizzazione del carico tridimensionale</p>
 </footer>
@@ -473,7 +477,7 @@
 <!-- ============================================================
      LOGIN MODAL
      ============================================================ -->
-<div class="modal-overlay" id="login-modal">
+<div class="modal-overlay{% if login_error or trial_expired or trial_used or email_verification_sent or password_confirmation_error or account_disabled or demo_disabled %} active{% endif %}" id="login-modal">
     <div class="login-card {% if login_error %}shake{% endif %}" style="position:relative;">
         <button class="login-close" id="btn-close-login">&times;</button>
         <div class="login-logo-row">
@@ -490,6 +494,18 @@
         {% endif %}
         {% if trial_used %}
         <div class="login-warning">🆓 Il periodo di prova gratuito è già stato utilizzato.<br>Accedi con l'account esistente oppure contatta l'amministratore.</div>
+        {% endif %}
+        {% if email_verification_sent %}
+        <div class="login-warning" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">📧 Email di verifica inviata! Controlla la tua casella email e clicca il link per verificare l'indirizzo. Il link scade tra 24 ore.</div>
+        {% endif %}
+        {% if password_confirmation_error %}
+        <div class="login-error">🔑 Le password non coincidono: inserisci due volte la stessa password.</div>
+        {% endif %}
+        {% if account_disabled %}
+        <div class="login-warning">🚫 Questo account è stato disattivato. Contatta l'amministratore per riattivarlo.</div>
+        {% endif %}
+        {% if demo_disabled %}
+        <div class="login-warning">🆕 La registrazione demo è temporaneamente disattivata. Accedi con un account esistente o contatta l'amministratore.</div>
         {% endif %}
 
         {% if google_oauth_attivo %}
@@ -513,6 +529,12 @@
                 <input type="password" name="password" id="id_password"
                        placeholder="Scegli una password" required>
             </div>
+            <div class="login-field" id="email-field" style="display:none;">
+                <label for="id_email">Email</label>
+                <input type="email" name="email" id="id_email"
+                       placeholder="la-tua@email.com">
+                <div style="font-size:11px;color:#999;margin-top:4px;">Necessaria per le ricevute e il pagamento.</div>
+            </div>
             <div class="login-field" id="password-confirm-field">
                 <label for="id_password_confirm">Conferma password</label>
                 <input type="password" name="password_confirm" id="id_password_confirm"
@@ -520,11 +542,13 @@
                 <div style="font-size:11px;color:#999;margin-top:4px;">Richiesta solo alla prima registrazione.</div>
             </div>
             <button type="submit" class="login-submit">🔓 Accedi / Registrati</button>
+            <div style="text-align:center;margin-top:10px;">
+                <a href="/password-reset/" style="font-size:12px;color:#069;text-decoration:none;">Password dimenticata?</a>
+            </div>
         </form>
 
-        {% if demo_attiva %}
-        <div class="demo-badge">
-            <div class="demo-badge-title">🆓 Prova gratuita 14 giorni</div>
+        {% if demo_attiva %}            <div class="demo-badge">
+                <div class="demo-badge-title">🆓 Prova gratuita 7 giorni</div>
             <div class="demo-badge-hint">Inserisci username e password a scelta.<br>Se è la prima volta, il tuo account verrà creato automaticamente.</div>
         </div>
         {% endif %}
@@ -570,14 +594,21 @@ for (var _i = 0; _i < _planBtns.length; _i++) {
     var confirmInput = document.getElementById('id_password_confirm');
     if (!usernameInput || !confirmField || !confirmInput) return;
     var checkTimer = null;
+    var emailField = document.getElementById('email-field');
+    var emailInput = document.getElementById('id_email');
     function applyState(exists) {
         if (exists) {
             confirmField.style.opacity = '0.45';
             confirmInput.disabled = true;
             confirmInput.value = '';
+            if (emailField) { emailField.style.display = 'none'; }
+            if (emailInput) { emailInput.removeAttribute('required'); }
         } else {
             confirmField.style.opacity = '1';
             confirmInput.disabled = false;
+            if (emailField) { emailField.style.display = '';
+                confirmField.parentElement.insertBefore(emailField, confirmField); }
+            if (emailInput) { emailInput.setAttribute('required', ''); }
         }
     }
     function checkUsername() {
@@ -601,6 +632,43 @@ for (var _i = 0; _i < _planBtns.length; _i++) {
 })();
 
 
+</script>
+
+<!-- Banner cookie informativo (solo cookie tecnici/anti-abuso, nessun tracker) -->
+<div id="cookie-banner" style="display:none;">
+    <div class="cookie-banner-text">
+        🍪 Questo sito utilizza solo cookie tecnici e di sicurezza (sessione, CSRF e anti-abuso).
+        Nessun cookie di profilazione. <a href="/cookie-policy/" target="_blank" rel="noopener">Scopri di più</a>
+    </div>
+    <button type="button" id="cookie-banner-ok">Ho capito</button>
+</div>
+<style>
+    #cookie-banner {
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
+        background: #1a1a2e; color: #fff; padding: 14px 24px;
+        display: flex; align-items: center; justify-content: center; gap: 18px;
+        flex-wrap: wrap; font-size: 13px; line-height: 1.5;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
+    }
+    #cookie-banner .cookie-banner-text a { color: #8fc3e0; }
+    #cookie-banner button {
+        background: var(--accent); color: #fff; border: none; border-radius: 6px;
+        padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+        white-space: nowrap;
+    }
+    #cookie-banner button:hover { background: var(--accent-dark); }
+</style>
+<script>
+(function(){
+    try {
+        if (localStorage.getItem('carico3d_cookie_banner')) return;
+        document.getElementById('cookie-banner').style.display = 'flex';
+        document.getElementById('cookie-banner-ok').addEventListener('click', function () {
+            localStorage.setItem('carico3d_cookie_banner', '1');
+            document.getElementById('cookie-banner').style.display = 'none';
+        });
+    } catch(e) {}
+})();
 </script>
 
 <!-- Browser Fingerprint per anti-abuso demo -->

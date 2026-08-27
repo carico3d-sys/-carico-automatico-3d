@@ -1,0 +1,20 @@
+[Unit]
+Description=Carico 3D — Pulizia processi orfani prima di Docker
+# Esegui DOPO che systemd è pronto, ma PRIMA che Docker avvii i container
+After=network.target
+Before=docker.service
+# Non fallire se il servizio non esiste (utile durante installazione)
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+# Timeout breve: la pulizia deve essere veloce
+TimeoutStartSec=30
+# Ignora errori: meglio un avvio pulito che un boot fallito
+ExecStart=/home/gianni/carico3d/ops/vm_cleanup.sh cleanup
+# In caso di errore, non bloccare il boot
+RemainAfterExit=yes
+
+[Install]
+# Parte al multi-user target (dopo i servizi di rete)
+WantedBy=multi-user.target

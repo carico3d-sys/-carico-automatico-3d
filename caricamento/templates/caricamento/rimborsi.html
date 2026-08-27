@@ -1,0 +1,95 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informativa Rimborsi — Carico 3D</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --accent: #447e9b; --header: #1a1a2e; --bg: #f0f2f5; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 15px; color: #333; background: var(--bg); line-height: 1.7;
+        }
+        .navbar {
+            height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 40px;
+        }
+        .navbar-brand {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 18px; font-weight: 800; color: var(--header); text-decoration: none;
+        }
+        .navbar-brand i { font-size: 22px; color: var(--accent); }
+        .navbar-back { font-size: 14px; color: var(--accent); text-decoration: none; font-weight: 600; }
+        .navbar-back:hover { text-decoration: underline; }
+        .container {
+            max-width: 860px; margin: 40px auto; background: #fff;
+            border-radius: 12px; border: 1px solid #e8e8e8;
+            padding: 40px 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        h1 { font-size: 26px; color: var(--header); margin-bottom: 6px; }
+        .updated { font-size: 13px; color: #888; margin-bottom: 24px; }
+        h2 { font-size: 17px; color: var(--header); margin: 26px 0 10px; }
+        p { margin-bottom: 12px; }
+        ul { margin: 0 0 12px 22px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--accent); }
+        .footer {
+            text-align: center; padding: 24px; color: #888; font-size: 13px;
+        }
+        .footer a { color: #666; text-decoration: none; margin: 0 10px; }
+        .footer a:hover { color: var(--accent); }
+        @media (max-width: 640px) {
+            .navbar { padding: 0 16px; }
+            .container { margin: 16px; padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a class="navbar-brand" href="/"><i>📦</i> Carico 3D</a>
+        <a class="navbar-back" href="/">← Torna alla home</a>
+    </nav>
+
+    <div class="container">
+        <h1>Informativa Rimborsi</h1>
+        <div class="updated">Aggiornata al 26 agosto 2026</div>
+
+        <h2>1. Come funziona l'abbonamento</h2>
+        <p>
+            L'abbonamento è <strong>senza rinnovo automatico</strong>: copre esclusivamente
+            il periodo acquistato (mese o anno) e scade al termine del periodo pagato.
+            Se non vuoi continuare, <strong>non devi fare nulla</strong>: il Servizio
+            semplicemente non verrà rinnovato e non saranno effettuati ulteriori
+            addebiti.
+        </p>
+        <p>
+            Non è previsto alcun recesso o rimborso per il periodo già acquistato e
+            utilizzato: trattandosi di un servizio digitale erogato immediatamente,
+            l'accesso al Servizio decorre dall'attivazione dell'abbonamento.
+        </p>
+
+        <h2>2. Problemi con il Servizio</h2>
+        <p>
+            Se il Servizio non funziona come descritto o riscontri problemi tecnici
+            persistenti, contattaci a <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>:
+            valutiamo ogni richiesta caso per caso (assistenza, credito o, nei casi
+            previsti, rimborso del periodo non usufruito).
+        </p>
+
+        <h2>3. Contatti</h2>
+        <p>
+            Per richieste di assistenza o rimborso: <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>.
+        </p>
+    </div>
+
+    <footer class="footer">
+        <a href="{% url 'privacy' %}">Privacy</a>
+        <a href="{% url 'cookie_policy' %}">Cookie</a>
+        <a href="{% url 'termini' %}">Termini</a>
+        <a href="{% url 'rimborsi' %}">Rimborsi</a>
+    </footer>
+</body>
+</html>

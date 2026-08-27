@@ -186,13 +186,29 @@ function _costruisciDati3DdaSoluzione(soluzione) {
         contenitore = { nome: 'Contenitore', lunghezza_mm: 0, larghezza_mm: 0, altezza_mm: 0 };
     }
 
+    // Conta gli oggetti per codice nella soluzione per il fallback
+    // _rigaKeyDaCodiceIndice (quando _rigaKeyDaRigaId non trova mapping).
+    var contaPerCodice = {};
+
     var oggetti3d = (soluzione.oggetti || []).map(function (o) {
         var descr = '';
         if (WS.oggettiDisponibili) {
             var info = trovaOggettoPerCodice(o.codice);
             if (info) descr = info.descrizione || '';
         }
+
+        // 1. Prova il mapping diretto riga_id → riga_key dallo snapshot.
+        var rk = _rigaKeyDaRigaId(o.riga_id);
+
+        // 2. Fallback: mappa per codice + indice progressivo.
+        if (!rk && o.codice) {
+            var idx = (contaPerCodice[o.codice] = (contaPerCodice[o.codice] || 0));
+            rk = _rigaKeyDaCodiceIndice(o.codice, idx);
+            contaPerCodice[o.codice]++;
+        }
+
         return {
+            oggetto_id: o.oggetto_id || null,
             codice: o.codice,
             descrizione: descr,
             posizione_cm: {
@@ -210,10 +226,11 @@ function _costruisciDati3DdaSoluzione(soluzione) {
             peso_kg: o.peso_kg || 0,
             peso_sopra_kg: 0,
             riga_id: o.riga_id || null,
+            riga_key: rk || null,
         };
     });
 
-    return {
+    var dati = {
         piano: {
             id: WS.activePianoId || null,
             nome: 'Soluzione alternativa',
@@ -239,6 +256,66 @@ function _costruisciDati3DdaSoluzione(soluzione) {
             oggetti_posizionati: oggetti3d.length,
         }
     };
+
+    // Riapplica i colori per-riga del pannello (rete di sicurezza, stesso
+    // meccanismo della preview di "Elabora"): il backend delle alternative
+    // restituisce i colori automatici, ma la scena deve mostrare quelli del
+    // pannello, incluse le modifiche manuali fatte dall'utente.
+    if (typeof _applicaColoriRigaPosizioni === 'function') {
+        _applicaColoriRigaPosizioni(dati);
+    }
+
+    return dati;
+}
+
+/**
+ * Mappa un riga_id (id della riga del piano tecnico) alla riga_key del
+ * pannello, usando lo snapshot della preview salvato da "Elabora"
+ * (WS._autoPreviewPosizioni contiene coppie riga_id → riga_key per ogni
+ * posizionamento). Serve alle alternative, che dal backend hanno solo
+ * l'id della riga del piano temporaneo.
+ */
+function _rigaKeyDaRigaId(rigaId) {
+    if (rigaId == null) return null;
+    // Prima: lookup diretto nello snapshot (mappa riga_id → riga_key).
+    if (typeof WS !== 'undefined' && Array.isArray(WS._autoPreviewPosizioni)) {
+        var key = String(rigaId);
+        for (var i = 0; i < WS._autoPreviewPosizioni.length; i++) {
+            var p = WS._autoPreviewPosizioni[i];
+            if (p.riga_id != null && String(p.riga_id) === key && p.riga_key) {
+                return p.riga_key;
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Fallback: mappa un oggetto della soluzione alternativa alla riga del
+ * pannello per CODICE + INDICE (N-esimo oggetto con lo stesso codice).
+ * Usato quando _rigaKeyDaRigaId non trova il mapping (riga_id diverso
+ * tra preview e alternativa, o snapshot non disponibile).
+ *
+ * @param {string} codice  Codice dell'oggetto (es. "CART-I01")
+ * @param {number} idxInSoluzione Indice di questo oggetto tra quelli
+ *   dello stesso codice NELLA SOLUZIONE alternativa (0-based)
+ * @returns {string|null} La riga_key del pannello corrispondente
+ */
+function _rigaKeyDaCodiceIndice(codice, idxInSoluzione) {
+    if (!codice || typeof DOM === 'undefined' || !DOM.panelItemsList) return null;
+    var rows = DOM.panelItemsList.querySelectorAll('.panel-item[data-codice="' + codice + '"]');
+    if (!rows || !rows.length) return null;
+    // Ordina le righe per posizione nel DOM (stessa logica di visualizzazione).
+    var rigaKeys = [];
+    for (var i = 0; i < rows.length; i++) {
+        var rk = rows[i].dataset.rigaKey || '';
+        if (rk) rigaKeys.push(rk);
+    }
+    if (idxInSoluzione < rigaKeys.length) {
+        return rigaKeys[idxInSoluzione];
+    }
+    // Se ci sono più posizioni che righe, usa l'ultima riga disponibile.
+    return rigaKeys.length ? rigaKeys[rigaKeys.length - 1] : null;
 }
 
 /**
@@ -252,6 +329,12 @@ function visualizzaSoluzioneAlternativa(idx) {
     var dati = _costruisciDati3DdaSoluzione(soluzione);
     if (typeof renderizzaDati3D === 'function') {
         renderizzaDati3D(dati);
+        // Aggiorna qty piazzate nel pannello: l'input mostra i pezzi
+        // reali dell'alternativa; il badge mantiene la qty originale
+        // richiesta (con bordo rosse se parziale).
+        if (typeof _aggiornaQtyPiazzateDaPreview === 'function') {
+            _aggiornaQtyPiazzateDaPreview(dati);
+        }
         _marcaSelezione(idx);
         _aggiornaSidebarDaSoluzione(soluzione);
         var label = migliore ? 'Soluzione migliore' : ('Anteprima alternativa #' + idx);
@@ -278,7 +361,25 @@ async function applicaSoluzioneAlternativa(idx) {
         showToast('Nessun piano attivo su cui applicare la soluzione.', 'error');
         return;
     }
+    var contaPerCodice = {};
     var oggetti = (soluzione.oggetti || []).map(function (o) {
+        // Colore del pannello per la riga corrispondente (se presente):
+        // il salvataggio deve conservare i colori per-riga del pannello,
+        // non quelli automatici del backend dell'alternativa.
+        var coloreSalvataggio = o.colore || '#4488ff';
+        var rigaKey = _rigaKeyDaRigaId(o.riga_id);
+        if (!rigaKey && o.codice) {
+            var idx = (contaPerCodice[o.codice] = (contaPerCodice[o.codice] || 0));
+            rigaKey = _rigaKeyDaCodiceIndice(o.codice, idx);
+            contaPerCodice[o.codice]++;
+        }
+        if (typeof DOM !== 'undefined' && DOM.panelItemsList && rigaKey) {
+            var rigaRow = DOM.panelItemsList.querySelector('.panel-item[data-riga-key="' + rigaKey + '"]');
+            if (rigaRow && typeof coloreRiga === 'function') {
+                var colRiga = coloreRiga(rigaRow);
+                if (coloreEsadecimaleValido(colRiga)) coloreSalvataggio = colRiga;
+            }
+        }
         return {
             oggetto_id: o.oggetto_id || null,
             codice: o.codice,
@@ -292,7 +393,7 @@ async function applicaSoluzioneAlternativa(idx) {
                 y: (o.dimensione_y_mm || 0) / 10,
                 z: (o.dimensione_z_mm || 0) / 10,
             },
-            colore: o.colore || '#4488ff',
+            colore: coloreSalvataggio,
             rotazione: o.rotazione_applicata || 'XYZ',
             riga_id: o.riga_id || null,
         };

@@ -1620,6 +1620,21 @@ img.header-cat-icon {
     flex-shrink: 0;
 }
 
+.manuale-help-btn:focus {
+    outline: none;
+}
+
+/* Selezione multipla ON — sfondo marcato */
+.manuale-help-btn.marquee-active {
+    background: rgba(31,111,235,0.22);
+    border-color: #1f6feb;
+    color: #1f6feb;
+    box-shadow: 0 0 0 1px rgba(31,111,235,0.18) inset;
+}
+.manuale-help-btn.marquee-active .bi {
+    color: #1f6feb;
+}
+
 /* Modale Aiuto: larghezza adattata al contenuto (invece dei 480px fissi) */
 .modal-container.modal-auto {
     width: auto;

@@ -353,13 +353,12 @@ body {
     letter-spacing: 0.2px;
 }
 
-/* Blocco azioni: OTTIMIZZA E SALVA in alto (full-width), SALVA ed ELABORA
-   affiancati sotto. I tre bottoni condividono la stessa geometria del bottone
-   Distribuzione Pesi (altezza 52px, angoli a 90°, font 12px): si distinguono
-   solo per colore e per la larghezza (OTTIMIZZA occupa tutta la riga). */
+/* Blocco azioni: ELABORA in alto (full-width, genera l'anteprima) e SALVA
+   sotto (conferma sul piano reale). I bottoni condividono la stessa geometria
+   del bottone Distribuzione Pesi (altezza 52px, angoli a 90°, font 12px). */
 .auto-action-secondary {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 8px;
 }
 

@@ -106,7 +106,6 @@ function cacheDom() {
     // Header
     DOM.headerVehicleSelect = document.getElementById('header-vehicle-select');
     DOM.headerExportBtn = document.getElementById('header-export-btn');
-    DOM.ottimizzaBtn = document.getElementById('btn-ottimizza');
     DOM.btnSalvaAuto = document.getElementById('btn-salva-auto');
     DOM.btnElaboraAuto = document.getElementById('btn-elabora-auto');
     DOM.btnSalvaDB = document.getElementById('btn-salva-db');
@@ -746,6 +745,8 @@ function _eseguiAzioneRapida(action) {
             if (typeof svuotaCarico === 'function') svuotaCarico();
             break;
         case 'carico':
+            // Torna al main view: mostra il viewport 3D.
+            // Il tab resta dov'era — l'utente gestisce la navigazione.
             if (typeof mostraViewport === 'function') mostraViewport();
             setActiveView('carico');
             break;

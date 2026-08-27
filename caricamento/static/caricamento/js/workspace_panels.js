@@ -122,6 +122,23 @@ function mostraViewport() {
     if (typeof mostraPannelloAlternativeSePresente === 'function') {
         mostraPannelloAlternativeSePresente();
     }
+    // Il renderer 3D ha dimensioni 0×0 mentre il viewport è nascosto:
+    // forza il resize dopo che il browser ha applicato il cambio display.
+    // Doppio RAF garantisce che il layout CSS sia stato calcolato.
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+            if (typeof handleResize === 'function') handleResize();
+        });
+    });
+    // Fallback sicuro: se il renderer è ancora a 0×0 dopo 100ms, riprova.
+    setTimeout(function () {
+        if (typeof STATE !== 'undefined' && STATE.renderer && STATE.renderer.domElement) {
+            var c = STATE.renderer.domElement.parentElement;
+            if (c && c.clientWidth > 0 && typeof handleResize === 'function') {
+                handleResize();
+            }
+        }
+    }, 100);
     // Toolbar orizzontale sostituita dalla palette flottante — non mostrarla
     setActiveView('carico');
 }

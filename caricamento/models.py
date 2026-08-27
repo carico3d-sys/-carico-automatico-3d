@@ -802,6 +802,21 @@ class UserProfile(models.Model):
         default=False,
         help_text=_("Utente pagante: accesso illimitato senza scadenza trial."),
     )
+    email_verified = models.BooleanField(
+        default=False,
+        help_text=_("Email verificata tramite link di conferma."),
+    )
+    email_verification_token = models.CharField(
+        max_length=64,
+        default="",
+        blank=True,
+        help_text=_("Token per la verifica email (monouso)."),
+    )
+    email_verification_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Data/ora invio email di verifica."),
+    )
     # --- Lemon Squeezy ---
     ls_customer_id = models.PositiveBigIntegerField(
         null=True,
@@ -977,6 +992,44 @@ class ImpostazioniSistema(models.Model):
         help_text=_(
             "Numero minimo di controlli (su 3) che devono matchare per "
             "bloccare un utente demo. 1 = basta 1 match, 3 = tutti e 3."
+        ),
+    )
+
+    # --- Privacy / Dati del Titolare (usati dalle pagine legali) ---
+    privacy_titolare = models.CharField(
+        max_length=255,
+        default="Carico 3D",
+        help_text=_(
+            "Nome del titolare del trattamento mostrato in Privacy e Termini "
+            "(es. ragione sociale o nome dell'attività)."
+        ),
+    )
+    privacy_email = models.EmailField(
+        max_length=255,
+        default="info@carico3d.com",
+        help_text=_(
+            "Email di contatto per l'esercizio dei diritti GDPR e per i "
+            "rimborsi (mostrata in Privacy e Termini)."
+        ),
+    )
+    privacy_sede = models.CharField(
+        max_length=255,
+        default="",
+        blank=True,
+        help_text=_("Sede / indirizzo del titolare (campo facoltativo)."),
+    )
+    privacy_piva = models.CharField(
+        max_length=32,
+        default="",
+        blank=True,
+        help_text=_("Partita IVA / codice fiscale del titolare (facoltativo)."),
+    )
+    privacy_sito_url = models.URLField(
+        max_length=255,
+        default="http://127.0.0.1:8000",
+        help_text=_(
+            "URL base del sito mostrato nelle pagine legali (in produzione "
+            "impostare il dominio reale, es. https://carico3d.com)."
         ),
     )
 

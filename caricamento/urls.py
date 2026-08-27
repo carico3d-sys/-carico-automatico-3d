@@ -59,6 +59,8 @@ urlpatterns = [
     path("api/icone-config/", views.api_icone_config, name="api_icone_config"),
     path("api/icone-upload/", views.api_icone_upload, name="api_icone_upload"),
     path("api/icone-file/", views.api_icone_file_delete, name="api_icone_file_delete"),
+    # Dati Privacy/Titolare (tab Privacy della Gestione Icone, admin only POST)
+    path("api/privacy-settings/", views.api_privacy_settings, name="api_privacy_settings"),
     # Helper landing: verifica esistenza username (form login/registrazione)
     path("api/check-username/", views.check_username, name="check_username"),
 
@@ -66,4 +68,7 @@ urlpatterns = [
     path("api/payments/checkout/", payments.checkout, name="payments_checkout"),
     path("api/payments/webhook/", payments.webhook, name="payments_webhook"),
     path("api/payments/status/", payments.status_, name="payments_status"),
+
+    # Verifica email
+    path("verify-email/<str:token>/", views.verify_email, name="verify_email"),
 ]

@@ -115,11 +115,9 @@ function inizializza() {
     }
 
     // --- Azioni ottimizzazione automatica ---
-    if (DOM.ottimizzaBtn) {
-        DOM.ottimizzaBtn.addEventListener('click', function () {
-            elaboraOttimizzazione(true);
-        });
-    }
+    // Nota: il flusso è unico — ELABORA genera l'anteprima (piano temporaneo)
+    // e SALVA la conferma sul piano reale. Il vecchio "OTTIMIZZA E SALVA"
+    // (elaboraOttimizzazione(true)) è stato rimosso per semplificare la UI.
     if (DOM.btnSalvaAuto) {
         DOM.btnSalvaAuto.addEventListener('click', function () {
             if (typeof salvaPianoDB === 'function') salvaPianoDB();

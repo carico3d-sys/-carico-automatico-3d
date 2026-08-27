@@ -54,6 +54,8 @@ from .postprocessing import (
     _trova_singoli_interni,
     defer_singles as _post_defer_singles,
     fill_holes_safely as _post_fill_holes_safely,
+    compatta_gradini_x as _post_compatta_gradini_x,
+    fill_xy_voids as _post_fill_xy_voids,
     get_column as _post_get_column,
     place_singles_at_end as _post_place_singles_at_end,
 )
@@ -1342,6 +1344,14 @@ def load_truck_v2(objects, vincoli_sopra=None, container_dim=None, tracker=None,
             placed, container_dim, vincoli_sopra, tracker,
             compattazione_aggressiva=compattazione_aggressiva,
         )
+        _riempi_vuoti_xy(
+            placed, container_dim, vincoli_sopra, tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
+        )
+        _compatta_gradini_x(
+            placed, container_dim, vincoli_sopra, tracker,
+            compattazione_aggressiva=compattazione_aggressiva,
+        )
 
         score_after_postprocessing = score_soluzione(
             placed,
@@ -1628,6 +1638,74 @@ def _deferral_pass(
         _colonne_info,
         _y_candidate_at_x_v2,
         _check_peso_massimo_tetto_cascade,
+        compattazione_aggressiva=compattazione_aggressiva,
+    )
+
+
+def _riempi_vuoti_xy(
+    placed, container_dim, vincoli_sopra, tracker,
+    compattazione_aggressiva=False,
+):
+    """Compatibilita' verso la routine estratta in ``postprocessing``."""
+    def _prova_orientamento_fisso(
+        obj, x, y, z, current_placed, current_dim, constraints, **kwargs
+    ):
+        return _prova_volume(
+            obj,
+            x,
+            y,
+            z,
+            current_placed,
+            current_dim,
+            constraints,
+            tracker=kwargs.get("tracker"),
+            compattazione_aggressiva=kwargs.get(
+                "compattazione_aggressiva", False
+            ),
+        )
+
+    return _post_fill_xy_voids(
+        placed,
+        container_dim,
+        vincoli_sopra,
+        tracker,
+        _prova_tutte_orientazioni,
+        fixed_orientation=_prova_orientamento_fisso,
+        fixed_base_orientation=_prova_orientamento_fisso,
+        compattazione_aggressiva=compattazione_aggressiva,
+    )
+
+
+def _compatta_gradini_x(
+    placed, container_dim, vincoli_sopra, tracker,
+    compattazione_aggressiva=False,
+):
+    """Compatibilita' verso la routine estratta in ``postprocessing``."""
+    def _prova_orientamento_fisso(
+        obj, x, y, z, current_placed, current_dim, constraints, **kwargs
+    ):
+        return _prova_volume(
+            obj,
+            x,
+            y,
+            z,
+            current_placed,
+            current_dim,
+            constraints,
+            tracker=kwargs.get("tracker"),
+            compattazione_aggressiva=kwargs.get(
+                "compattazione_aggressiva", False
+            ),
+        )
+
+    return _post_compatta_gradini_x(
+        placed,
+        container_dim,
+        vincoli_sopra,
+        tracker,
+        _prova_tutte_orientazioni,
+        fixed_orientation=_prova_orientamento_fisso,
+        fixed_base_orientation=_prova_orientamento_fisso,
         compattazione_aggressiva=compattazione_aggressiva,
     )
 

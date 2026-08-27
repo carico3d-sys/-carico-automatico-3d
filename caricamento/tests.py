@@ -67,7 +67,10 @@ from caricamento.engine.tre_d.placement_rules import (
     check_z_collision,
 )
 from caricamento.engine.tre_d.postprocessing import (
+    _trova_vuoti_xy,
+    compatta_gradini_x,
     defer_singles,
+    fill_xy_voids,
     find_internal_singles,
     has_object_above,
     has_object_ahead,
@@ -158,7 +161,7 @@ class TestStrategyFactory(TestCase):
         ) as factory:
             packer.esegui()
 
-        factory.assert_called_once_with(config)
+        factory.assert_called_once_with(config, ops=1)
         strategia.execute.assert_called_once()
         args, kwargs = strategia.execute.call_args
         self.assertEqual(args[1], {})
@@ -897,6 +900,102 @@ class TestPostprocessingRules(TestCase):
             )
         )
         self.assertEqual({obj.id for obj in placed}, {"TERMINALE-ROT", "SINGOLO-ROT"})
+
+    def test_compatta_gradini_x_chiude_gradini_tra_fasce_y(self):
+        """Le colonne scivolano a sinistra fino al vicino della stessa fascia Y."""
+        # Fasce Y diverse che ripartono allineate a colonne di altre fasce:
+        # - fascia Y=0..100:  colonna A a X=0..100, poi B a X=200 (gradino 100)
+        # - fascia Y=100..200: colonna C a X=0..100, poi D a X=200 (gradino 100)
+        placed = []
+        for i, (x, y, w, d) in enumerate(
+            [(0, 0, 100, 100), (200, 0, 100, 100), (0, 100, 100, 100), (200, 100, 100, 100)]
+        ):
+            o = Obj(f"SC-{i}", w, d, 50)
+            o.x, o.y, o.z = x, y, 0
+            placed.append(o)
+
+        def try_orientations(obj, x, y, z, placed, container_dim, constraints, **kwargs):
+            obj.x, obj.y, obj.z = x, y, z
+            return True
+
+        compatta_gradini_x(
+            placed, (500, 300, 270), {}, None, try_orientations,
+            max_passes=4,
+        )
+
+        # Le colonne a X=200 devono essere scivolate a X=100 (contigue al vicino)
+        by_id = {o.id: o for o in placed}
+        self.assertEqual(by_id["SC-1"].x, 100.0)
+        self.assertEqual(by_id["SC-3"].x, 100.0)
+
+    def test_compatta_gradini_x_scala_intera_colonna_impilata(self):
+        """La pila sopra la base scivola insieme alla base, senza ruotare."""
+        base = Obj("BASE", 100, 100, 50)
+        base.x, base.y, base.z = 200, 0, 0
+        sopra = Obj("SOPRA", 80, 80, 50)
+        sopra.x, sopra.y, sopra.z = 200, 0, 50
+        vicino = Obj("VICINO", 100, 100, 50)
+        vicino.x, vicino.y, vicino.z = 0, 0, 0
+        placed = [base, sopra, vicino]
+
+        def try_orientations(obj, x, y, z, placed, container_dim, constraints, **kwargs):
+            obj.x, obj.y, obj.z = x, y, z
+            return True
+
+        compatta_gradini_x(
+            placed, (500, 300, 270), {}, None, try_orientations,
+            max_passes=4,
+        )
+        self.assertEqual(base.x, 100.0)
+        self.assertEqual(sopra.x, 100.0)
+        self.assertEqual(sopra.z, 50.0)  # la pila resta sopra la base
+
+    def test_compatta_gradini_x_non_sposta_prima_colonna_della_fascia(self):
+        """Una colonna senza nulla dietro resta dove si trova (non va a X=0)."""
+        prima = Obj("PRIMA-FASCIA", 60, 80, 100)
+        prima.x, prima.y, prima.z = 580, 0, 0
+        placed = [prima]
+
+        def try_orientations(obj, x, y, z, placed, container_dim, constraints, **kwargs):
+            obj.x, obj.y, obj.z = x, y, z
+            return True
+
+        compatta_gradini_x(
+            placed, (1360, 248, 270), {}, None, try_orientations,
+            max_passes=4,
+        )
+        self.assertEqual(prima.x, 580.0)
+
+    def test_compatta_gradini_x_non_sposta_colonna_gia_allineata(self):
+        """Una colonna gia' contigua non viene toccata."""
+        a = Obj("A", 100, 100, 50)
+        a.x, a.y, a.z = 0, 0, 0
+        b = Obj("B", 100, 100, 50)
+        b.x, b.y, b.z = 100, 0, 0
+        placed = [a, b]
+
+        def try_orientations(obj, x, y, z, placed, container_dim, constraints, **kwargs):
+            obj.x, obj.y, obj.z = x, y, z
+            return True
+
+        compatta_gradini_x(
+            placed, (500, 300, 270), {}, None, try_orientations,
+            max_passes=4,
+        )
+        self.assertEqual(b.x, 100.0)
+
+    def test_trova_vuoti_xy_rileva_colonna_intera_vuota(self):
+        """Rileva una regione XY senza oggetti a nessuna altezza."""
+        placed = []
+        for i, (x, y) in enumerate([(0, 0), (150, 0), (0, 100), (150, 100)]):
+            o = Obj(f"V-{i}", 50, 100, 50)
+            o.x, o.y, o.z = x, y, 0
+            placed.append(o)
+        vuoti = _trova_vuoti_xy(placed, (300, 200, 270))
+        self.assertTrue(
+            any(abs(v["w"] - 100) < 1e-6 and abs(v["d"] - 200) < 1e-6 for v in vuoti),
+            f"vuoti rilevati: {vuoti}",
+        )
 
     def test_postprocessing_peggiorativo_viene_ripristinato(self):
         """Una riparazione che allunga X non deve sostituire il packing base."""
@@ -1781,7 +1880,8 @@ class TestConfigurazioneOttimizzazione(TestCaseBase):
         self.assertEqual(piano.stato, "parziale")
         self.assertEqual(
             risultato.messaggio,
-            "Piano parziale: 1 di 2 oggetti posizionati.",
+            "Parziale: 1 di 2 oggetti posizionati: "
+            "i rimanenti non trovano spazio nel contenitore.",
         )
 
     def test_report_incompleto_non_rende_parziale_un_piano_completo(self):
@@ -2926,9 +3026,14 @@ class TestDemoTrialFingerprint(TestCase):
         self.assertEqual(response["Location"], "/workspace/")
 
     def test_new_account_requires_matching_password_confirmation(self):
+        # L'email è obbligatoria per i nuovi account (verifica email).
         response = self.client.post(
             "/",
-            {"username": "new-demo-confirm", "password": "password-demo"},
+            {
+                "username": "new-demo-confirm",
+                "password": "password-demo",
+                "email": "confirm@test.it",
+            },
         )
 
         self.assertEqual(response.status_code, 200)
@@ -2941,11 +3046,12 @@ class TestDemoTrialFingerprint(TestCase):
                 "username": "new-demo-confirm",
                 "password": "password-demo",
                 "password_confirm": "password-demo",
+                "email": "confirm@test.it",
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/workspace/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Email di verifica inviata")
         self.assertTrue(User.objects.filter(username="new-demo-confirm").exists())
 
     def test_existing_account_can_login_when_new_demo_signups_are_disabled(self):
@@ -2970,10 +3076,14 @@ class TestDemoTrialFingerprint(TestCase):
         profile.save(update_fields=["trial_start", "trial_end"])
         self.client.force_login(user)
 
-        response = self.client.get("/api/contenitori/")
+        # Le letture sono permesse (il frontend carica lo stato pagamenti),
+        # le scritture vengono bloccate con 403 trial_expired.
+        lettura = self.client.get("/api/contenitori/")
+        self.assertEqual(lettura.status_code, 200)
 
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["error"]["code"], "trial_expired")
+        scrittura = self.client.post("/api/contenitori/")
+        self.assertEqual(scrittura.status_code, 403)
+        self.assertEqual(scrittura.json()["error"]["code"], "trial_expired")
 
     def test_disactivated_user_cannot_reuse_an_existing_session(self):
         user = self._active_user("disabled-demo")
@@ -3382,3 +3492,101 @@ class _grid_on:
         for p in reversed(self._patches):
             p.stop()
         return False
+
+
+class TestPagineLegali(TestCase):
+    """Le pagine legali pubbliche rendono con i dati del titolare."""
+
+    URL_PAGINE = [
+        "/privacy/",
+        "/cookie-policy/",
+        "/termini/",
+        "/rimborsi/",
+    ]
+
+    def test_pagine_legali_pubbliche_renderizzano(self):
+        for url in self.URL_PAGINE:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200, url)
+            self.assertContains(response, "Carico 3D")
+
+    def test_privacy_mostra_email_titolare(self):
+        imp = ImpostazioniSistema.get()
+        imp.privacy_titolare = "Titolare di Test"
+        imp.privacy_email = "privacy@test.it"
+        imp.privacy_sito_url = "http://127.0.0.1:8000"
+        imp.save()
+
+        response = self.client.get("/privacy/")
+
+        self.assertContains(response, "Titolare di Test")
+        self.assertContains(response, "privacy@test.it")
+
+    def test_slug_sconosciuto_redirige_alla_home(self):
+        response = self.client.get("/privacy/inesistente/")
+        self.assertEqual(response.status_code, 404)
+
+
+class TestApiPrivacySettings(TestCase):
+    """API dati Privacy/Titolare: GET libero, POST solo admin."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="privacy-user",
+            password="test-password",
+        )
+        self.admin = User.objects.create_user(
+            username="privacy-admin",
+            password="test-password",
+            is_staff=True,
+        )
+        self.client = APIClient()
+
+    def test_get_restituisce_default(self):
+        response = self.client.get("/api/privacy-settings/")
+
+        self.assertEqual(response.status_code, 200)
+        privacy = response.json()["privacy"]
+        self.assertEqual(privacy["titolare"], "Carico 3D")
+        self.assertEqual(privacy["sito_url"], "http://127.0.0.1:8000")
+
+    def test_post_solo_admin(self):
+        payload = {
+            "privacy": {
+                "titolare": "Webapp SRL",
+                "email": "info@webapp.it",
+                "sede": "Via Roma 1, Milano",
+                "piva": "12345678901",
+                "sito_url": "https://webapp.it",
+            }
+        }
+
+        self.assertTrue(self.client.login(username=self.user.username, password="test-password"))
+        denied = self.client.post(
+            "/api/privacy-settings/", payload, format="json"
+        )
+        self.assertEqual(denied.status_code, 403)
+        self.client.logout()
+
+        self.assertTrue(self.client.login(username=self.admin.username, password="test-password"))
+        ok = self.client.post(
+            "/api/privacy-settings/", payload, format="json"
+        )
+        self.assertEqual(ok.status_code, 200)
+
+        imp = ImpostazioniSistema.get()
+        self.assertEqual(imp.privacy_titolare, "Webapp SRL")
+        self.assertEqual(imp.privacy_email, "info@webapp.it")
+        self.assertEqual(imp.privacy_sede, "Via Roma 1, Milano")
+        self.assertEqual(imp.privacy_piva, "12345678901")
+        self.assertEqual(imp.privacy_sito_url, "https://webapp.it")
+
+    def test_post_valida_campi(self):
+        self.assertTrue(self.client.login(username=self.admin.username, password="test-password"))
+        response = self.client.post(
+            "/api/privacy-settings/",
+            {"privacy": {"titolare": "", "email": "non-email", "sito_url": "ftp://x"}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)

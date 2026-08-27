@@ -311,12 +311,10 @@ function _avviaCheckout(tipo, quantity) {
             showToast('Errore: nessun URL checkout ricevuto.', 'error');
             return;
         }
-        // Usa Lemon.js overlay se disponibile, altrimenti redirect
-        if (typeof LemonSqueezy !== 'undefined' && typeof LemonSqueezy.Url !== 'undefined') {
-            LemonSqueezy.Url.Open(data.url);
-        } else {
-            window.open(data.url, '_blank');
-        }
+        // Apri il checkout in un nuovo tab (evita problemi iframe/overlay)
+        window.open(data.url, '_blank');
+        _checkoutInCorso = false;
+        if (typeof setStatus === 'function') setStatus('idle', '');
     })
     .catch(function (err) {
         _checkoutInCorso = false;

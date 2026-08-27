@@ -853,7 +853,7 @@ function aggiornaGraficoPesiInTempoReale() {
 }
 
 function _impostaAzioniAutoDisabilitate(disabilitate) {
-    [DOM.ottimizzaBtn, DOM.btnSalvaAuto, DOM.btnElaboraAuto].forEach(function (btn) {
+    [DOM.btnSalvaAuto, DOM.btnElaboraAuto].forEach(function (btn) {
         if (btn) btn.disabled = disabilitate;
     });
 }
@@ -944,6 +944,39 @@ function _applicaColoriRigaPosizioni(dati) {
             oggetto.colore = colore;
         }
     });
+}
+
+/**
+ * Dopo una preview di "Elabora", allinea il pannello destro alla quantità
+ * REALE piazzata per ogni riga: l'input mostra i pezzi effettivamente
+ * posizionati, il badge "Qtà rich." resta sulla quantità ORIGINALE
+ * richiesta (con bordo rosso se il carico è parziale, cioè richiesta >
+ * piazzata).
+ */
+function _aggiornaQtyPiazzateDaPreview(datiPreview) {
+    if (!datiPreview || !Array.isArray(datiPreview.oggetti)) return;
+    if (typeof DOM === 'undefined' || !DOM.panelItemsList) return;
+    if (typeof _aggiornaColoreQtyOriginale !== 'function') return;
+
+    // Conteggio dei posizionamenti reali per riga (riga_key, fallback riga_id)
+    var conteggi = {};
+    datiPreview.oggetti.forEach(function (o) {
+        var chiave = o.riga_key || (o.riga_id != null ? 'id:' + o.riga_id : null);
+        if (chiave) conteggi[chiave] = (conteggi[chiave] || 0) + 1;
+    });
+
+    var rows = DOM.panelItemsList.querySelectorAll('.panel-item');
+    rows.forEach(function (row) {
+        var chiave = row.dataset.rigaKey || (row.dataset.rigaId ? 'id:' + row.dataset.rigaId : null);
+        if (!chiave) return; // riga legacy senza legame con il risultato
+        var qtyInput = row.querySelector('.panel-qty-input');
+        if (!qtyInput) return;
+        // Qtà piazzata = reale; il badge resta sulla richiesta originale
+        // (col bordo rosso se parziale).
+        qtyInput.value = conteggi[chiave] || 0;
+        _aggiornaColoreQtyOriginale(row);
+    });
+    aggiornaRiepilogoPanel();
 }
 
 /**
@@ -1057,6 +1090,17 @@ async function _attendiOttimizzazioneAsync(pianoId, taskId) {
             ultimoStato = stato;
             erroriConsecutivi = 0;
             if (statiFinali.indexOf(stato.stato) >= 0) {
+                // Race Django Q2: il worker marca il piano "completato" PRIMA
+                // di scrivere il result del task, dove stanno le soluzioni
+                // alternative. Nessun tempo fisso: continua a pollare finché
+                // il task non ha scritto il suo risultato (task_pronto). A
+                // quel punto le alternative ci sono (Monte Carlo) oppure non
+                // ci saranno mai (strategie senza MC): si può fermare.
+                var haAlternative = Array.isArray(stato.soluzioni_alternative) &&
+                    stato.soluzioni_alternative.length > 0;
+                if (!haAlternative && stato.task_pronto === false) {
+                    continue;
+                }
                 return stato;
             }
             setStatus('busy', 'Elaborazione in coda...');
@@ -1313,6 +1357,9 @@ async function elaboraOttimizzazione(salvaRisultato) {
             _applicaColoriRigaPosizioni(datiPreview);
             _salvaSnapshotPreviewOttimizzazione(datiPreview);
             renderizzaDati3D(datiPreview);
+            // Allinea la quantità piazzata del pannello al conteggio REALE
+            // della preview (badge rosso se il carico è parziale).
+            _aggiornaQtyPiazzateDaPreview(datiPreview);
             WS.treSceneLoaded = true;
             pianoPreviewId = pianoId;
             _setHeaderCaricoLabel('Anteprima ottimizzazione');

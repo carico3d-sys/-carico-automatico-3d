@@ -502,6 +502,17 @@ class ImpostazioniSistemaAdmin(admin.ModelAdmin):
                 "'Social applications' > Add > Google."
             ),
         }),
+        ("Privacy — Dati del Titolare", {
+            "fields": [
+                "privacy_titolare", "privacy_email", "privacy_sede",
+                "privacy_piva", "privacy_sito_url",
+            ],
+            "description": (
+                "Dati mostrati nelle pagine Privacy Policy, Cookie Policy, "
+                "Termini di Servizio e Rimborsi. In produzione aggiornare "
+                "privacy_sito_url con il dominio reale (es. https://carico3d.com)."
+            ),
+        }),
     ]
 
     def has_add_permission(self, request):

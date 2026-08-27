@@ -229,6 +229,27 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
 # ---------------------------------------------------------------------------
+# Email — backend configurabile via env
+# - Produzione: Resend REST API (usa RESEND_API_KEY + RESEND_FROM)
+# - Sviluppo/Test: console (log Docker)
+# Se RESEND_API_KEY e' impostata, viene usato automaticamente il backend
+# Resend; altrimenti si cade sul console backend.
+# ---------------------------------------------------------------------------
+def _resolve_email_backend():
+    """Risolvi il backend email in base alle env vars configurate."""
+    explicit = os.environ.get('EMAIL_BACKEND')
+    if explicit:
+        return explicit
+    if os.environ.get('RESEND_API_KEY'):
+        return 'caricamento.email_backend.ResendEmailBackend'
+    return 'django.core.mail.backends.console.EmailBackend'
+
+
+EMAIL_BACKEND = _resolve_email_backend()
+RESEND_FROM = os.environ.get('RESEND_FROM', 'Carico 3D <noreply@carico3d.com>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', RESEND_FROM)
+
+# ---------------------------------------------------------------------------
 # Autenticazione
 # ---------------------------------------------------------------------------
 

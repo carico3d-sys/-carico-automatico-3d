@@ -506,19 +506,19 @@
     }
   },
   "bottoni": {
-    "auto-ottimizza": {
+    "auto-elabora": {
       "type": "png",
       "file": "icons8-arrow-right-50.png",
       "dims_px": [
         40,
         40
       ],
-      "label": "Ottimizza e Salva",
+      "label": "Elabora",
       "label_size": 12,
       "label_pos": "column",
       "color": "#94d1ff",
       "width_pct": 100,
-      "height_px": 66
+      "height_px": 70
     },
     "auto-salva": {
       "type": "png",
@@ -531,20 +531,6 @@
       "label_size": 12,
       "label_pos": "column",
       "color": "#27ae60",
-      "width_pct": 100,
-      "height_px": 70
-    },
-    "auto-elabora": {
-      "type": "png",
-      "file": "icons8-arrow-right-50.png",
-      "dims_px": [
-        40,
-        40
-      ],
-      "label": "Elabora",
-      "label_size": 12,
-      "label_pos": "column",
-      "color": "#94d1ff",
       "width_pct": 100,
       "height_px": 70
     },
@@ -645,6 +631,20 @@
       "color": "#6c757d",
       "width_pct": 100,
       "height_px": 70
+    },
+    "man-marquee": {
+      "type": "png",
+      "file": "icons8-group-objects-96.png",
+      "dims_px": [
+        30,
+        30
+      ],
+      "label": "+",
+      "label_size": 12,
+      "label_pos": "row",
+      "color": "#1f6feb",
+      "width_pct": 100,
+      "height_px": 45
     },
     "settings-salva": {
       "type": "png",

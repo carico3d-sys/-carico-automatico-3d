@@ -83,6 +83,24 @@ function initScene(containerId) {
     const width = container.clientWidth;
     const height = container.clientHeight;
 
+    // Pulisci il renderer precedente per evitare "Too many active WebGL contexts"
+    if (STATE && STATE.renderer) {
+        try {
+            STATE.renderer.dispose();
+            STATE.renderer.forceContextLoss();
+        } catch (e) { /* ignore */ }
+        STATE.renderer = null;
+    }
+    if (STATE && STATE.controls) {
+        STATE.controls.dispose();
+        STATE.controls = null;
+    }
+    // Rimuovi vecchi canvas orfani nel container
+    var vecchiCanvas = container.querySelectorAll('canvas');
+    for (var i = 0; i < vecchiCanvas.length; i++) {
+        vecchiCanvas[i].remove();
+    }
+
     // Scena — tema chiaro (Django Admin)
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f2f5);

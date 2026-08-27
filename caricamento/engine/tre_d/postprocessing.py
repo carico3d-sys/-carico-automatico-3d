@@ -739,6 +739,416 @@ def defer_singles(
 
 
 
+def _trova_vuoti_xy(placed, container_dim):
+    """Rileva i rettangoli XY completamente vuoti (colonne intere vuote).
+
+    Un vuoto e' una regione del piano XY, interna al bounding box occupato,
+    in cui NESSUN oggetto ha il proprio footprint (a nessuna altezza Z).
+    Questi sono i buchi che i rilevatori Z-based non vedono: manca l'intera
+    colonna, non un gap verticale dentro una colonna gia' occupata.
+
+    Returns:
+        Lista di dict {x0, x1, y0, y1, w, d} ordinata per area XY decrescente,
+        a parita' per x0 crescente.
+    """
+    if container_dim is None:
+        return []
+    fitted = [o for o in placed if getattr(o, "z", -1) >= 0]
+    if not fitted:
+        return []
+
+    max_x = max(o.x + o.width for o in fitted)
+    max_y = max(o.y + o.depth for o in fitted)
+
+    # Soglia: nessun oggetto puo' avere un lato piu' corto della minima
+    # dimensione disponibile. Se un vuoto e' piu' stretto di quel minimo su
+    # entrambi gli assi, e' inutilizzabile e non va considerato.
+    min_dim = min(min(o.width, o.depth, o.height) for o in fitted)
+
+    # Confini X discreti: partenze e arrivi di ogni oggetto + gli estremi.
+    x_boundaries = sorted(
+        {0.0, max_x}
+        | {o.x for o in fitted}
+        | {o.x + o.width for o in fitted}
+    )
+    x_boundaries = [b for b in x_boundaries if b <= max_x + 1e-9]
+
+    # Per ogni slab X [x0, x1) calcola le fasce Y libere.
+    slabs = []
+    for x0, x1 in zip(x_boundaries, x_boundaries[1:]):
+        if x1 - x0 < 1e-9:
+            continue
+        in_slab = [o for o in fitted if o.x < x1 and o.x + o.width > x0]
+        if not in_slab:
+            # Slab completamente vuota su tutta la profondita'.
+            slabs.append((x0, x1, 0.0, max_y))
+            continue
+        y_intervals = sorted((o.y, o.y + o.depth) for o in in_slab)
+        merged = []
+        for ys, ye in y_intervals:
+            if merged and ys <= merged[-1][1] + 1e-9:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], ye))
+            else:
+                merged.append([ys, ye])
+        cursor = 0.0
+        for ys, ye in merged:
+            if ys > cursor + 1e-9:
+                slabs.append((x0, x1, cursor, ys))
+            cursor = max(cursor, ye)
+        if cursor < max_y - 1e-9:
+            slabs.append((x0, x1, cursor, max_y))
+
+    if not slabs:
+        return []
+
+    # Unisci slab adiacenti in X che condividono la stessa fascia Y.
+    voids = []
+    cur = list(slabs[0])
+    for x0, x1, y0, y1 in slabs[1:]:
+        same_y = (
+            abs(x0 - cur[1]) < 1e-9
+            and abs(y0 - cur[2]) < 1e-9
+            and abs(y1 - cur[3]) < 1e-9
+        )
+        if same_y:
+            cur[1] = x1
+        else:
+            voids.append(cur)
+            cur = [x0, x1, y0, y1]
+    voids.append(cur)
+
+    result = []
+    for x0, x1, y0, y1 in voids:
+        w = x1 - x0
+        d = y1 - y0
+        if w < min_dim - 1e-9 or d < min_dim - 1e-9:
+            continue
+        if w < 1e-9 or d < 1e-9:
+            continue
+        result.append({
+            "x0": x0, "x1": x1, "y0": y0, "y1": y1, "w": w, "d": d,
+        })
+
+    result.sort(key=lambda v: (-(v["w"] * v["d"]), v["x0"]))
+    return result
+
+
+def fill_xy_voids(
+    placed,
+    container_dim,
+    constraints,
+    tracker,
+    try_orientations,
+    *,
+    fixed_orientation=None,
+    fixed_base_orientation=None,
+    compattazione_aggressiva=False,
+    max_passes=3,
+):
+    """Chiude i vuoti XY traslando colonne intere dalla destra del vuoto.
+
+    ``_trova_vuoti_xy`` rileva le regioni del piano XY completamente vuote a
+    ogni altezza. Per ogni vuoto si cerca una colonna (base a terra + eventuale
+    pila sopra) situata a destra che entri nel footprint e la si trasla
+    rigidamente all'interno del vuoto.
+
+    - Colonna singola: la base puo' ruotare (``try_orientations`` prova tutte
+      le rotazioni permesse) per adattarsi al vuoto.
+    - Colonna multipla: traslazione rigida senza rotazione, per non spezzare
+      la pila esistente.
+
+    Ogni tentativo e' transazionale: un fallimento ripristina coordinate,
+    dimensioni, lista ``placed`` e stato del tracker.
+    """
+    if container_dim is None:
+        return True
+    container_w, container_d, container_h = container_dim
+    if container_h is None:
+        return True
+
+    for _ in range(max_passes):
+        voids = _trova_vuoti_xy(placed, container_dim)
+        if not voids:
+            return True
+
+        improved = False
+        for void in voids:
+            vx, vy = void["x0"], void["y0"]
+            vw, vd = void["w"], void["d"]
+
+            # Colonne candidate: base a terra, a destra del vuoto.
+            bases = [
+                o for o in placed
+                if getattr(o, "z", -1) == 0
+                and o.x >= void["x1"] - 1e-9
+            ]
+            bases.sort(key=lambda o: o.x)
+
+            for base in bases[:6]:
+                column = get_column(placed, base)
+                # La pila multipla non ruota: il footprint attuale della base
+                # deve entrare nel vuoto. Una base singola puo' ruotare.
+                if (
+                    len(column) > 1
+                    and (base.width > vw + 1e-9 or base.depth > vd + 1e-9)
+                ):
+                    continue
+
+                original = [(o, _object_state(o)) for o in column]
+                tracker_snapshot = (
+                    dict(tracker.carico_attuale) if tracker is not None else None
+                )
+
+                for o, st in original:
+                    placed.remove(o)
+                    if tracker is not None:
+                        tracker.rimuovi(
+                            int(st[0] * 10),
+                            int((st[0] + st[3]) * 10),
+                            float(getattr(o, "_peso_kg", 0)),
+                        )
+                    _restore_object_state(o, st)
+
+                base_state = next(st for o, st in original if o is base)
+                _restore_object_state(base, base_state)
+                base.x, base.y, base.z = 0, 0, 0
+
+                if len(column) == 1:
+                    base_try = try_orientations
+                else:
+                    base_try = fixed_base_orientation or try_orientations
+                valid = base_try(
+                    base, vx, vy, 0, placed, container_dim, constraints,
+                    tracker=tracker,
+                    compattazione_aggressiva=compattazione_aggressiva,
+                )
+
+                shifted = []
+                if valid:
+                    if tracker is not None:
+                        tracker.applica(
+                            int(base.x * 10),
+                            int((base.x + base.width) * 10),
+                            float(getattr(base, "_peso_kg", 0)),
+                        )
+                    shifted.append(base)
+                    x_off = base.x - base_state[0]
+                    y_off = base.y - base_state[1]
+                    z_off = base.z - base_state[2]
+
+                    for o, st in original:
+                        if o is base:
+                            continue
+                        new_x = st[0] + x_off
+                        new_y = st[1] + y_off
+                        new_z = st[2] + z_off
+                        if new_z + st[5] > container_h:
+                            valid = False
+                            break
+                        _restore_object_state(o, st)
+                        o.x, o.y, o.z = 0, 0, 0
+                        fixed_try = fixed_orientation or try_orientations
+                        if not fixed_try(
+                            o, new_x, new_y, new_z,
+                            placed + shifted,
+                            container_dim, constraints,
+                            tracker=tracker,
+                            compattazione_aggressiva=compattazione_aggressiva,
+                        ):
+                            valid = False
+                            break
+                        if tracker is not None:
+                            tracker.applica(
+                                int(o.x * 10),
+                                int((o.x + o.width) * 10),
+                                float(getattr(o, "_peso_kg", 0)),
+                            )
+                        shifted.append(o)
+
+                if valid:
+                    for o, _ in original:
+                        placed.append(o)
+                    improved = True
+                    break
+
+                _restore_tracker(tracker, tracker_snapshot)
+                for o, st in original:
+                    _restore_object_state(o, st)
+                    placed.append(o)
+
+            if improved:
+                break
+
+        if not improved:
+            return True
+
+    return True
+
+
+def compatta_gradini_x(
+    placed,
+    container_dim,
+    constraints,
+    tracker,
+    try_orientations,
+    *,
+    fixed_orientation=None,
+    fixed_base_orientation=None,
+    compattazione_aggressiva=False,
+    max_passes=6,
+):
+    """Appiattisce i gradini sull'asse X tra fasce Y adiacenti.
+
+    Il packer apre ogni nuova colonna allineata all'estremita' della colonna
+    vicina (fascia Y adiacente) e non alla massima X gia' occupata nella
+    stessa fascia: nascono cosi' dei gradini verticali, fasce Y che ripartono
+    piu' avanti del necessario lasciando un'interstizio vuoto (es. una fascia
+    Y=1600..2400 che riparte a X=6700 quando la fascia sotto arriva solo a
+    X=5600).
+
+    Questa routine fa scivolare ogni colonna (base + pila sopra) verso
+    sinistra finche' la base tocca il vicino della stessa fascia Y, chiudendo
+    i gradini. La traslazione e' rigida (stesse dimensioni e orientamento,
+    solo X cambia) e ogni tentativo e' transazionale: se fallisce si
+    ripristinano coordinate, dimensioni, lista ``placed`` e tracker.
+    """
+    if container_dim is None:
+        return True
+    container_w, container_d, container_h = container_dim
+    if container_h is None:
+        return True
+
+    def _stessa_fascia_y(a, b):
+        """True se i footprint Y di a e b si sovrappongono (stessa fascia)."""
+        return (
+            a.y < b.y + b.depth - 1e-9
+            and a.y + a.depth > b.y + 1e-9
+        )
+
+    for _ in range(max_passes):
+        fitted = [o for o in placed if getattr(o, "z", -1) >= 0]
+        bases = sorted(
+            (o for o in fitted if getattr(o, "z", -1) == 0),
+            key=lambda o: (o.x, o.y),
+        )
+
+        moved = False
+        for base in bases:
+            # Massima estremita' X degli oggetti che stanno DIETRO la base
+            # (end <= base.x) nella stessa fascia Y: e' il punto di aggancio.
+            max_end_behind = None
+            for other in fitted:
+                if other is base:
+                    continue
+                if not _stessa_fascia_y(base, other):
+                    continue
+                end = other.x + other.width
+                if end <= base.x + 1e-9 and (
+                    max_end_behind is None or end > max_end_behind
+                ):
+                    max_end_behind = end
+
+            # Nessun oggetto dietro nella stessa fascia: la colonna e' gia'
+            # all'inizio della sua riga, non va spostata all'origine.
+            if max_end_behind is None or max_end_behind >= base.x - 1e-9:
+                continue  # gia' allineato
+
+            column = get_column(placed, base)
+            original = [(o, _object_state(o)) for o in column]
+            tracker_snapshot = (
+                dict(tracker.carico_attuale) if tracker is not None else None
+            )
+
+            for o, st in original:
+                placed.remove(o)
+                if tracker is not None:
+                    tracker.rimuovi(
+                        int(st[0] * 10),
+                        int((st[0] + st[3]) * 10),
+                        float(getattr(o, "_peso_kg", 0)),
+                    )
+                _restore_object_state(o, st)
+
+            dx = max_end_behind - base.x
+            base_state = next(st for o, st in original if o is base)
+            _restore_object_state(base, base_state)
+            base.x, base.y, base.z = 0, 0, 0
+            base_try = fixed_base_orientation or try_orientations
+            valid = base_try(
+                base,
+                max_end_behind,
+                base_state[1],
+                base_state[2],
+                placed,
+                container_dim,
+                constraints,
+                tracker=tracker,
+                compattazione_aggressiva=compattazione_aggressiva,
+            )
+
+            shifted = []
+            if valid:
+                if tracker is not None:
+                    tracker.applica(
+                        int(base.x * 10),
+                        int((base.x + base.width) * 10),
+                        float(getattr(base, "_peso_kg", 0)),
+                    )
+                shifted.append(base)
+
+                for o, st in original:
+                    if o is base:
+                        continue
+                    new_x = st[0] + dx
+                    new_y = st[1]
+                    new_z = st[2]
+                    if new_z + st[5] > container_h:
+                        valid = False
+                        break
+                    _restore_object_state(o, st)
+                    o.x, o.y, o.z = 0, 0, 0
+                    fixed_try = fixed_orientation or try_orientations
+                    if not fixed_try(
+                        o,
+                        new_x,
+                        new_y,
+                        new_z,
+                        placed + shifted,
+                        container_dim,
+                        constraints,
+                        tracker=tracker,
+                        compattazione_aggressiva=compattazione_aggressiva,
+                    ):
+                        valid = False
+                        break
+                    if tracker is not None:
+                        tracker.applica(
+                            int(o.x * 10),
+                            int((o.x + o.width) * 10),
+                            float(getattr(o, "_peso_kg", 0)),
+                        )
+                    shifted.append(o)
+
+            if valid:
+                for o, _ in original:
+                    placed.append(o)
+                moved = True
+                # NIENTE break: le colonne successive nella stessa passata
+                # vedono la nuova estremita' e possono a loro volta scivolare
+                # (cascata che chiude tutti i gradini in una sola iterazione).
+                continue
+
+            _restore_tracker(tracker, tracker_snapshot)
+            for o, st in original:
+                _restore_object_state(o, st)
+                placed.append(o)
+
+        if not moved:
+            return True
+
+    return True
+
+
 # Compatibility aliases used by the packer during the staged migration.
 _ha_oggetto_sopra = has_object_above
 _ha_oggetto_piu_avanti = has_object_ahead
@@ -756,7 +1166,10 @@ __all__ = [
     "get_column",
     "place_singles_at_end",
     "fill_holes_safely",
+    "fill_xy_voids",
+    "compatta_gradini_x",
     "defer_singles",
+    "_trova_vuoti_xy",
     "_ha_oggetto_sopra",
     "_ha_oggetto_piu_avanti",
     "_trova_singoli_interni",

@@ -331,6 +331,9 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale, ri
  * - Più righe con lo stesso codice e NESSUNA personalizzazione: colori
  *   automatici distinti dalla palette (mai uguali al colore anagrafica).
  * - Una singola riga per codice senza personalizzazione: colore anagrafica.
+ * - Il colore assegnato deve differire da TUTTI gli altri oggetti in elenco
+ *   (non solo da quelli dello stesso codice): l'insieme dei colori usati è
+ *   globale al pannello, così due lotti di codici diversi non collidono.
  *
  * Il colore effettivo resta sempre in dataset.colore (hex), così viene
  * salvato con la riga e riusato da motore e modalità manuale.
@@ -338,6 +341,15 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale, ri
 function _assegnaColoriAutomatici() {
     var rows = Array.prototype.slice.call(DOM.panelItemsList.querySelectorAll('.panel-item'));
     if (!rows.length) return;
+
+    // Insieme GLOBALE dei colori già presenti nel pannello (custom bloccati,
+    // anagrafiche delle righe singole, colori già assegnati): ogni nuovo
+    // colore automatico deve evitare TUTTI questi, non solo quelli del
+    // proprio codice.
+    var usati = {};
+    rows.forEach(function (row) {
+        usati[coloreRiga(row)] = true;
+    });
 
     var byCodice = {};
     rows.forEach(function (row) {
@@ -362,14 +374,12 @@ function _assegnaColoriAutomatici() {
             coloreCount[col] = (coloreCount[col] || 0) + 1;
         });
 
-        var usati = {};
         var needsReassignment = [];
         gruppo.forEach(function (row) {
             var col = coloreRiga(row);
             var isCustom = row.dataset.coloreCustom === '1';
             if (isCustom && coloreCount[col] === 1) {
                 // Colore personalizzato unico: bloccato, non toccare.
-                usati[col] = true;
                 row.dataset.coloreAuto = '';
             } else {
                 // Non-custom OPPURE colore duplicato: va riassegnato.
@@ -380,9 +390,12 @@ function _assegnaColoriAutomatici() {
         if (needsReassignment.length === 0) return;
 
         // Fase 2: assegna colori distinti dalla palette a chi necessita.
-        if (needsReassignment.length === 1 && Object.keys(usati).length === 0) {
+        // Se l'anagrafica è ancora libera globalmente e serve un solo colore,
+        // riusa l'anagrafica (è il colore "naturale" dell'oggetto).
+        if (needsReassignment.length === 1 && !usati[anagraficaCol]) {
             needsReassignment[0].dataset.colore = anagraficaCol;
             needsReassignment[0].dataset.coloreAuto = '';
+            usati[anagraficaCol] = true;
             return;
         }
 
@@ -451,7 +464,6 @@ function _aggiornaStatoAzioniAuto() {
         DOM.panelItemsList &&
         DOM.panelItemsList.querySelectorAll('.panel-item').length > 0
     );
-    if (DOM.ottimizzaBtn) DOM.ottimizzaBtn.disabled = !abilitato;
     if (DOM.btnSalvaAuto) DOM.btnSalvaAuto.disabled = !abilitato;
     if (DOM.btnElaboraAuto) DOM.btnElaboraAuto.disabled = !abilitato;
 }
@@ -518,6 +530,9 @@ function raccogliOggettiDaPanel() {
     items.forEach(function (div) {
         var oggettoId = parseInt(div.dataset.oggettoId);
         if (!oggettoId) return;
+        // Salva sempre il valore visibile nell'input: dopo un'alternativa
+        // l'input mostra la qty reale piazzata, e l'utente deve poter
+        // salvare esattamente quello che vede nel pannello.
         var qty = parseInt(div.querySelector('.panel-qty-input').value) || 1;
         var oggetto = trovaOggetto(oggettoId);
         if (!oggetto) return;
@@ -774,7 +789,7 @@ function apriEditorOggetto(itemDiv) {
                 '<div class="field-row">' +
                     '<div class="field-group" style="flex:0 0 70px;">' +
                         '<label class="field-label">Colore</label>' +
-                        '<input type="color" class="form-input" id="editor-colore-' + oggettoId + '" value="' + coloreCorrente + '" style="height:36px;padding:2px 4px;cursor:pointer;"' + (hasCustomColor ? '' : ' disabled') + '>' +
+                        '<input type="color" class="form-input" id="editor-colore-' + oggettoId + '" value="' + coloreCorrente + '" style="height:36px;padding:2px 4px;cursor:pointer;"' + '>' +
                     '</div>' +
                     '<div class="field-group flex-grow" style="justify-content:flex-end;">' +
                         '<label class="checkbox-label" style="margin-top:18px;">' +

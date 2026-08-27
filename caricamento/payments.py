@@ -111,7 +111,9 @@ def checkout(request):
             ],
             "custom": {
                 "user_id": str(request.user.id),
+                "user_email": request.user.email or "",
             },
+            "email": request.user.email or "",
         },
     }
 
@@ -248,6 +250,17 @@ def _handle_subscription_event(event_name, data):
     if not profile and subscription_id:
         profile = UserProfile.objects.filter(ls_subscription_id=subscription_id).first()
 
+    # Fallback: cerca per email (Lemon Squeezy include user_email nel webhook)
+    if not profile:
+        user_email = attributes.get("user_email", "")
+        if user_email:
+            from django.contrib.auth.models import User
+            try:
+                user = User.objects.get(email=user_email)
+                profile = UserProfile.objects.filter(user=user).first()
+            except User.DoesNotExist:
+                pass
+
     if not profile:
         logger.warning(
             "Webhook subscription senza profilo: customer_id=%s subscription_id=%s",
@@ -255,6 +268,10 @@ def _handle_subscription_event(event_name, data):
             subscription_id,
         )
         return
+
+    # Salva il customer_id se non ancora presente (collega profilo a Lemon Squeezy)
+    if customer_id and not profile.ls_customer_id:
+        profile.ls_customer_id = customer_id
 
     if event_name == "subscription_created":
         profile.ls_subscription_id = subscription_id

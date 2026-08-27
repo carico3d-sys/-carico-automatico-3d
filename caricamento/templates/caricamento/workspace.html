@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=28">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=8">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=5">
-    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=22">
+    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=23">
     <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=5">
 
     <!-- Palette flottante Vista — file isolato -->
@@ -264,7 +264,7 @@
     <!-- Modalità Manuale: snap → oggetti → orchestratore → drag → ghost → tastiera -->
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_snap.js' %}?v=1" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_oggetti.js' %}?v=6" defer></script>
-    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=17" defer></script>
+    <script src="{% static 'caricamento/js/manuale/workspace_manuale.js' %}?v=18" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_drag.js' %}?v=6" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_ghost.js' %}?v=4" defer></script>
     <script src="{% static 'caricamento/js/manuale/workspace_manuale_selezione.js' %}?v=7" defer></script>
@@ -488,8 +488,8 @@
                             <button id="manuale-btn-help-tastiera" class="manuale-help-btn" type="button" title="Come usare la tastiera nella modifica manuale">
                                 <i class="bi bi-keyboard"></i> ?
                             </button>
-                            <button id="manuale-btn-impostazioni" class="manuale-help-btn" type="button" title="Apri Impostazioni">
-                                <i class="bi bi-gear"></i> Impost.
+                            <button id="manuale-btn-marquee-toggle" class="manuale-help-btn" type="button" title="Selezione multipla ON/OFF (M)">
+                                <i class="bi bi-check2-square"></i>
                             </button>
                         </div>
                         <!-- Sezione D-Pad tastiera -->
@@ -520,12 +520,7 @@
                                 <button id="manuale-btn-ghost-toggle" class="btn btn-sm"><span class="manuale-emoji">👻</span> Ghost: OFF</button>
                             </div>
                         </div>
-                        <!-- Riga Toggle Selezione Rettangolare -->
-                        <div class="manuale-marquee-row">
-                            <button id="manuale-btn-marquee-toggle" class="btn btn-sm" title="Selezione multipla: ON = click sx aggiunge, click dx seleziona colonna (M)">
-                                <i class="bi bi-check2-square manuale-emoji"></i> Selezione: OFF
-                            </button>
-                        </div>
+
                         <!-- Riga Aggiungi + Rimuovi (50% + 50%) -->
                         <div class="manuale-add-remove-row">
                             <div class="manuale-remove-cell">
@@ -568,15 +563,12 @@
                         <p class="sidebar-auto-desc">
                             Seleziona un mezzo, aggiungi oggetti nel pannello di destra e avvia l'ottimizzazione 3D automatica.
                         </p>
-                        <button class="btn btn-primary btn-block btn-lg auto-action-primary" id="btn-ottimizza" disabled>
-                            <i class="bi bi-lightning-charge"></i> OTTIMIZZA E SALVA
+                        <button class="btn btn-primary btn-block btn-lg auto-action-primary" id="btn-elabora-auto" disabled>
+                            <i class="bi bi-play-fill"></i> ELABORA
                         </button>
                         <div class="auto-action-secondary">
                             <button class="btn auto-action-save" id="btn-salva-auto" disabled>
                                 <i class="bi bi-save"></i> SALVA
-                            </button>
-                            <button class="btn auto-action-elabora" id="btn-elabora-auto" disabled>
-                                <i class="bi bi-play-fill"></i> ELABORA
                             </button>
                         </div>
                         <div id="task-status">
