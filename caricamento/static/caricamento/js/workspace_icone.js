@@ -18,33 +18,33 @@
 
 var ICON_CATALOG = [
     // --- Header Categorie ---
-    { id: 'header-documenti',   type: 'png',     iconClass: 'bi bi-folder2-open',      file: 'folder.png',  dims: [40, 40], desc: 'Header: pulsante Documenti',              location: 'Header',  selector: '#header .header-cat-btn[data-cat="documenti"] .header-cat-icon' },
-    { id: 'header-anagrafica',  type: 'bootstrap', iconClass: 'bi bi-journal-text',      file: '', dims: [40, 40], desc: 'Header: pulsante Anagrafica',              location: 'Header',  selector: '#header .header-cat-btn[data-cat="anagrafica"] .header-cat-icon' },
-    { id: 'header-auto',        type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [40, 40], desc: 'Header: pulsante Auto',                     location: 'Header',  selector: '#header .header-cat-btn[data-cat="goto-automatica"] .header-cat-icon' },
-    { id: 'header-manuale',     type: 'bootstrap', iconClass: 'bi bi-hand-index-thumb',  file: '', dims: [40, 40], desc: 'Header: pulsante Manuale',                  location: 'Header',  selector: '#header .header-cat-btn[data-cat="goto-manuale"] .header-cat-icon' },
-    { id: 'header-vista',       type: 'bootstrap', iconClass: 'bi bi-eye',               file: '', dims: [40, 40], desc: 'Header: pulsante Vista',                    location: 'Header',  selector: '#header .header-cat-btn[data-cat="toggle-vista"] .header-cat-icon' },
-    { id: 'header-report',      type: 'bootstrap', iconClass: 'bi bi-bar-chart',         file: '', dims: [40, 40], desc: 'Header: pulsante Report',                   location: 'Header',  selector: '#header .header-cat-btn[data-cat="report"] .header-cat-icon' },
-    { id: 'header-sistema',     type: 'bootstrap', iconClass: 'bi bi-gear',              file: '', dims: [40, 40], desc: 'Header: pulsante Sistema',                  location: 'Header',  selector: '#header .header-cat-btn[data-cat="sistema"] .header-cat-icon' },
+    { id: 'header-documenti',   type: 'png',     iconClass: 'bi bi-folder2-open',      file: 'folder.png',  dims: [40, 40], desc: 'Header: pulsante Documenti',              translation_key: 'header.documenti', location: 'Header',  selector: '#header .header-cat-btn[data-cat="documenti"] .header-cat-icon' },
+    { id: 'header-anagrafica',  type: 'bootstrap', iconClass: 'bi bi-journal-text',      file: '', dims: [40, 40], desc: 'Header: pulsante Anagrafica',              translation_key: 'header.anagrafica', location: 'Header',  selector: '#header .header-cat-btn[data-cat="anagrafica"] .header-cat-icon' },
+    { id: 'header-auto',        type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [40, 40], desc: 'Header: pulsante Auto',                     translation_key: 'header.auto', location: 'Header',  selector: '#header .header-cat-btn[data-cat="goto-automatica"] .header-cat-icon' },
+    { id: 'header-manuale',     type: 'bootstrap', iconClass: 'bi bi-hand-index-thumb',  file: '', dims: [40, 40], desc: 'Header: pulsante Manuale',                  translation_key: 'header.manuale', location: 'Header',  selector: '#header .header-cat-btn[data-cat="goto-manuale"] .header-cat-icon' },
+    { id: 'header-vista',       type: 'bootstrap', iconClass: 'bi bi-eye',               file: '', dims: [40, 40], desc: 'Header: pulsante Vista',                    translation_key: 'header.vista', location: 'Header',  selector: '#header .header-cat-btn[data-cat="toggle-vista"] .header-cat-icon' },
+    { id: 'header-report',      type: 'bootstrap', iconClass: 'bi bi-bar-chart',         file: '', dims: [40, 40], desc: 'Header: pulsante Report',                   translation_key: 'header.report', location: 'Header',  selector: '#header .header-cat-btn[data-cat="report"] .header-cat-icon' },
+    { id: 'header-sistema',     type: 'bootstrap', iconClass: 'bi bi-gear',              file: '', dims: [40, 40], desc: 'Header: pulsante Sistema',                  translation_key: 'header.sistema', location: 'Header',  selector: '#header .header-cat-btn[data-cat="sistema"] .header-cat-icon' },
 
     // --- Header Tools ---
     { id: 'header-export',      type: 'bootstrap', iconClass: 'bi bi-filetype-txt',      file: '', dims: [20, 20], desc: 'Header: pulsante Posizioni',               location: 'Header',  selector: '#header-export-btn > i' },
     { id: 'header-icone',       type: 'bootstrap', iconClass: 'bi bi-palette',           file: '', dims: [20, 20], desc: 'Header: pulsante Gestione Icone (admin)',   location: 'Header',  selector: '#header-icone-btn > i' },
 
     // --- Header Logout ---
-    { id: 'header-logout',      type: 'bootstrap', iconClass: 'bi bi-box-arrow-right',   file: '', dims: [16, 16], desc: 'Header: link Esci',                        location: 'Header',  selector: '#header-logout > i' },
-    { id: 'header-logout-full', type: 'bootstrap', iconClass: 'bi bi-door-open',         file: '', dims: [16, 16], desc: 'Header: link Logout completo',              location: 'Header',  selector: '#header-logout-full > i' },
+    { id: 'header-logout',      type: 'bootstrap', iconClass: 'bi bi-box-arrow-right',   file: '', dims: [16, 16], desc: 'Header: link Esci',                        translation_key: 'header.esci', location: 'Header',  selector: '#header-logout > i' },
+    { id: 'header-logout-full', type: 'bootstrap', iconClass: 'bi bi-door-open',         file: '', dims: [16, 16], desc: 'Header: link Logout completo',              translation_key: 'header.logout', location: 'Header',  selector: '#header-logout-full > i' },
 
     // --- Header Logo ---
     { id: 'header-logo',        type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [20, 20], desc: 'Header: logo Carico 3D',                   location: 'Header',  selector: '#header-logo > i' },
 
     // --- Sidebar Tabs ---
-    { id: 'sidebar-nav',        type: 'bootstrap', iconClass: 'bi bi-compass',           file: '', dims: [18, 18], desc: 'Sidebar: tab Documenti',                   location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="documenti"] .sidebar-tab-icon' },
-    { id: 'sidebar-anagrafica', type: 'bootstrap', iconClass: 'bi bi-journal-text',      file: '', dims: [18, 18], desc: 'Sidebar: tab Anagrafica',                  location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="anagrafica"] .sidebar-tab-icon' },
-    { id: 'sidebar-manuale',    type: 'bootstrap', iconClass: 'bi bi-hand-index-thumb',  file: '', dims: [18, 18], desc: 'Sidebar: tab Manuale',                     location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="manuale"] .sidebar-tab-icon' },
-    { id: 'sidebar-auto',       type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [18, 18], desc: 'Sidebar: tab Automatica',                  location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="automatica"] .sidebar-tab-icon' },
+    { id: 'sidebar-nav',        type: 'bootstrap', iconClass: 'bi bi-compass',           file: '', dims: [18, 18], desc: 'Sidebar: tab Documenti',                   translation_key: 'sidebar.documenti', location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="documenti"] .sidebar-tab-icon' },
+    { id: 'sidebar-anagrafica', type: 'bootstrap', iconClass: 'bi bi-journal-text',      file: '', dims: [18, 18], desc: 'Sidebar: tab Anagrafica',                  translation_key: 'sidebar.anagrafica', location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="anagrafica"] .sidebar-tab-icon' },
+    { id: 'sidebar-manuale',    type: 'bootstrap', iconClass: 'bi bi-hand-index-thumb',  file: '', dims: [18, 18], desc: 'Sidebar: tab Manuale',                     translation_key: 'sidebar.manuale', location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="manuale"] .sidebar-tab-icon' },
+    { id: 'sidebar-auto',       type: 'bootstrap', iconClass: 'bi bi-lightning-charge',  file: '', dims: [18, 18], desc: 'Sidebar: tab Automatica',                  translation_key: 'sidebar.automatica', location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="automatica"] .sidebar-tab-icon' },
 
     // --- Sidebar Navigazione Dinamica ---
-    { id: 'nav-nuovo-carico',   type: 'bootstrap', iconClass: 'bi bi-file-earmark-plus', file: '', dims: [18, 18], desc: 'Sidebar Nav: Nuovo Carico',                location: 'Sidebar', selector: '.sidebar-nav-item[data-view="nuovo-carico"] > i' },
+    { id: 'nav-nuovo-carico',   type: 'bootstrap', iconClass: 'bi bi-file-earmark-plus', file: '', dims: [18, 18], desc: 'Sidebar Nav: Nuovo Carico',                translation_key: 'sidebar.nuovo-carico', location: 'Sidebar', selector: '.sidebar-nav-item[data-view="nuovo-carico"] > i' },
     { id: 'nav-apri-piano',     type: 'bootstrap', iconClass: 'bi bi-folder2',           file: '', dims: [18, 18], desc: 'Sidebar Nav: Apri Piano',                  location: 'Sidebar', selector: '.sidebar-nav-item[data-view="piani"] > i' },
     { id: 'nav-salva',          type: 'bootstrap', iconClass: 'bi bi-save',              file: '', dims: [18, 18], desc: 'Sidebar Nav: Salva',                       location: 'Sidebar', selector: '.sidebar-nav-item[data-view="salva-db"] > i' },
     { id: 'nav-esporta',        type: 'bootstrap', iconClass: 'bi bi-upload',            file: '', dims: [18, 18], desc: 'Sidebar Nav: Esporta',                     location: 'Sidebar', selector: '.sidebar-nav-item[data-view="export-file"] > i' },
@@ -148,46 +148,46 @@ var BUTTON_CATALOG = [
     // Il flusso è unico: ELABORA (principale, genera l'anteprima) + SALVA
     // (conferma sul piano reale). Il vecchio "OTTIMIZZA E SALVA" è stato
     // rimosso per semplificare la UI.
-    { id: 'auto-elabora',   selector: '#btn-elabora-auto',    iconSelRelative: 'i',          iconClass: 'bi bi-play-fill',         extraClass: '',            label_default: 'ELABORA',            location: 'Tab Auto',    dims_px: [30, 30], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'auto-salva',     selector: '#btn-salva-auto',      iconSelRelative: 'i',          iconClass: 'bi bi-save',              extraClass: '',            label_default: 'SALVA',              location: 'Tab Auto',    dims_px: [24, 24], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
-    { id: 'auto-pesi',      selector: '#auto-btn-pesi',       iconSelRelative: 'i',          iconClass: 'bi bi-bar-chart-fill',    extraClass: '',            label_default: 'Distribuzione Pesi', location: 'Tab Auto',    dims_px: [26, 26], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#17a2b8' },
+    { id: 'auto-elabora',   selector: '#btn-elabora-auto',    iconSelRelative: 'i',          iconClass: 'bi bi-play-fill',         extraClass: '',            label_default: 'Elabora',            translation_key: 'button.auto.elabora', location: 'Tab Auto',    dims_px: [30, 30], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'auto-salva',     selector: '#btn-salva-auto',      iconSelRelative: 'i',          iconClass: 'bi bi-save',              extraClass: '',            label_default: 'SALVA',              translation_key: 'button.auto.salva', location: 'Tab Auto',    dims_px: [24, 24], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'auto-pesi',      selector: '#auto-btn-pesi',       iconSelRelative: 'i',          iconClass: 'bi bi-bar-chart-fill',    extraClass: '',            label_default: 'Distribuzione Pesi', translation_key: 'button.auto.pesi', location: 'Tab Auto',    dims_px: [26, 26], height_default: 52, label_size: 12, label_pos: 'row', color_default: '#17a2b8' },
 
     // --- Tab Manuale (bottoni alti 33px) ---
-    { id: 'man-aggiungi',   selector: '#manuale-btn-aggiungi',  iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Aggiungi',            location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'man-rimuovi',    selector: '#manuale-btn-rimuovi',   iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Rimuovi',             location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
-    { id: 'man-pesi',       selector: '#manuale-btn-pesi',      iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Pesi',                location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'man-salva',      selector: '#manuale-btn-salva',     iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Salva',               location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
-    { id: 'man-ghost',      selector: '#manuale-btn-ghost-toggle', iconSelRelative: '.manuale-emoji', iconClass: '',               extraClass: 'manuale-emoji', label_default: 'Ghost: OFF',          location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-arrow-counterclockwise', extraClass: '',            label_default: 'Annulla ultima modifica', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'man-marquee',    selector: '#manuale-btn-marquee-toggle', iconSelRelative: 'i',   iconClass: 'bi bi-check2-square',          extraClass: '',            label_default: 'Selezione multipla',     location: 'Tab Manuale', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#1f6feb' },
+    { id: 'man-aggiungi',   selector: '#manuale-btn-aggiungi',  iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Aggiungi',            translation_key: 'button.manuale.aggiungi', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'man-rimuovi',    selector: '#manuale-btn-rimuovi',   iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Rimuovi',             translation_key: 'button.manuale.rimuovi', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'man-pesi',       selector: '#manuale-btn-pesi',      iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Pesi',                translation_key: 'button.manuale.pesi', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-salva',      selector: '#manuale-btn-salva',     iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Salva',               translation_key: 'button.manuale.salva', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'man-ghost',      selector: '#manuale-btn-ghost-toggle', iconSelRelative: '.manuale-emoji', iconClass: '',               extraClass: 'manuale-emoji', label_default: 'Ghost: OFF',          translation_key: 'button.manuale.ghost', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-arrow-counterclockwise', extraClass: '',            label_default: 'Annulla ultima modifica', translation_key: 'button.manuale.annulla', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'man-marquee',    selector: '#manuale-btn-marquee-toggle', iconSelRelative: 'i',   iconClass: 'bi bi-check2-square',          extraClass: '',            label_default: 'Selezione multipla',     translation_key: 'button.manuale.marquee', location: 'Tab Manuale', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#1f6feb' },
 
     // --- Tab Impostazioni (renderizzati dinamicamente) ---
-    { id: 'settings-salva',  selector: '#btn-save-impostazioni',  iconSelRelative: 'i', iconClass: 'bi bi-save',                  extraClass: '', label_default: 'Salva impostazioni',  location: 'Tab Impostazioni', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
-    { id: 'settings-reset',  selector: '#btn-reset-impostazioni', iconSelRelative: 'i', iconClass: 'bi bi-arrow-counterclockwise', extraClass: '', label_default: 'Ripristina default', location: 'Tab Impostazioni', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'settings-salva',  selector: '#btn-save-impostazioni',  iconSelRelative: 'i', iconClass: 'bi bi-save',                  extraClass: '', label_default: 'Salva impostazioni',  translation_key: 'button.settings.salva', location: 'Tab Impostazioni', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'settings-reset',  selector: '#btn-reset-impostazioni', iconSelRelative: 'i', iconClass: 'bi bi-arrow-counterclockwise', extraClass: '', label_default: 'Ripristina default', translation_key: 'button.settings.reset', location: 'Tab Impostazioni', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
 
     // --- Finestre Main View: Piani di carico ---
     // (bottoni generati dinamicamente all'apertura della vista: iconSelRelative
     // vuoto perché l'emoji è nel testo, non in un elemento dedicato)
     { id: 'win-piani-salva-nome',    selector: '#pd-btn-salva-nome',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: '',                       emoji_default: '💾', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'win-piani-carica',        selector: '#pv-piano-carica',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Carica nel viewport 3D', emoji_default: '📦', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'win-piani-delete',        selector: '#pv-piano-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina piano',          emoji_default: '🗑', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-piani-carica',        selector: '#pv-piano-carica',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Carica nel viewport 3D', translation_key: 'button.window.piani.carica', emoji_default: '📦', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-piani-delete',        selector: '#pv-piano-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina piano',          translation_key: 'button.window.piani.elimina', emoji_default: '🗑', location: 'Finestre: Piani di carico', tab: 'finestre', dims_px: [20, 20], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
 
     // --- Finestre Main View: Vincoli ---
-    { id: 'win-vincoli-escludi',     selector: '#vt-btn-escludi',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Escludi tutti',     emoji_default: '🚫', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-vincoli-nuovo',       selector: '#vt-btn-new',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',             emoji_default: '➕', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-vincoli-crea',        selector: '#vt-btn-create',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Crea Vincolo',      emoji_default: '➕', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'win-vincoli-aggiorna',    selector: '#vt-btn-update',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Aggiorna Vincolo',  emoji_default: '💾', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
-    { id: 'win-vincoli-delete',      selector: '#vt-btn-delete',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina',           emoji_default: '🗑', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-vincoli-escludi',     selector: '#vt-btn-escludi',     iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Escludi tutti',     translation_key: 'button.window.vincoli.escludi', emoji_default: '🚫', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-vincoli-nuovo',       selector: '#vt-btn-new',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',             translation_key: 'button.window.nuovo', emoji_default: '➕', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-vincoli-crea',        selector: '#vt-btn-create',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Crea Vincolo',      translation_key: 'button.window.vincoli.crea', emoji_default: '➕', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-vincoli-aggiorna',    selector: '#vt-btn-update',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Aggiorna Vincolo',  translation_key: 'button.window.vincoli.aggiorna', emoji_default: '💾', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
+    { id: 'win-vincoli-delete',      selector: '#vt-btn-delete',      iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina',           translation_key: 'button.window.elimina', emoji_default: '🗑', location: 'Finestre: Vincoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
 
     // --- Finestre Main View: Articoli ---
-    { id: 'win-art-nuovo',           selector: '#pv-ogg-nuovo',           iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            emoji_default: '➕', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-art-salva',           selector: '#pv-ogg-save',            iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'win-art-delete-ogg',      selector: '#pv-ogg-delete',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina oggetto',   emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
+    { id: 'win-art-nuovo',           selector: '#pv-ogg-nuovo',           iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            translation_key: 'button.window.nuovo', emoji_default: '➕', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-salva',           selector: '#pv-ogg-save',            iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             translation_key: 'button.window.salva', emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-art-delete-ogg',      selector: '#pv-ogg-delete',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina oggetto',   translation_key: 'button.window.articoli.elimina', emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
 
     // --- Finestre Main View: Trasporti ---
-    { id: 'win-trasp-nuovo',         selector: '#pv-mezzo-nuovo',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            emoji_default: '➕', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'win-trasp-salva',         selector: '#pv-mezzo-save',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             emoji_default: '💾', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'win-trasp-delete-mezzo',  selector: '#pv-mezzo-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina mezzo',     emoji_default: '🗑', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' }
+    { id: 'win-trasp-nuovo',         selector: '#pv-mezzo-nuovo',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            translation_key: 'button.window.nuovo', emoji_default: '➕', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-trasp-salva',         selector: '#pv-mezzo-save',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             translation_key: 'button.window.salva', emoji_default: '💾', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'win-trasp-delete-mezzo',  selector: '#pv-mezzo-delete',        iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina mezzo',     translation_key: 'button.window.trasporti.elimina', emoji_default: '🗑', location: 'Finestre: Trasporti', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' }
 ];
 
 // =============================================================================
@@ -525,7 +525,12 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
         // effettuate da questa stessa funzione. Evita di ricreare il bottone
         // quando la configurazione è già stata applicata: senza questo stato
         // il ripristino dell'innerHTML innesca un ciclo e fa lampeggiare i PNG.
-        var appliedState = JSON.stringify(cfg) + '|' +
+        var lingua = window.CARICO3D_LANGUAGE || 'it';
+        var labelItaliano = cfg.label || btnDef.label_default || '';
+        var translationKey = btnDef.translation_key || labelItaliano;
+        var dizionarioLingua = window.DIZIONARIO && window.DIZIONARIO[lingua];
+        var labelVisualizzata = (dizionarioLingua && dizionarioLingua[translationKey]) || labelItaliano;
+        var appliedState = JSON.stringify(cfg) + '|' + lingua + '|' +
             (isGhostToggle ? String(_ghostModeEnabled) : '');
         // Aggiorna icone/Salva possono passare una mappa degli ID modificati:
         // bypassa la cache solo per quei bottoni. Il MutationObserver e i
@@ -600,7 +605,7 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
         }
 
         // Testo personalizzato (mantiene l'elemento icona)
-        if (cfg.label && !isGhostToggle) {
+        if (labelVisualizzata && !isGhostToggle) {
             if (iconEl) {
                 var nodes = Array.prototype.slice.call(el.childNodes);
                 nodes.forEach(function (n) {
@@ -610,7 +615,7 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
             } else {
                 el.textContent = '';
             }
-            el.appendChild(document.createTextNode(cfg.label));
+            el.appendChild(document.createTextNode(labelVisualizzata));
         }
 
         // Dimensione testo, layout flex e posizione rispetto all'icona

@@ -96,7 +96,13 @@ function aggiornaSelectMezzi() {
     var opts = WS.contenitori.filter(function (c) { return !c.archiviato; }).map(function (c) {
         return '<option value="' + c.id + '">' + escapeHtml(c.nome) + '</option>';
     }).join('');
-    DOM.headerVehicleSelect.innerHTML = '<option value="">— Seleziona mezzo —</option>' + opts;
+    DOM.headerVehicleSelect.innerHTML = '<option value="" class="language-label" data-translation-key="panel.seleziona-mezzo" data-italiano="— Seleziona mezzo —">— Seleziona mezzo —</option>' + opts;
+    if (typeof window.CARICO3D_LANGUAGE === 'string') {
+        var placeholder = DOM.headerVehicleSelect.querySelector('[data-translation-key="panel.seleziona-mezzo"]');
+        if (placeholder && window.DIZIONARIO && window.DIZIONARIO[window.CARICO3D_LANGUAGE]) {
+            placeholder.textContent = window.DIZIONARIO[window.CARICO3D_LANGUAGE]['panel.seleziona-mezzo'] || placeholder.dataset.italiano;
+        }
+    }
 }
 
 // =============================================================================

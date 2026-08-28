@@ -17,6 +17,7 @@ import math
 import secrets
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 from urllib.parse import unquote
 
 from django.conf import settings
@@ -1559,12 +1560,15 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
         lines.append("-" * 85)
         lines.append("")
 
-        # Riepilogo per codice
+        # Riepilogo per codice + colore (posizione)
         from collections import Counter
-        codici = Counter(op.oggetto.codice for op in oggetti_posizionati)
+        codici = Counter(
+            (op.oggetto.codice, _colore_posizionamento(op) or '-')
+            for op in oggetti_posizionati
+        )
         lines.append("RIEPILOGO PER CODICE:")
-        for codice, qty in sorted(codici.items()):
-            lines.append(f"  {codice}: {qty} pezzi")
+        for (codice, colore), qty in sorted(codici.items()):
+            lines.append(f"  {codice}: {qty} pezzi (colore: {colore})")
 
         # Riepilogo occupazione X
         if oggetti_posizionati:
@@ -1886,24 +1890,56 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
             piano.oggetti_posizionati.all().delete()
             OggettoPosizionato.objects.bulk_create(nuovi)
 
+            # Calcola metriche (peso, volume, saturazione) dalle posizioni salvate
+            peso_totale = sum(
+                float(op.oggetto.peso_kg or 0) for op in nuovi
+            )
+            volume_totale = sum(
+                op.dimensione_x_mm * op.dimensione_y_mm * op.dimensione_z_mm
+                for op in nuovi
+            )
+            dims = (
+                piano.contenitore.lunghezza_mm,
+                piano.contenitore.larghezza_mm,
+                piano.contenitore.altezza_mm,
+            )
+            volume_container = dims[0] * dims[1] * dims[2]
+            saturazione = (
+                (volume_totale / volume_container * 100) if volume_container > 0 else 0
+            )
+
             # La sincronizzazione non deve alterare lo stato di un piano
             # automatico parziale; una modifica manuale, invece, completa il
             # piano perché le posizioni sono state confermate dall'utente.
-            update_fields = ["updated_at"]
+            update_fields = [
+                "updated_at",
+                "peso_totale_kg",
+                "volume_utilizzato_mm3",
+                "completato_at",
+            ]
+            piano.peso_totale_kg = Decimal(str(round(peso_totale, 2)))
+            piano.volume_utilizzato_mm3 = volume_totale
+            piano.completato_at = timezone.now()
             if origine == "manuale":
                 piano.stato = StatoPiano.COMPLETATO
                 piano.algoritmo = "manuale"
                 update_fields.extend(["stato", "algoritmo"])
-            elif origine == "sincronizzazione" and request.data.get("algoritmo"):
+            elif origine == "sincronizzazione":
                 # Applicare una soluzione alternativa (o salvare un piano
                 # automatico) riporta il piano ad "automatico": rimuove
                 # l'etichetta "manuale" che un salvataggio manuale precedente
                 # aveva impostato.
-                piano.algoritmo = str(request.data.get("algoritmo"))[:128]
+                algoritmo = request.data.get("algoritmo")
+                if algoritmo:
+                    piano.algoritmo = str(algoritmo)[:128]
+                elif not piano.algoritmo:
+                    piano.algoritmo = "Algoritmo 3D Semplificato"
+                update_fields.append("algoritmo")
+                # Le posizioni salvate (sia da Elabora che da Salva) confermano
+                # il piano: se non è già completato, segnalo come completato.
                 if piano.stato != StatoPiano.COMPLETATO:
                     piano.stato = StatoPiano.COMPLETATO
                     update_fields.append("stato")
-                update_fields.append("algoritmo")
             piano.save(update_fields=update_fields)
 
         return Response({

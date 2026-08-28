@@ -369,11 +369,14 @@ function _vtPopolaGrigliaConfigurazioni() {
 
     if (hint) {
         if (nessuna) {
-            hint.textContent = '\u2014 Tutte valide';
+            hint.dataset.translationKey = 'constraints.tutte-valide';
+            hint.dataset.italiano = '— Tutte valide';
+            hint.textContent = '— Tutte valide';
             hint.style.color = '#16a34a';
         } else {
             var cnt = configs.filter(function (c) { return c.valida; }).length;
-            hint.textContent = '\u2014 ' + cnt + ' di ' + configs.length + ' valide';
+            hint.removeAttribute('data-translation-key');
+            hint.textContent = '— ' + cnt + ' ' + (window.CARICO3D_LANGUAGE === 'en' ? 'of' : 'di') + ' ' + configs.length + ' ' + (window.CARICO3D_LANGUAGE === 'en' ? 'valid' : 'valide');
             hint.style.color = '#2563eb';
         }
     }
@@ -386,8 +389,8 @@ function _vtPopolaGrigliaConfigurazioni() {
         if (isSelected && anySelected) cls += ' selected';
         if (isShaded) cls += ' shaded';
         var badgeHtml = c.valida
-            ? '<span class="vt-config-badge valid">valida</span>'
-            : '<span class="vt-config-badge invalid">esclusa</span>';
+            ? '<span class="vt-config-badge valid" data-translation-key="constraints.valida" data-italiano="valida">' + (window.CARICO3D_LANGUAGE === 'en' ? 'valid' : 'valida') + '</span>'
+            : '<span class="vt-config-badge invalid" data-translation-key="constraints.esclusa" data-italiano="esclusa">' + (window.CARICO3D_LANGUAGE === 'en' ? 'excluded' : 'esclusa') + '</span>';
 
         html += '<div class="' + cls + '" data-config-idx="' + idx + '">' +
             '<div class="vt-config-canvas-wrap"><canvas></canvas></div>' +
@@ -395,7 +398,7 @@ function _vtPopolaGrigliaConfigurazioni() {
                 '<span class="vt-config-id">Config ' + c.id + '</span>' +
                 badgeHtml +
                 '<span class="vt-config-rots">A:' + c.rotA + ' B:' + c.rotB + '</span>' +
-                '<span class="vt-config-pos">' + escapeHtml(c.posizione_label || 'centro') + '</span>' +
+                '<span class="vt-config-pos">' + escapeHtml((window.CARICO3D_LANGUAGE === 'en' && window.DIZIONARIO && window.DIZIONARIO.en ? (window.DIZIONARIO.en['constraints.posizione.' + (c.posizione_label || 'centro')] || c.posizione_label || 'centro') : (c.posizione_label || 'centro'))) + '</span>' +
             '</div>' +
         '</div>';
     });
@@ -473,7 +476,9 @@ function _vtSelezionaConfigurazione(index) {
     var hint = document.getElementById('vt-selection-hint');
     if (hint) {
         if (_vtNessunaSelezionata()) {
-            hint.textContent = '\u2014 Tutte valide';
+            hint.dataset.translationKey = 'constraints.tutte-valide';
+            hint.dataset.italiano = '— Tutte valide';
+            hint.textContent = '— Tutte valide';
             hint.style.color = '#16a34a';
         } else {
             var cnt = _vtState.configurazioni.filter(function (c) { return c.valida; }).length;

@@ -183,7 +183,7 @@ function renderVincoliTraPanel() {
         '<div class="vt-custom-layout">' +
             // Header
             '<div class="vt-header">' +
-                '<h3>🔗 Vincoli tra Oggetti <span class="badge" id="vt-count-badge">' + WS.vincoliTra.length + '</span></h3>' +
+                '<h3 class="language-label" data-translation-key="constraints.titolo" data-italiano="🔗 Vincoli tra Oggetti">🔗 Vincoli tra Oggetti <span class="badge" id="vt-count-badge">' + WS.vincoliTra.length + '</span></h3>' +
                 '<div style="display:flex;gap:6px;align-items:center;">' +
                     '<select class="vt-load-select" id="vt-load-select" style="font-size:11px;padding:4px 8px;border:1px solid #ccc;border-radius:4px;background:#fff;max-width:180px;">' +
                     _vtBuildLoadSelectOptions() +
@@ -198,8 +198,8 @@ function renderVincoliTraPanel() {
                 // Colonna A (sinistra)
                 '<div class="vt-obj-col">' +
                     '<div class="vt-obj-col-header">' +
-                        '<span class="field-label">🔵 Oggetto A <small>(Ctrl/Shift: multipla)</small></span>' +
-                        '<input type="text" class="vt-obj-search" id="vt-search-a" placeholder="Filtra..." autocomplete="off">' +
+                        '<span class="field-label language-label" data-translation-key="constraints.oggetto-a" data-italiano="🔵 Oggetto A (Ctrl/Shift: multipla)">🔵 Oggetto A <small>(Ctrl/Shift: multipla)</small></span>' +
+                        '<input type="text" class="vt-obj-search" id="vt-search-a" placeholder="Filtra..." data-translation-key="constraints.filtra" data-italiano="Filtra..." autocomplete="off">' +
                     '</div>' +
                     '<div class="vt-obj-list" id="vt-list-a"></div>' +
                 '</div>' +
@@ -210,7 +210,7 @@ function renderVincoliTraPanel() {
                         // Relazione fissa
                         '<div class="vt-relation-header">' +
                             '<span class="vt-relation-icon">⬆</span>' +
-                            '<strong>A deve stare sopra B</strong>' +
+                            '<strong class="language-label" data-translation-key="constraints.sopra" data-italiano="A deve stare sopra B">A deve stare sopra B</strong>' +
                             '<span class="vt-relation-badge" id="vt-config-count">0 config</span>' +
                         '</div>' +
 
@@ -219,7 +219,7 @@ function renderVincoliTraPanel() {
 
                         // Griglia canvas
                         '<div class="vt-config-grid" id="vt-config-grid">' +
-                            '<div class="vt-obj-empty" style="grid-column:1/-1;padding:32px;">' +
+                            '<div class="vt-obj-empty language-label" data-translation-key="constraints.seleziona-oggetti" data-italiano="Seleziona Oggetto A e Oggetto B per vedere le configurazioni possibili." style="grid-column:1/-1;padding:32px;">' +
                                 'Seleziona Oggetto A e Oggetto B per vedere le configurazioni possibili.' +
                             '</div>' +
                         '</div>' +
@@ -237,7 +237,7 @@ function renderVincoliTraPanel() {
                 '<div class="vt-obj-col">' +
                     '<div class="vt-obj-col-header">' +
                         '<span class="field-label">🟣 Oggetto B <small>(Ctrl/Shift: multipla)</small></span>' +
-                        '<input type="text" class="vt-obj-search" id="vt-search-b" placeholder="Filtra..." autocomplete="off">' +
+                        '<input type="text" class="vt-obj-search" id="vt-search-b" placeholder="Filtra..." data-translation-key="constraints.filtra" data-italiano="Filtra..." autocomplete="off">' +
                     '</div>' +
                     '<div class="vt-obj-list" id="vt-list-b"></div>' +
                 '</div>' +
@@ -251,6 +251,7 @@ function renderVincoliTraPanel() {
     if (panelView) {
         panelView.insertAdjacentHTML("beforeend", layoutHtml);
     }
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
 
     // Popola e wire
     _vtPopolaListeOggetti();
@@ -765,23 +766,59 @@ function _buildPianiListHtml() {
 
 
 // Helper: wiring click sugli item della lista piani (con multi-selezione Ctrl/Shift)
+function _caricaPianoNelViewport(pianoId) {
+    var p = WS.piani.find(function (x) { return x.id == pianoId; });
+    if (!p) return;
+    if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
+    WS.activePianoId = pianoId;
+    if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = false;
+    _ultimaDistribuzionePesi = null;
+    _distribuzionePesiPianoId = null;
+    if (window.distribuzionePesoChart) {
+        window.distribuzionePesoChart.destroy();
+        window.distribuzionePesoChart = null;
+    }
+    var listPesi = document.getElementById('sezioni-pesi-list');
+    if (listPesi) listPesi.innerHTML = '';
+    var mezzo = WS.contenitori.find(function (c) { return c.nome === p.container; });
+    if (mezzo) selezionaMezzo(mezzo.id, true);
+    caricaScena3D(pianoId);
+    mostraViewport();
+    showToast('Piano #' + pianoId + ' caricato.', 'info');
+}
+
 function _wirePianiListClickHandlers() {
     DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (item) {
+        var _lastClickTime = 0;
         item.addEventListener('click', function (e) {
             var pid = parseInt(item.dataset.pianoId) || 0;
             if (!pid) return;
             if (e.ctrlKey || e.shiftKey) {
                 _toggleSelezioneMultiplaPiani(pid, e.ctrlKey, e.shiftKey);
-            } else {
-                // Click semplice: seleziona il piano e apri i dettagli
+                return;
+            }
+            // Doppio clic: apri dettaglio + carica nel viewport 3D
+            var now = Date.now();
+            if (now - _lastClickTime < 350) {
+                _lastClickTime = 0;
                 _pulisciSelezioneMultiplaPiani();
-                _pianiSelState.pianiSelezionati.push(pid);
+                _pianiSelState.pianiSelezionati = [pid];
                 _pianiSelState.ultimoCliccato = pid;
-                item.classList.add('selected-multi');
-                DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); });
+                DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); el.classList.remove('selected-multi'); });
                 item.classList.add('selected');
                 renderPianiDettaglio(pid);
+                _caricaPianoNelViewport(pid);
+                return;
             }
+            _lastClickTime = now;
+            // Click semplice: seleziona il piano e apri i dettagli
+            _pulisciSelezioneMultiplaPiani();
+            _pianiSelState.pianiSelezionati.push(pid);
+            _pianiSelState.ultimoCliccato = pid;
+            item.classList.add('selected-multi');
+            DOM.pvListBody.querySelectorAll('.pv-list-item').forEach(function (el) { el.classList.remove('selected'); });
+            item.classList.add('selected');
+            renderPianiDettaglio(pid);
         });
     });}
 
@@ -790,7 +827,7 @@ function renderPianiPanel() {
     if (!_panelViewPronto('piani')) return;
     _pianiDettaglioRichiesta++;
     _pianoDettaglioApertoId = null;
-    DOM.pvListTitle.innerHTML = '<i class="bi bi-folder2-open"></i> Piani Recenti';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-folder2-open"></i> <span class="language-label" data-translation-key="plan.recenti" data-italiano="Piani Recenti">Piani Recenti</span>';
     DOM.pvFormTitle.textContent = 'Dettaglio Piano';
     DOM.pvListCount.textContent = WS.piani.length;
 
@@ -811,7 +848,7 @@ function renderPianiPanel() {
         var oldSelAll = listHeader.querySelector('.pv-list-select-all');
         if (oldSelAll) oldSelAll.remove();
         var selectAllHtml = '<label class="pv-list-select-all" title="Seleziona/Deseleziona tutti">' +
-            '<input type="checkbox" id="pv-select-all-piani"> Seleziona tutti</label>';
+            '<input type="checkbox" id="pv-select-all-piani"> <span class="language-label" data-translation-key="plan.seleziona-tutti" data-italiano="Seleziona tutti">Seleziona tutti</span></label>';
         listHeader.insertAdjacentHTML('afterbegin', selectAllHtml);
         var selAll = document.getElementById('pv-select-all-piani');
         if (selAll) {
@@ -842,7 +879,9 @@ function renderPianiPanel() {
     DOM.pvListBody.innerHTML = _buildPianiListHtml();
     _wirePianiListClickHandlers();
 
-    DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Seleziona un piano per vedere i dettagli.</p>';}
+    DOM.pvFormBody.innerHTML = '<p class="language-label" data-translation-key="plan.seleziona-piano" data-italiano="Seleziona un piano per vedere i dettagli." style="color:#999;text-align:center;padding:40px;">Seleziona un piano per vedere i dettagli.</p>';
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
+}
 
 
 function renderPianiDettaglio(pianoId) {
@@ -864,7 +903,7 @@ function renderPianiDettaglio(pianoId) {
     else if (p.stato === 'fallito' || p.stato === 'errore') statoClass = 'stato-errore';
 
     // Mostra loading mentre fetcha i dati
-    DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Caricamento dettagli piano...</p>';
+    DOM.pvFormBody.innerHTML = '<p class="language-label" data-translation-key="plan.caricamento" data-italiano="Caricamento dettagli piano..." style="color:#999;text-align:center;padding:40px;">Caricamento dettagli piano...</p>';
 
     // Fetch full data: dettagli piano + distribuzione pesi
     Promise.all([
@@ -885,6 +924,14 @@ function renderPianiDettaglio(pianoId) {
 
 
 function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, statoClass, richiesta, vistaEpoch) {
+    // Ricalcola statoClass dai dati freschi dell'API, non dalla cache WS.piani.
+    var _statoApi = pianoFull.stato || p.stato || 'bozza';
+    statoClass = 'stato-bozza';
+    if (_statoApi === 'completato') statoClass = 'stato-completato';
+    else if (_statoApi === 'in_elaborazione') statoClass = 'stato-in_elaborazione';
+    else if (_statoApi === 'parziale') statoClass = 'stato-parziale';
+    else if (_statoApi === 'fallito' || _statoApi === 'errore') statoClass = 'stato-errore';
+
     var oggetti = (pianoFull.oggetti_posizionati || []);
     var contenitore = pianoFull.contenitore || {};
     var sezioniCont = (contenitore.sezioni || []);
@@ -893,25 +940,39 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
     var dimsCont = _estraiDimensioniContenitoreAnteprima(contenitore);
     var volumeM3 = (dimsCont.x * dimsCont.y * dimsCont.z) / 1000000000;
     var mesiIt = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+    var statoKey = {
+        bozza: 'plan.status.bozza',
+        in_elaborazione: 'plan.status.in-elaborazione',
+        completato: 'plan.status.completato',
+        parziale: 'plan.status.parziale',
+        fallito: 'plan.status.fallito',
+        errore: 'plan.status.errore'
+    }[_statoApi] || 'plan.status.errore';
+    var statoItaliano = pianoFull.stato_display || p.stato_display || _statoApi;
+    var statoVisualizzato = window.DIZIONARIO && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it']
+        ? (window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it'][statoKey] || statoItaliano)
+        : statoItaliano;
 
-    // --- Riepilogo oggetti (raggruppa per codice) ---
+    // --- Riepilogo oggetti (raggruppa per codice + colore) ---
     var riepilogo = {};
     oggetti.forEach(function (o) {
         var codice = o.codice || '???';
-        if (!riepilogo[codice]) riepilogo[codice] = { qty: 0, colore: coloreOggetto(o) };
-        riepilogo[codice].qty++;
+        var colore = coloreOggetto(o);
+        var chiave = codice + '|' + colore;
+        if (!riepilogo[chiave]) riepilogo[chiave] = { codice: codice, qty: 0, colore: colore };
+        riepilogo[chiave].qty++;
     });
-    var codici = Object.keys(riepilogo).sort();
+    var chiavi = Object.keys(riepilogo).sort();
     var maxQty = 1;
-    codici.forEach(function (c) { if (riepilogo[c].qty > maxQty) maxQty = riepilogo[c].qty; });
+    chiavi.forEach(function (k) { if (riepilogo[k].qty > maxQty) maxQty = riepilogo[k].qty; });
 
     var riepilogoHtml = '';
-    if (codici.length > 0) {
-        codici.forEach(function (codice) {
-            var r = riepilogo[codice];
+    if (chiavi.length > 0) {
+        chiavi.forEach(function (chiave) {
+            var r = riepilogo[chiave];
             var barW = Math.max(4, Math.round((r.qty / maxQty) * 100));
             riepilogoHtml += '<div class="pd-riep-item">' +
-                '<span class="pd-riep-codice" title="' + escapeHtml(codice) + '">' + escapeHtml(codice) + '</span>' +
+                '<span class="pd-riep-codice" title="' + escapeHtml(r.codice) + ' (' + escapeHtml(r.colore) + ')">' + escapeHtml(r.codice) + '</span>' +
                 '<div class="pd-riep-bar"><div class="pd-riep-bar-fill" style="width:' + barW + '%;background:' + r.colore + ';"></div></div>' +
                 '<span class="pd-riep-qty">' + r.qty + '</span>' +
             '</div>';
@@ -938,7 +999,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
             '</div>';
         });
     } else {
-        assiHtml = '<span style="color:#999;font-size:11px;">Nessuna sezione configurata per questo mezzo</span>';
+        assiHtml = '<span style="color:#999;font-size:11px;"><span class="language-label" data-translation-key="plan.nessuna-sezione" data-italiano="Nessuna sezione configurata per questo mezzo">Nessuna sezione configurata per questo mezzo</span></span>';
     }
 
     // --- Pianale ---
@@ -955,7 +1016,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
     var pianaleHtml =
         '<div class="pd-pianale-row">' +
             '<div class="pd-pianale-bar-wrap"><div class="pd-pianale-bar-fill" style="width:' + pianalePct + '%"></div></div>' +
-            '<div class="pd-pianale-val">Occupato ' + pianaleOccM + 'm / ' + pianaleTotM + 'm (' + pianalePct + '%) · Libero ' + pianaleLiberoM + 'm</div>' +
+            '<div class="pd-pianale-val"><span class="language-label" data-translation-key="plan.occupato" data-italiano="Occupato">Occupato</span> ' + pianaleOccM + 'm / ' + pianaleTotM + 'm (' + pianalePct + '%) · <span class="language-label" data-translation-key="plan.libero" data-italiano="Libero">Libero</span> ' + pianaleLiberoM + 'm</div>' +
         '</div>';
 
     // --- Date del piano ---
@@ -970,8 +1031,8 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
     var ultimaModificaStr = formattaDataPiano(pianoFull.updated_at);
     var datePianoHtml =
         '<div style="font-size:10px;color:#999;margin-bottom:6px;">' +
-            'Data creazione: ' + (dataCreazioneStr || '—') +
-            ' · Ultima modifica: ' + (ultimaModificaStr || '—') +
+            '<span class="language-label" data-translation-key="plan.data-creazione" data-italiano="Data creazione:">Data creazione:</span> ' + (dataCreazioneStr || '—') +
+            ' · <span class="language-label" data-translation-key="plan.ultima-modifica" data-italiano="Ultima modifica:">Ultima modifica:</span> ' + (ultimaModificaStr || '—') +
         '</div>';
 
     // --- Layout completo ---
@@ -980,32 +1041,32 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
         '<div class="pd-toprow">' +
             '<div class="pd-info-col">' +
                 '<div class="field-group" style="margin-bottom:6px;">' +
-                    '<label class="field-label">Nome Piano</label>' +
+                    '<label class="field-label language-label" data-translation-key="plan.nome" data-italiano="Nome Piano">Nome Piano</label>' +
                     '<div class="pd-nome-row">' +
                         '<input type="text" class="form-input" id="pd-piano-nome" value="' + escapeHtml(p.nome) + '" style="flex:1;">' +
                         '<button class="btn btn-sm btn-primary" id="pd-btn-salva-nome">💾</button>' +
                     '</div>' +
                 '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">' +
-                    '<span class="field-label" style="margin:0;">Stato:</span>' +
-                    '<span class="stato-badge ' + statoClass + '">' + escapeHtml(p.stato_display || p.stato) + '</span>' +
+                    '<span class="field-label language-label" data-translation-key="plan.stato" data-italiano="Stato:" style="margin:0;">Stato:</span>' +
+                    '<span class="stato-badge ' + statoClass + '">' + escapeHtml(statoVisualizzato) + '</span>' +
                 '</div>' +
-                '<div style="font-size:11px;color:#666;margin-bottom:1px;">Mezzo: <strong>' + escapeHtml(p.container || contenitore.nome || '-') + '</strong></div>' +
+                '<div style="font-size:11px;color:#666;margin-bottom:1px;"><span class="language-label" data-translation-key="plan.mezzo" data-italiano="Mezzo:">Mezzo:</span> <strong>' + escapeHtml(p.container || contenitore.nome || '-') + '</strong></div>' +
                 '<div style="font-size:11px;color:#666;margin-bottom:1px;">' + formatCm(dimsCont.x) + '×' + formatCm(dimsCont.y) + '×' + formatCm(dimsCont.z) + ' cm · ' + volumeM3.toFixed(1) + ' m³</div>' +
                 datePianoHtml +
                 '<!-- PESO PER ASSE -->' +
                 '<div class="pd-info-section">' +
-                    '<div class="field-label">📊 Peso per Asse</div>' +
+                    '<div class="field-label language-label" data-translation-key="plan.peso-asse" data-italiano="📊 Peso per Asse">📊 Peso per Asse</div>' +
                     '<div class="pd-assi-list">' + assiHtml + '</div>' +
                 '</div>' +
                 '<!-- PIANALE -->' +
                 '<div class="pd-info-section">' +
-                    '<div class="field-label">📏 Pianale</div>' +
+                    '<div class="field-label language-label" data-translation-key="plan.pianale" data-italiano="📏 Pianale">📏 Pianale</div>' +
                     pianaleHtml +
                 '</div>' +
             '</div>' +
             '<div class="pd-riep-col">' +
-                '<div class="field-label" style="margin-bottom:4px;">📦 Riepilogo Carico</div>' +
+                '<div class="field-label language-label" data-translation-key="plan.riepilogo" data-italiano="📦 Riepilogo Carico">📦 Riepilogo Carico</div>' +
                 '<div class="pd-riep-list">' + riepilogoHtml + '</div>' +
                 '<div class="pd-riep-totali">' +
                     '<span>🏋️ ' + pesoTot.toFixed(0) + ' kg</span>' +
@@ -1016,7 +1077,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
         '</div>' +
         '<!-- ANTEPRIMA 3D -->' +
         '<div class="pd-section">' +
-            '<div class="field-label">🎯 Anteprima Carico</div>' +
+            '<div class="field-label language-label" data-translation-key="plan.anteprima" data-italiano="🎯 Anteprima Carico">🎯 Anteprima Carico</div>' +
             '<div class="pd-anteprima-wrap" id="pd-anteprima-wrap">' +
                 '<canvas id="pd-anteprima-canvas" style="width:100%;height:100%;display:block;"></canvas>' +
             '</div>' +
@@ -1026,28 +1087,11 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
             '<button class="btn btn-primary" style="flex:1;" id="pv-piano-carica">📦 Carica nel viewport 3D</button>' +
             '<button class="btn btn-danger" id="pv-piano-delete">🗑 Elimina</button>' +
         '</div>';
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
 
     // --- Event listeners ---
     document.getElementById('pv-piano-carica').addEventListener('click', function () {
-        if (typeof WS !== 'undefined') WS._autoPreviewPosizioni = null;
-        WS.activePianoId = pianoId;
-        if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = false;
-        // Invalida i dati del grafico in modo che vengano scaricati per il piano appena caricato
-        _ultimaDistribuzionePesi = null;
-        _distribuzionePesiPianoId = null;
-        if (window.distribuzionePesoChart) {
-            window.distribuzionePesoChart.destroy();
-            window.distribuzionePesoChart = null;
-        }
-        // Pulisce anche il contenuto della lista sezioni-pesi per evitare dati visivi obsoleti
-        var listPesi = document.getElementById('sezioni-pesi-list');
-        if (listPesi) listPesi.innerHTML = '';
-        var mezzo = WS.contenitori.find(function (c) { return c.nome === p.container; });
-        // true = non invalidare il piano attivo, stiamo caricando un piano salvato
-        if (mezzo) selezionaMezzo(mezzo.id, true);
-        caricaScena3D(pianoId);
-        mostraViewport();
-        showToast('Piano #' + pianoId + ' caricato.', 'info');
+        _caricaPianoNelViewport(pianoId);
     });
 
     var deleteBtn = document.getElementById('pv-piano-delete');

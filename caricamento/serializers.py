@@ -570,4 +570,21 @@ class OggettoCreateSerializer(serializers.ModelSerializer):
         validated_data["lunghezza_mm"] = int(validated_data.pop("lunghezza_cm") * 10)
         validated_data["larghezza_mm"] = int(validated_data.pop("larghezza_cm") * 10)
         validated_data["altezza_mm"] = int(validated_data.pop("altezza_cm") * 10)
+
+        # Il colore automatico appartiene all'anagrafica: non considerare mai
+        # i colori delle righe OggettoDaCaricare dei singoli piani.
+        if not validated_data.get("colore"):
+            from .engine.common import COLORI_PACCHI
+            owner = self.context["request"].user
+            usati = {
+                colore.strip().lower()
+                for colore in Oggetto.objects.filter(owner=owner)
+                .exclude(colore="")
+                .values_list("colore", flat=True)
+                if colore and colore.strip()
+            }
+            validated_data["colore"] = next(
+                (colore for colore in COLORI_PACCHI if colore.lower() not in usati),
+                COLORI_PACCHI[Oggetto.objects.filter(owner=owner).count() % len(COLORI_PACCHI)],
+            )
         return super().create(validated_data)

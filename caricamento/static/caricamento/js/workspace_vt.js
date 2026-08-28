@@ -77,7 +77,8 @@ function _vtPopolaListeOggetti(filterA, filterB) {
 // =============================================================================
 
 function _vtBuildLoadSelectOptions() {
-    var opts = '<option value="">— Carica vincolo (' + WS.vincoliTra.length + ') —</option>';
+    var label = (window.DIZIONARIO && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it'] && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it']['constraints.carica-vincolo']) || '— Carica vincolo';
+    var opts = '<option value="">' + label + ' (' + WS.vincoliTra.length + ') —</option>';
     WS.vincoliTra.forEach(function (v) {
         opts += '<option value="' + v.id + '">' + escapeHtml(v.oggetto_a_codice) + ' ↑ ' + escapeHtml(v.oggetto_b_codice) + '</option>';
     });

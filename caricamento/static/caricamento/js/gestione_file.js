@@ -594,10 +594,13 @@ async function salvaPianoDB() {
             }
             return copia;
         });
+        var _algoritmoPerSave = (_originePosizioni === 'manuale') ? 'manuale' :
+            ((typeof IMPOSTAZIONI !== 'undefined' && IMPOSTAZIONI && IMPOSTAZIONI.strategia_ottimizzazione && IMPOSTAZIONI.strategia_ottimizzazione.algoritmo_base) ? IMPOSTAZIONI.strategia_ottimizzazione.algoritmo_base : 'Algoritmo 3D Semplificato');
         await _salvaPosizioniManuali(
             pianoId,
             _originePosizioni,
-            snapshotConRighe
+            snapshotConRighe,
+            _algoritmoPerSave
         );
         WS._manualDragOccurred = false;
         // Una volta persistito il piano, lo snapshot non è più necessario
@@ -606,6 +609,15 @@ async function salvaPianoDB() {
 
         // Allinea q.tà richiesta = q.tà reale (il salvataggio conferma le q.tà attuali)
         _allineaQtyOriginaleDopoSalvataggio();
+
+        // Aggiorna la cache locale WS.piani con lo stato aggiornato dal backend
+        // così che la lista e il dettaglio piani mostrino "completato" anziché "bozza".
+        var _pIdxWs = WS.piani.findIndex(function (pp) { return pp.id == pianoId; });
+        if (_pIdxWs >= 0) {
+            WS.piani[_pIdxWs].stato = 'completato';
+            WS.piani[_pIdxWs].stato_display = 'Completato';
+            WS.piani[_pIdxWs].algoritmo = _algoritmoPerSave;
+        }
 
         DOM.headerExportBtn.disabled = false;
         setStatus('idle', 'Salvato nel DB');
@@ -859,7 +871,7 @@ function _raccogliPosizioniScena(usaFallback) {
     return posizioni;
 }
 
-async function _salvaPosizioniManuali(pianoId, origine, posizioniSnapshot) {
+async function _salvaPosizioniManuali(pianoId, origine, posizioniSnapshot, algoritmoNome) {
     origine = origine || 'manuale';
     // Le coordinate possono essere state raccolte prima di un'altra await
     // (flusso Elabora → Salva). Se non viene passato uno snapshot, mantieni
@@ -881,7 +893,7 @@ async function _salvaPosizioniManuali(pianoId, origine, posizioniSnapshot) {
         var resp = await fetch('/api/piani/' + pianoId + '/salva_posizioni_manuali/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-            body: JSON.stringify({ oggetti: posizioni, origine: origine }),
+            body: JSON.stringify({ oggetti: posizioni, origine: origine, algoritmo: algoritmoNome || undefined }),
         });
         if (!resp.ok) {
             var errData = await resp.json().catch(function () { return {}; });

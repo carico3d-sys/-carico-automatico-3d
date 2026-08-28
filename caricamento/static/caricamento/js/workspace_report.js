@@ -57,13 +57,15 @@ function _raccogliDatiReport() {
                 dimCm = { x: p.width || 0, y: p.height || 0, z: p.depth || 0 };
             } else { return; }
         }
-        if (!conteggio[codice]) {
-            conteggio[codice] = {
+        var colore = ud.colore || '#447e9b';
+        var chiave = codice + '|' + colore;
+        if (!conteggio[chiave]) {
+            conteggio[chiave] = {
                 codice: codice, qty: 0, dimCm: dimCm,
-                peso: ud.peso || 0, colore: ud.colore || '#447e9b',
+                peso: ud.peso || 0, colore: colore,
             };
         }
-        conteggio[codice].qty++;
+        conteggio[chiave].qty++;
     });
 
     var totPezzi = 0, totPeso = 0;

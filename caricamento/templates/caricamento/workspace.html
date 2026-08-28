@@ -277,10 +277,10 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=18" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=22" defer></script>
 
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
-    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=43" defer></script>
+    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=51" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
     <script src="{% static 'caricamento/js/gestione_file.js' %}?v=11" defer></script>
@@ -290,8 +290,8 @@
 
     <!-- 4. Vincoli tra Oggetti: rotazioni → canvas → orchestratore -->
     <script src="{% static 'caricamento/js/workspace_vt_rotazioni.js' %}?v=3" defer></script>
-    <script src="{% static 'caricamento/js/workspace_vt_canvas.js' %}?v=3" defer></script>
-    <script src="{% static 'caricamento/js/workspace_vt.js' %}?v=6" defer></script>
+    <script src="{% static 'caricamento/js/workspace_vt_canvas.js' %}?v=4" defer></script>
+    <script src="{% static 'caricamento/js/workspace_vt.js' %}?v=7" defer></script>
 
     <!-- 5. Anteprima 3D Oggetto (nella vista Anagrafica Oggetti) -->
     <script src="{% static 'caricamento/js/preview_oggetto_3d.js' %}?v=9" defer></script>
@@ -300,11 +300,11 @@
     <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=16" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
-    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=17" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=22" defer></script>
     <!-- 7a. Panel Mezzi (lista e form) -->
-    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=17" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=18" defer></script>
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
-    <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=6" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=14" defer></script>
 
     <!-- 8. Soluzioni alternative generate dal Simulated Annealing -->
     <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=8" defer></script>
@@ -331,6 +331,8 @@
 
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
     <script src="{% static 'caricamento/js/workspace.js' %}?v=35" defer></script>
+    <script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=22"></script>
+    <script src="{% static 'caricamento/js/selettore_lingua.js' %}?v=25"></script>
 
     <script>
         window.WORKSPACE_CONFIG = {
@@ -383,7 +385,7 @@
     <!-- ================================================================ -->
     <header id="header">
         <div id="header-brand">
-            <a href="/" id="header-logo"><i class="bi bi-box-seam"></i> Carico 3D</a>
+            <a href="/" id="header-logo"><i class="bi bi-box-seam"></i> LoadPlanner3d</a>
             <span id="header-carico-label" class="header-carico-label"></span>
         </div>
         <nav id="header-categories">
@@ -415,6 +417,10 @@
                 <i class="bi bi-gear header-cat-icon"></i>
                 <span class="header-cat-label">Sistema</span>
             </button>
+            <div class="language-selector" role="group" aria-label="Selettore lingua">
+                <button type="button" class="language-btn active" data-language="it" aria-pressed="true">IT</button>
+                <button type="button" class="language-btn" data-language="en" aria-pressed="false">EN</button>
+            </div>
         </nav>
         <div id="header-tools">
             <button id="header-export-btn" class="header-btn" title="Esporta solo posizioni txt" disabled><i class="bi bi-filetype-txt"></i> Posizioni</button>
@@ -422,8 +428,8 @@
             <button id="header-icone-btn" class="header-btn" title="Gestione Icone"><i class="bi bi-palette"></i> Icone</button>
             {% endif %}
             <span id="header-user">{{ request.user.username }}</span>
-            <a href="/logout/" id="header-logout" title="Esci"><i class="bi bi-box-arrow-right"></i> Esci</a>
-            <a href="/logout-completo/" id="header-logout-full" title="Logout completo (cambia account Google)"><i class="bi bi-door-open"></i> Logout</a>
+            <a href="/logout/" id="header-logout" title="Esci"><i class="bi bi-box-arrow-right"></i> <span class="language-label" data-italiano="Esci">Esci</span></a>
+            <a href="/logout-completo/" id="header-logout-full" title="Logout completo (cambia account Google)"><i class="bi bi-door-open"></i> <span class="language-label" data-italiano="Logout">Logout</span></a>
         </div>
     </header>
 
@@ -558,13 +564,13 @@
                     <section id="sidebar-auto-panel" aria-labelledby="sidebar-auto-title">
                         <div class="sidebar-auto-panel-header">
                             <i class="bi bi-lightning-charge"></i>
-                            <span id="sidebar-auto-title">Ottimizzazione Automatica</span>
+                            <span id="sidebar-auto-title" class="language-label" data-translation-key="auto.titolo" data-italiano="Ottimizzazione Automatica">Ottimizzazione Automatica</span>
                         </div>
-                        <p class="sidebar-auto-desc">
+                        <p class="sidebar-auto-desc language-label" data-translation-key="auto.descrizione" data-italiano="Seleziona un mezzo, aggiungi oggetti nel pannello di destra e avvia l'ottimizzazione 3D automatica.">
                             Seleziona un mezzo, aggiungi oggetti nel pannello di destra e avvia l'ottimizzazione 3D automatica.
                         </p>
                         <button class="btn btn-primary btn-block btn-lg auto-action-primary" id="btn-elabora-auto" disabled>
-                            <i class="bi bi-play-fill"></i> ELABORA
+                            <i class="bi bi-play-fill"></i><span class="language-label">Elabora</span>
                         </button>
                         <div class="auto-action-secondary">
                             <button class="btn auto-action-save" id="btn-salva-auto" disabled>
@@ -581,7 +587,7 @@
                                 <span>1</span><span>2</span><span>3</span><span>4</span>
                             </div>
                             <div class="strategia-accuracy-caption">
-                                <span>Accuratezza ottimizzazione</span>
+                                <span class="language-label" data-translation-key="auto.accuratezza" data-italiano="Accuratezza ottimizzazione">Accuratezza ottimizzazione</span>
                             </div>
                         </div>
                     </section>
@@ -607,35 +613,35 @@
             <div id="sidebar-riepilogo">
                 <div id="sidebar-riepilogo-mezzo">
                     <i id="sidebar-mezzo-icon" class="bi bi-truck"></i>
-                    <span id="sidebar-mezzo-nome">Nessun mezzo</span>
+                    <span id="sidebar-mezzo-nome" class="language-label" data-translation-key="summary.nessun-mezzo" data-italiano="Nessun mezzo">Nessun mezzo</span>
                 </div>
                 <div class="sidebar-riepilogo-stats" id="sidebar-riepilogo-stats">
                     <div class="sidebar-stat-row">
                         <div class="sidebar-stat">
                             <strong id="sidebar-stat-pezzi">0</strong>
-                            <span>Pezzi</span>
+                            <span class="language-label" data-translation-key="summary.pezzi" data-italiano="Pezzi">Pezzi</span>
                         </div>
                         <div class="sidebar-stat-div"></div>
                         <div class="sidebar-stat">
                             <strong id="sidebar-stat-peso">0 kg</strong>
-                            <span>Peso</span>
+                            <span class="language-label" data-translation-key="summary.peso" data-italiano="Peso">Peso</span>
                         </div>
                     </div>
                     <div class="sidebar-stat-row">
                         <div class="sidebar-stat">
                             <strong id="sidebar-stat-righe">0</strong>
-                            <span>Oggetti</span>
+                            <span class="language-label" data-translation-key="summary.oggetti" data-italiano="Oggetti">Oggetti</span>
                         </div>
                         <div class="sidebar-stat-div"></div>
                         <div class="sidebar-stat">
                             <strong id="sidebar-stat-lineari">— m</strong>
-                            <span>Lineari</span>
+                            <span class="language-label" data-translation-key="summary.lineari" data-italiano="Lineari">Lineari</span>
                         </div>
                     </div>
                 </div>
                 <div id="sidebar-riepilogo-stato">
                     <div class="sidebar-status-dot" id="sidebar-status-dot"></div>
-                    <span id="sidebar-status-label">Pronto</span>
+                    <span id="sidebar-status-label" class="language-label" data-translation-key="summary.pronto" data-italiano="Pronto">Pronto</span>
                 </div>
             </div>
         </nav>
@@ -803,7 +809,7 @@
 
             <!-- Header -->
             <div class="panel-header">
-                <h3><i class="bi bi-box-seam"></i> Oggetti nel Carico</h3>
+                <h3><i class="bi bi-box-seam"></i> <span class="language-label" data-translation-key="panel.oggetti-carico" data-italiano="Oggetti nel Carico">Oggetti nel Carico</span></h3>
                 <span class="panel-header-sel" id="panel-header-sel" title="Oggetti selezionati">sel:0</span>
                 <button id="panel-header-trash" class="panel-header-trash" title="Elimina oggetti selezionati"><i class="bi bi-trash"></i></button>
             </div>
@@ -814,7 +820,7 @@
                 <!-- Aggiungi oggetto (autocomplete) -->
                 <div class="panel-add-row">
                     <div class="panel-autocomplete-wrap">
-                        <input type="text" class="panel-add-input" id="panel-input-oggetto" placeholder="Cerca oggetto per codice..." autocomplete="off">
+                        <input type="text" class="panel-add-input" id="panel-input-oggetto" placeholder="Cerca oggetto per codice..." data-translation-key="panel.cerca-oggetto" data-italiano="Cerca oggetto per codice..." autocomplete="off">
                         <div class="panel-autocomplete-dropdown" id="panel-autocomplete-dropdown"></div>
                         <select class="panel-add-select" id="panel-select-oggetto" style="display:none;">
                             <option value="">— Aggiungi oggetto —</option>
@@ -840,7 +846,7 @@
                 <div class="panel-items-list" id="panel-items-list"></div>
                 <div class="panel-empty" id="panel-empty">
                     <i class="bi bi-inbox panel-empty-icon"></i>
-                    <span>Nessun oggetto nel carico</span>
+                    <span class="language-label" data-translation-key="panel.nessun-oggetto" data-italiano="Nessun oggetto nel carico">Nessun oggetto nel carico</span>
                 </div>
 
                 
@@ -849,7 +855,7 @@
             <!-- Footer con azioni -->
             <div class="panel-footer">
                 <select id="header-vehicle-select" class="form-select">
-                    <option value="">— Seleziona mezzo —</option>
+                    <option value="" class="language-label" data-translation-key="panel.seleziona-mezzo" data-italiano="— Seleziona mezzo —">— Seleziona mezzo —</option>
                     {% for c in contenitori %}{% if not c.archiviato %}
                     <option value="{{ c.id }}">{{ c.nome }}</option>
                     {% endif %}{% endfor %}

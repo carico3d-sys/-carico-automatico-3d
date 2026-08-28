@@ -1,0 +1,296 @@
+# REPORT TECNICO: Flusso di Autenticazione Carico 3D
+# ====================================================
+# Data: 21 Agosto 2026
+# Stato: BOZZA - Da revisionare e implementare
+# ====================================================
+
+
+## 1. SITUAZIONE ATTUALE
+## ---------------------
+
+### Flusso attuale (in produzione):
+
+  REGISTRAZIONE
+  └── Utente sceglie: Username + Password (x2 conferma)
+      └── Account creato → Trial 14 giorni → Redirect a /workspace/
+
+  LOGIN
+  ├── Google OAuth (Account esistente)
+  └── Username + Password (Account esistente)
+
+### Problemi attuali:
+  - L'utente sceglie la password → può essere debole ("ciao123")
+  - Nessun modo per l'utente di CAMBIARE la password dopo la registrazione
+  - Nessun modo per RESETTARE la password se dimenticata
+  - Nessun invio email (il servizio email non è configurato)
+
+
+## 2. FLUSSO PROPOSTO (stile EasyCargo)
+## -------------------------------------
+
+### Registrazione (Prova Gratis):
+  1. Utente compila: Nome + Email + Azienda (opzionale)
+  2. Clicca "Registrati"
+  3. Il sistema:
+     a. Crea l'account (username = email, password = generata)
+     b. Genera password casuale (es: "xK9mP2qR7w")
+     c. Manda email di benvenuto con:
+        - "Benvenuto su Carico3D!"
+        - "La tua password: xK9mP2qR7w"
+        - "Accedi qui: [link]"
+     d. Redirect a /workspace/
+  4. L'utente apre l'email, copia la password, accede
+
+### Login:
+  ├── Google OAuth (come prima)
+  └── Email + Password
+
+### Cambio Password (dalle Impostazioni):
+  1. Utente loggato → Impostazioni → "Cambia Password"
+  2. Compila: Vecchia password → Nuova password → Conferma
+  3. Conferma → Password aggiornata
+
+### Reset Password (Password Dimenticata):
+  1. Dalla pagina login → "Password dimenticata?"
+  2. Compila: Email
+  3. Ricevi email con link per reimpostare
+  4. Click sul link → Nuova password
+
+
+## 3. SERVIZIO EMAIL RICHIESTO
+## ----------------------------
+
+### Opzioni:
+
+  A) SMTP del proprio provider (gratuito o incluso nell'hosting)
+     - Configurabile in Django settings
+     - Pro: Nessun costo extra
+     - Contro: Può essere segnato come spam
+
+  B) SendGrid (consigliato per produzione)
+     - Piano gratuito: 100 email/giorno
+     - API semplice
+     - Pro: Alta deliverability, tracking
+     - Contro: 100 email/giorno nel piano free
+
+  C) Mailgun
+     - Piano gratuito: 500 email/mese (primi 3 mesi)
+     - Pro: Economico
+     - Contro: Setup più complesso
+
+  D) Amazon SES
+     - Costo: $0.10 per 1000 email
+     - Pro: Molto economico
+     - Contro: Setup AWS richiesto
+
+### Configurazione Django:
+
+  # In .env
+  EMAIL_HOST=smtp.gmail.com          # o smtp.sendgrid.net
+  EMAIL_PORT=587
+  EMAIL_USE_TLS=True
+  EMAIL_HOST_USER=tua@email.com
+  EMAIL_HOST_PASSWORD=xxx            # App password (non la password Gmail)
+
+  # In settings.py
+  DEFAULT_FROM_EMAIL = 'Carico3D <noreply@carico3d.com>'
+
+
+## 4. CAMPI DA AGGIUNGERE AI MODELLI
+## -----------------------------------
+
+### UserProfile (caricamento/models.py):
+
+  # Campi esistenti
+  user = OneToOneField(User)
+  trial_start = DateTimeField()
+  trial_end = DateTimeField()
+  is_paying = BooleanField()
+  ...
+
+  # NUOVI campi da aggiungere
+  email_verified = BooleanField(default=False)
+  password_reset_token = CharField(max_length=100, blank=True)
+  password_reset_expires = DateTimeField(null=True, blank=True)
+
+
+## 5. VIEW DA IMPLEMENTARE
+## -------------------------
+
+### 1) Registrazione con email:
+  POST /api/auth/register/
+  - Riceve: { email, nome, azienda (opzionale) }
+  - Crea account con password generata
+  - Manda email di benvenuto
+  - Restituisce: { success, message }
+
+### 2) Cambio password:
+  POST /api/auth/change-password/
+  - Richiede: autenticazione
+  - Riceve: { old_password, new_password, confirm_password }
+  - Aggiorna password
+  - Restituisce: { success, message }
+
+### 3) Reset password (richiesta):
+  POST /api/auth/forgot-password/
+  - Riceve: { email }
+  - Genera token (valido 24h)
+  - Manda email con link di reset
+  - Restituisce: { success, message }
+
+### 4) Reset password (conferma):
+  POST /api/auth/reset-password/
+  - Riceve: { token, new_password, confirm_password }
+  - Valida token
+  - Aggiorna password
+  - Restituisce: { success, message }
+
+
+## 6. TEMPLATE EMAIL RICHIESTI
+## ----------------------------
+
+### Email 1: Benvenuto (dopo registrazione)
+  Oggetto: "Benvenuto su Carico3D - La tua password"
+  Corpo:
+    - Logo Carico3D
+    - "Ciao {nome},"
+    - "Il tuo account è stato creato."
+    - "La tua password: {password}"
+    - "Accedi qui: [link]"
+    - "Ti consigliamo di cambiare la password dopo il primo accesso."
+    - Footer: "Questa email è stata inviata a {email}"
+
+### Email 2: Reset password
+  Oggetto: "Carico3D - Reimposta la tua password"
+  Corpo:
+    - Logo Carico3D
+    - "Ciao {nome},"
+    - "Hai richiesto di reimpostare la password."
+    - "Clicca qui: [link]"
+    - "Il link scade tra 24 ore."
+    - "Se non hai richiesto tu, ignora questa email."
+    - Footer: "Questa email è stata inviata a {email}"
+
+
+## 7. TEMPLATE FRONTEND RICHIESTI
+## -------------------------------
+
+### Modal Cambio Password (nelle Impostazioni):
+  - Campo: Vecchia password
+  - Campo: Nuova password (con indicatore forza)
+  - Campo: Conferma nuova password
+  - Bottone: "Aggiorna Password"
+
+### Pagina Reset Password:
+  - Accessibile via link dall'email
+  - Campo: Nuova password
+  - Campo: Conferma password
+  - Bottone: "Reimposta Password"
+
+### Modifica Login Modal (landing):
+  - Aggiungere: "Password dimenticata?" sotto il form
+  - Link a: /forgot-password/
+
+
+## 8. SICUREZZA
+## -------------
+
+### Misure da implementare:
+
+  1. Rate limiting:
+     - Max 5 tentativi di login per 15 minuti (per IP)
+     - Max 3 reset password per ora (per email)
+     - Max 3 registrazione per ora (per IP)
+
+  2. Token sicuri:
+     - Token reset: 32 bytes casuali, hex-encoded
+     - Scadenza: 24 ore
+     - One-time use: il token viene cancellato dopo l'uso
+
+  3. Password hash:
+     - Django PBKDF2 (già implementato, default)
+
+  4. Brute force protection:
+     - django-axes (già implementato nel progetto)
+     - Blocca dopo 5 tentativi falliti
+
+  5. Email verification:
+     - Token verifica email (opzionale per ora)
+     - Da implementare in futuro se necessario
+
+
+## 9. ORDINE DI IMPLEMENTAZIONE
+## -----------------------------
+
+  FASE 1: Servizio email (1-2 giorni)
+  ├── Configurare SendGrid/SMTP nel .env
+  ├── Test invio email dal server Django
+  └── Template email base
+
+  FASE 2: Registrazione con email (2-3 giorni)
+  ├── Modifica view homepage per registrazione via email
+  ├── Generazione password casuale
+  ├── Invio email di benvenuto
+  └── Test flusso completo
+
+  FASE 3: Cambio password (1 giorno)
+  ├── Nuova view API change-password
+  ├── Template frontend (modal o pagina)
+  └── Test
+
+  FASE 4: Reset password (2 giorni)
+  ├── Generazione e gestione token
+  ├── Email di reset
+  ├── Pagina di reset
+  └── Test flusso completo
+
+  TOTALE STIMATO: 6-8 giorni di sviluppo
+
+
+## 10. COSTI
+## ----------
+
+  SendGrid (consigliato):     GRATIS (100 email/giorno)
+  Mailgun:                    GRATIS (500 email/mese, 3 mesi)
+  Amazon SES:                 ~$0.10/1000 email
+
+  Sviluppo:                   6-8 giorni
+  Manutenzione:               ~1h/mese (monitoring)
+
+
+## 11. RISCHI E MITIGAZIONI
+## -------------------------
+
+  Rischio: Email finisce in spam
+  Mitigazione: Configurare SPF, DKIM, DMARC nel DNS
+
+  Rischio: Password generate deboli
+  Mitigazione: Usare secrets.token_urlsafe(12) (16+ caratteri)
+
+  Rischio: Token reset compromessi
+  Mitigazione: Scadenza 24h, one-time use, HTTPS obbligatorio
+
+  Rischio: Brute force su registrazione
+  Mitigazione: Rate limiting + captcha opzionale
+
+
+## 12. NOTE PER L'IMPLEMENTAZIONE
+## --------------------------------
+
+  - Mantenere compatibilità con il login attuale (username/password)
+  - Il campo "username" potrebbe diventare l'email
+  - Oppure: mantenere username separato, email solo per notifiche
+  - Decisione da prendere: username = email o separati?
+
+  - EasyCargo usa email come identificativo
+  - Il tuo progetto usa username
+  - Consiglio: mantieni username separato, usa email solo per
+    invio email e recupero password
+
+  - Per il login: permetti sia username che email
+  - Il campo login accetta: "mario" (username) oppure "m@x.com" (email)
+  - Questo backward-compatible con tutti gli account esistenti
+
+
+## FINE REPORT
+## ============

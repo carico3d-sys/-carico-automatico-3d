@@ -45,8 +45,8 @@ function _wireMezziListClickHandlers() {
 
 function renderMezziPanel() {
     if (typeof _panelViewPronto === 'function' && !_panelViewPronto('mezzi')) return;
-    DOM.pvListTitle.innerHTML = '<i class="bi bi-truck"></i> Mezzi di Trasporto';
-    DOM.pvFormTitle.textContent = 'Nuovo Mezzo';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-truck"></i> <span class="language-label" data-translation-key="vehicles.titolo" data-italiano="Mezzi di Trasporto">Mezzi di Trasporto</span>';
+    DOM.pvFormTitle.innerHTML = '<span class="language-label" data-translation-key="vehicles.nuovo" data-italiano="Nuovo Mezzo">Nuovo Mezzo</span>';
     DOM.pvListCount.textContent = WS.contenitori.filter(function (c) { return !!c.archiviato === _mezziMostraArchiviati; }).length;
 
     // ---- HEADER: filtro mezzi archiviati ----
@@ -66,7 +66,13 @@ function renderMezziPanel() {
         archCheck.id = 'pv-show-archiviati';
         archCheck.checked = _mezziMostraArchiviati;
         archLabel.appendChild(archCheck);
-        archLabel.appendChild(document.createTextNode(' Archiviati'));
+        archLabel.appendChild(document.createTextNode(' '));
+        var archivedText = document.createElement('span');
+        archivedText.className = 'language-label';
+        archivedText.dataset.translationKey = 'vehicles.archiviati';
+        archivedText.dataset.italiano = 'Archiviati';
+        archivedText.textContent = 'Archiviati';
+        archLabel.appendChild(archivedText);
         listHeader.appendChild(archLabel);
 
         // Difesa da autofill browser: se il browser ha auto-compilato, ripristina
@@ -88,6 +94,7 @@ function renderMezziPanel() {
 
     // Form default: nuovo
     renderMezziForm(null);
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
 }
 
 function renderMezziForm(mezzoId) {
@@ -109,21 +116,21 @@ function renderMezziForm(mezzoId) {
 
     var formHtml =
         '<div class="field-group">' +
-            '<label class="field-label">Nome / Modello</label>' +
+            '<label class="field-label"><span class="language-label" data-translation-key="vehicles.nome" data-italiano="Nome / Modello">Nome / Modello</span></label>' +
             '<input type="text" class="form-input" id="pv-mezzo-nome" value="' + (m ? escapeHtml(m.nome) : '') + '" placeholder="Es. Camion Bilico 13.6m">' +
         '</div>' +
         '<div class="field-group">' +
-            '<label class="field-label">Tipo Mezzo</label>' +
+            '<label class="field-label language-label" data-translation-key="vehicles.tipo" data-italiano="Tipo Mezzo">Tipo Mezzo</label>' +
             '<select class="form-select" id="pv-mezzo-tipo">' + tipoHtml + '</select>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">L (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">P (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" placeholder="Larghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">H (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" placeholder="Altezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">L (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">W (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" placeholder="Larghezza in cm" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">H (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" placeholder="Altezza in cm" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group" style="flex:0 0 180px;"><label class="field-label">Portata (kg)</label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" placeholder="Portata in kg" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow" style="flex-direction:row;align-items:flex-end;justify-content:flex-end;gap:12px;"><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-mezzo-archiviato"' + (m && m.archiviato ? ' checked' : '') + '> Archivia</label></div>' +
+            '<div class="field-group" style="flex:0 0 180px;"><label class="field-label"><span class="language-label" data-translation-key="vehicles.portata" data-italiano="Portata (kg)">Portata (kg)</span></label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" placeholder="Portata in kg" data-translation-key="vehicles.portata-placeholder" data-italiano="Portata in kg" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow" style="flex-direction:row;align-items:flex-end;justify-content:flex-end;gap:12px;"><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-mezzo-archiviato"' + (m && m.archiviato ? ' checked' : '') + '> <span class="language-label" data-translation-key="vehicles.archivia" data-italiano="Archivia">Archivia</span></label></div>' +
         '</div>' +
         _renderSezioniTable(m ? m.sezioni || [] : [], m ? m.lunghezza_mm : null) +
         (isEdit

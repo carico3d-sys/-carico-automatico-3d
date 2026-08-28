@@ -397,9 +397,12 @@ function aggiornaMetriche(dati) {
 // =============================================================================
 
 function handleResize() {
+    if (!STATE.camera || !STATE.renderer) return;
     const container = document.getElementById('viewport-3d');
+    if (!container) return;
     const width = container.clientWidth;
     const height = container.clientHeight;
+    if (width === 0 || height === 0) return;
     STATE.camera.aspect = width / height;
     STATE.camera.updateProjectionMatrix();
     STATE.renderer.setSize(width, height);

@@ -1012,15 +1012,33 @@ function aggiornaColoreNeiPanelItems(oggettoId, nuovoColore) {
 // =============================================================================
 
 function mostraPlaceholder(titolo, messaggio) {
-    DOM.viewportPlaceholder.style.display = 'flex';
-    DOM.viewportPlaceholder.querySelector('h3').textContent = titolo || 'Visualizzazione 3D';
-    DOM.viewportPlaceholder.querySelector('p').textContent = messaggio || '';
-   _setHeaderCaricoLabel('');
-   WS.treSceneLoaded = false;
+    var viewport = DOM.viewport3d || document.getElementById('viewport-3d');
+    if (!viewport) return;
+
+    var placeholder = document.getElementById('viewport-placeholder');
+    if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.id = 'viewport-placeholder';
+        placeholder.className = 'viewport-placeholder';
+    }
+    // Il placeholder deve stare nel viewport corrente: dopo un piano può
+    // essere rimasto detached o riferito a un vecchio nodo DOM.
+    if (placeholder.parentElement !== viewport) viewport.appendChild(placeholder);
+
+    placeholder.innerHTML =
+        '<i class="bi bi-box-seam vp-icon"></i>' +
+        '<h3>' + escapeHtml(titolo || 'Visualizzazione 3D') + '</h3>' +
+        '<p>' + escapeHtml(messaggio || '') + '</p>' +
+        '<p class="vp-hint-controls"><i class="bi bi-lightbulb"></i> <strong>Trascina</strong> per ruotare &nbsp;|&nbsp; <strong>Rotellina</strong> per zoom &nbsp;|&nbsp; <strong>Tasto destro</strong> per spostare</p>';
+    placeholder.style.display = 'flex';
+    DOM.viewportPlaceholder = placeholder;
+    _setHeaderCaricoLabel('');
+    WS.treSceneLoaded = false;
 }
 
 function nascondiPlaceholder() {
-    DOM.viewportPlaceholder.style.display = 'none';
+    var placeholder = document.getElementById('viewport-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
 }
 
 async function caricaScena3D(pianoId) {
@@ -1180,6 +1198,11 @@ function nuovoCarico() {
     var panelHeader3 = document.getElementById('panel-items-header');
     if (panelHeader3) panelHeader3.style.display = 'none';
 
+    // Nascondi pannello soluzioni alternative
+    var altPanel = document.getElementById('soluzioni-alternative-panel');
+    if (altPanel) altPanel.style.display = 'none';
+    if (typeof WS !== 'undefined') WS.soluzioniAlternative = [];
+
     // Disattiva vista 2×2 se era attiva
     if (typeof MVP !== 'undefined' && MVP.attivo) {
         disattivaMultiViewport();
@@ -1208,21 +1231,57 @@ function nuovoCarico() {
     if (DOM.headerExportBtn) DOM.headerExportBtn.disabled = true;
     if (typeof _aggiornaSidebarRiepilogo === 'function') _aggiornaSidebarRiepilogo(0, 0, 0);
 
-    // Reset viewport 3D
-    if (typeof resetScene === 'function') {
-        try { resetScene(); } catch (e) {}
-    }
+    // Reset viewport 3D — pulisci scene, mesh, tooltip, etichette
+    try {
+        if (typeof STATE !== 'undefined') {
+            // Rimuovi tutti le mesh degli oggetti dalla scena
+            if (STATE.scene && STATE.oggettiMesh && STATE.oggettiMesh.length > 0) {
+                STATE.oggettiMesh.forEach(function (group) {
+                    try { STATE.scene.remove(group); } catch (e) {}
+                });
+            }
+            STATE.oggettiMesh = [];
+            // Rimuovi mesh del contenitore
+            if (STATE.scene && STATE.containerMesh) {
+                try { STATE.scene.remove(STATE.containerMesh); } catch (e) {}
+                STATE.containerMesh = null;
+            }
+            // Rimuovi etichetta contenitore
+            if (STATE.scene && STATE._containerLabelSprite) {
+                try { STATE.scene.remove(STATE._containerLabelSprite); } catch (e) {}
+                STATE._containerLabelSprite = null;
+            }
+            STATE._containerDecalFaces = null;
+            STATE._containerWalls = null;
+            // Rimuovi tooltip 3D
+            var tooltip = document.getElementById('tooltip-3d');
+            if (tooltip) tooltip.remove();
+            STATE.tooltip = null;
+            // Reset dati
+            STATE.dati = { piano: null, contenitore: { dimensioni_cm: null, nome: '' }, oggetti: [] };
+            STATE.pianoId = null;
+            STATE.activePianoId = null;
+            // Stop animazione
+            STATE.animating = false;
+        }
+    } catch (e) { console.warn('[nuovoCarico] Errore pulizia 3D:', e); }
     DOM.viewport3d.querySelectorAll('canvas').forEach(function (c) { c.remove(); });
-    mostraPlaceholder('Visualizzazione 3D', 'Aggiungi oggetti nel pannello di destra, seleziona un mezzo e dal tab \u26a1 Automatica clicca "Elabora Ottimizzazione" per vedere il carico in 3D.');
-   _setHeaderCaricoLabel('');
-
    // Reset task status
     DOM.taskDot.className = 'task-dot idle';
     DOM.taskStatusText.textContent = 'Nessuna elaborazione in corso';
 
+    // Nasconde sempre la barra sequenza: un nuovo carico non contiene oggetti.
+    var sliderBarNuovo = document.getElementById('vp-slider-bar');
+    if (sliderBarNuovo) sliderBarNuovo.style.display = 'none';
+
     setStatus('idle', 'Pronto');
     setActiveView('carico');
-    mostraViewport();
+    // Mostra il viewport e il placeholder SENZA chiamare mostraViewport()
+    // (mostraViewport chiama handleResize che ricrea canvas e copre il placeholder)
+    DOM.panelView.style.display = 'none';
+    DOM.viewport3d.style.display = '';
+    DOM.viewport3d.querySelectorAll('canvas').forEach(function (c) { c.remove(); });
+    mostraPlaceholder('Visualizzazione 3D', 'Aggiungi oggetti nel pannello di destra, seleziona un mezzo e clicca "Elabora Ottimizzazione" per vedere il carico in 3D.');
     showToast('🆕 Nuovo carico pronto.', 'info');
 }
 
@@ -1392,6 +1451,8 @@ function _deselezionaTuttiItemSelezionati() {
 var _autocompleteState = {
     activeIndex: -1,
     selectedId: '',
+    multiSelectedIds: [],  // ID multipli selezionati con Ctrl/Shift+Click
+    lastClickedIndex: -1,  // indice ultimo click (per Shift)
 };
 
 function _initPanelAutocomplete() {
@@ -1438,16 +1499,90 @@ function _initPanelAutocomplete() {
             div.className = 'panel-autocomplete-item';
             div.dataset.index = i;
             div.dataset.id = m.id;
+            // Mostra stato selezione multipla
+            var isMultiSelected = _autocompleteState.multiSelectedIds.indexOf(m.id) >= 0;
+            if (isMultiSelected) div.classList.add('multi-selected');
             div.innerHTML =
                 '<span class="panel-autocomplete-item-code">' + escapeHtml(m.codice) + '</span>' +
                 '<span class="panel-autocomplete-item-desc">' + escapeHtml(m.descrizione) + '</span>';
             div.addEventListener('mousedown', function (e) {
                 e.preventDefault();
-                selectOption(m.id, m.codice);
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+Click: toggle selezione multipla
+                    toggleMultiSelect(m.id, i);
+                } else if (e.shiftKey && _autocompleteState.lastClickedIndex >= 0) {
+                    // Shift+Click: seleziona intervallo
+                    rangeSelect(matches, _autocompleteState.lastClickedIndex, i);
+                } else {
+                    // Click semplice: seleziona solo questo
+                    selectOption(m.id, m.codice);
+                    _autocompleteState.lastClickedIndex = i;
+                }
+                _aggiornaPulsanteAggiungi();
             });
             dropdown.appendChild(div);
         });
         dropdown.classList.add('visible');
+    }
+
+    function toggleMultiSelect(id, index) {
+        var idx = _autocompleteState.multiSelectedIds.indexOf(id);
+        if (idx >= 0) {
+            _autocompleteState.multiSelectedIds.splice(idx, 1);
+        } else {
+            _autocompleteState.multiSelectedIds.push(id);
+        }
+        _autocompleteState.lastClickedIndex = index;
+        // Aggiorna visualizzazione
+        var items = dropdown.querySelectorAll('.panel-autocomplete-item');
+        items.forEach(function (item) {
+            var isSelected = _autocompleteState.multiSelectedIds.indexOf(item.dataset.id) >= 0;
+            item.classList.toggle('multi-selected', isSelected);
+        });
+        // Aggiorna input con tutti i codici selezionati
+        _aggiornaInputMultiSelection();
+    }
+
+    function rangeSelect(matches, fromIndex, toIndex) {
+        var minIdx = Math.min(fromIndex, toIndex);
+        var maxIdx = Math.max(fromIndex, toIndex);
+        for (var i = minIdx; i <= maxIdx; i++) {
+            if (_autocompleteState.multiSelectedIds.indexOf(matches[i].id) === -1) {
+                _autocompleteState.multiSelectedIds.push(matches[i].id);
+            }
+        }
+        _autocompleteState.lastClickedIndex = toIndex;
+        // Aggiorna visualizzazione
+        var items = dropdown.querySelectorAll('.panel-autocomplete-item');
+        items.forEach(function (item) {
+            var isSelected = _autocompleteState.multiSelectedIds.indexOf(item.dataset.id) >= 0;
+            item.classList.toggle('multi-selected', isSelected);
+        });
+        _aggiornaInputMultiSelection();
+    }
+
+    function _aggiornaInputMultiSelection() {
+        var ids = _autocompleteState.multiSelectedIds;
+        if (ids.length === 0) {
+            input.value = '';
+            hiddenSelect.value = '';
+        } else if (ids.length === 1) {
+            var opt = allOptions.find(function (o) { return o.id === ids[0]; });
+            if (opt) input.value = opt.codice;
+        } else {
+            input.value = ids.length + ' oggetti selezionati';
+        }
+    }
+
+    function _aggiornaPulsanteAggiungi() {
+        var count = _autocompleteState.multiSelectedIds.length;
+        if (count > 1) {
+            addBtn.textContent = '+' + count;
+            addBtn.title = 'Aggiungi ' + count + ' oggetti';
+        } else {
+            addBtn.textContent = '+';
+            addBtn.title = 'Aggiungi';
+        }
     }
 
     function selectOption(id, codice) {
@@ -1472,6 +1607,12 @@ function _initPanelAutocomplete() {
     input.addEventListener('input', function () {
         // L'utente sta digitando: il flag _justOpenedByFocus non ha più senso
         _autocompleteState._justOpenedByFocus = false;
+        // Se l'utente cancella il testo "N oggetti selezionati", reset multi-selezione
+        if (_autocompleteState.multiSelectedIds.length > 0 && !/\d+ oggetti/.test(input.value)) {
+            _autocompleteState.multiSelectedIds = [];
+            _autocompleteState.lastClickedIndex = -1;
+            _aggiornaPulsanteAggiungi();
+        }
         var matches = filterOptions(input.value.trim());
         renderDropdown(matches);
         _autocompleteState.selectedId = '';
@@ -1560,20 +1701,30 @@ function _initPanelAutocomplete() {
 
     // Click sul pulsante "+"
     addBtn.addEventListener('click', function () {
-        var selId = hiddenSelect.value;
-        if (!selId) {
+        var multiIds = _autocompleteState.multiSelectedIds;
+        var singleId = hiddenSelect.value;
+        var idsToAdd = multiIds.length > 0 ? multiIds.slice() : (singleId ? [singleId] : []);
+        if (idsToAdd.length === 0) {
             showToast('Seleziona un oggetto dalla lista.', 'warning');
             return;
         }
-        var oggetto = trovaOggetto(parseInt(selId));
-        if (!oggetto) {
-            showToast('Oggetto non trovato.', 'error');
-            return;
-        }
-        aggiungiAlCarico(parseInt(selId), 1);
+        var aggiunti = 0;
+        idsToAdd.forEach(function (id) {
+            var oggetto = trovaOggetto(parseInt(id));
+            if (oggetto) {
+                aggiungiAlCarico(parseInt(id), 1);
+                aggiunti++;
+            }
+        });
+        if (aggiunti > 1) showToast(aggiunti + ' oggetti aggiunti al carico.', 'success');
+        // Reset stato
         input.value = '';
         hiddenSelect.value = '';
         _autocompleteState.selectedId = '';
+        _autocompleteState.multiSelectedIds = [];
+        _autocompleteState.lastClickedIndex = -1;
+        addBtn.textContent = '+';
+        addBtn.title = 'Aggiungi';
         // Chiudi dropdown e NON rifocalizzare l'input (il dropdown resta chiuso)
         dropdown.classList.remove('visible');
         _autocompleteState.activeIndex = -1;

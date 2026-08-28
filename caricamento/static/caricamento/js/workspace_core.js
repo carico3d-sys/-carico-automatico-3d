@@ -615,11 +615,11 @@ function _renderSidebarNavigazione(cat) {
     var strumentiRapidiHtml = '' +
         '<div class="sidebar-nav-bottom">' +
             '<div class="sidebar-nav-separator"></div>' +
-            '<button class="sidebar-nav-item" data-action="carico">' +
-                '<i class="bi bi-bar-chart sidebar-icon"></i> Vista Carico' +
+            '<button class="sidebar-nav-item" data-translation-key="sidebar.vista-carico" data-action="carico" data-translation-key="sidebar.vista-carico">' +
+                '<i class="bi bi-bar-chart sidebar-icon"></i> <span class="language-label" data-italiano="Vista Carico">Vista Carico</span>' +
             '</button>' +
-            '<button class="sidebar-nav-item" data-action="grafico-pesi">' +
-                '<i class="bi bi-speedometer2 sidebar-icon"></i> Distribuzione Pesi' +
+            '<button class="sidebar-nav-item" data-translation-key="sidebar.distribuzione-pesi" data-action="grafico-pesi" data-translation-key="sidebar.distribuzione-pesi">' +
+                '<i class="bi bi-speedometer2 sidebar-icon"></i> <span class="language-label" data-italiano="Distribuzione Pesi">Distribuzione Pesi</span>' +
             '</button>' +
         '</div>';
 
@@ -628,26 +628,26 @@ function _renderSidebarNavigazione(cat) {
     switch (cat) {
         case 'documenti':
             html = '' +
-                '<button class="sidebar-nav-item" data-view="nuovo-carico">' +
-                    '<i class="bi bi-file-earmark-plus sidebar-icon"></i> Nuovo Carico' +
+                '<button class="sidebar-nav-item" data-view="nuovo-carico" data-translation-key="sidebar.nuovo-carico">' +
+                    '<i class="bi bi-file-earmark-plus sidebar-icon"></i> <span class="language-label" data-italiano="Nuovo Carico">Nuovo Carico</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="piani">' +
-                    '<i class="bi bi-folder2 sidebar-icon"></i> Apri Piano' +
+                '<button class="sidebar-nav-item" data-view="piani" data-translation-key="sidebar.apri-piano">' +
+                    '<i class="bi bi-folder2 sidebar-icon"></i> <span class="language-label" data-italiano="Apri Piano">Apri Piano</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="abbonamento">' +
-                    '<i class="bi bi-credit-card sidebar-icon"></i> Abbonamento' +
+                '<button class="sidebar-nav-item" data-view="abbonamento" data-translation-key="sidebar.abbonamento">' +
+                    '<i class="bi bi-credit-card sidebar-icon"></i> <span class="language-label" data-italiano="Abbonamento">Abbonamento</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="salva-db">' +
-                    '<i class="bi bi-save sidebar-icon"></i> Salva' +
+                '<button class="sidebar-nav-item" data-view="salva-db" data-translation-key="sidebar.salva">' +
+                    '<i class="bi bi-save sidebar-icon"></i> <span class="language-label" data-italiano="Salva">Salva</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="export-file">' +
-                    '<i class="bi bi-upload sidebar-icon"></i> Esporta' +
+                '<button class="sidebar-nav-item" data-view="export-file" data-translation-key="sidebar.esporta">' +
+                    '<i class="bi bi-upload sidebar-icon"></i> <span class="language-label" data-italiano="Esporta">Esporta</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="import-file">' +
-                    '<i class="bi bi-download sidebar-icon"></i> Importa' +
+                '<button class="sidebar-nav-item" data-view="import-file" data-translation-key="sidebar.importa">' +
+                    '<i class="bi bi-download sidebar-icon"></i> <span class="language-label" data-italiano="Importa">Importa</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-action="svuota-carico">' +
-                    '<i class="bi bi-trash sidebar-icon"></i> Svuota Carico' +
+                '<button class="sidebar-nav-item" data-action="svuota-carico" data-translation-key="sidebar.svuota-carico">' +
+                    '<i class="bi bi-trash sidebar-icon"></i> <span class="language-label" data-italiano="Svuota Carico">Svuota Carico</span>' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;
@@ -655,25 +655,25 @@ function _renderSidebarNavigazione(cat) {
         case 'anagrafica':
             html = '' +
                 '<button class="sidebar-nav-item" data-view="oggetti">' +
-                    '<i class="bi bi-box-seam sidebar-icon"></i> Articoli' +
+                    '<i class="bi bi-box-seam sidebar-icon"></i> <span class="language-label" data-italiano="Oggetti">Oggetti</span>' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="vincoli-tra">' +
-                    '<i class="bi bi-link-45deg sidebar-icon"></i> Vincoli' +
+                    '<i class="bi bi-link-45deg sidebar-icon"></i> <span class="language-label" data-italiano="Vincoli">Vincoli</span>' +
                 '</button>' +
                 '<button class="sidebar-nav-item" data-view="mezzi">' +
-                    '<i class="bi bi-truck sidebar-icon"></i> Trasporti' +
+                    '<i class="bi bi-truck sidebar-icon"></i> <span class="language-label" data-italiano="Trasporti">Trasporti</span>' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;
 
         case 'sistema':
             html = '' +
-                '<button class="sidebar-nav-item" data-view="impostazioni">' +
-                    '<i class="bi bi-sliders sidebar-icon"></i> Impostazioni' +
+                '<button class="sidebar-nav-item" data-view="impostazioni" data-translation-key="sidebar.impostazioni">' +
+                    '<i class="bi bi-sliders sidebar-icon"></i> <span class="language-label" data-italiano="Impostazioni">Impostazioni</span>' +
                 '</button>';
             if (W.user && W.user.isStaff) {
                 html += '<a href="/admin/" class="sidebar-nav-item" style="text-decoration:none;">' +
-                    '<i class="bi bi-shield-shaded sidebar-icon"></i> Pannello Admin' +
+                    '<i class="bi bi-shield-shaded sidebar-icon"></i> <span class="language-label" data-translation-key="sidebar.pannello-admin" data-italiano="Pannello Admin">Pannello Admin</span>' +
                 '</a>';
             }
             html += strumentiRapidiHtml;
@@ -681,17 +681,18 @@ function _renderSidebarNavigazione(cat) {
 
         case 'report':
             html = '' +
-                '<button class="sidebar-nav-item" data-action="report-3d">' +
-                    '<i class="bi bi-file-earmark sidebar-icon"></i> Report 3D' +
+                '<button class="sidebar-nav-item" data-action="report-3d" data-translation-key="sidebar.report-3d">' +
+                    '<i class="bi bi-file-earmark sidebar-icon"></i> <span class="language-label" data-italiano="Report 3D">Report 3D</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-action="report-quadranti">' +
-                    '<i class="bi bi-grid-3x3-gap sidebar-icon"></i> Quadranti 2×2' +
+                '<button class="sidebar-nav-item" data-action="report-quadranti" data-translation-key="sidebar.quadranti">' +
+                    '<i class="bi bi-grid-3x3-gap sidebar-icon"></i> <span class="language-label" data-italiano="Quadranti 2×2">Quadranti 2×2</span>' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;
     }
 
     target.innerHTML = html;
+    document.dispatchEvent(new CustomEvent('carico3d:sidebar-rendered'));
 
     // Rilega gli eventi click sugli item dinamici
     _bindSidebarNavDynamicEvents();

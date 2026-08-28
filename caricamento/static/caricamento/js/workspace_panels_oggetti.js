@@ -150,26 +150,26 @@ function renderOggettiPanel() {
                 '<div class="pv-form-body" id="pv-oggetti-form-body"></div>' +
             '</div>' +
             '<div class="pv-vincoli-col">' +
-                '<div class="pv-form-header"><h4 id="pv-vincoli-title">🔧 Vincoli</h4></div>' +
+                '<div class="pv-form-header"><h4 id="pv-vincoli-title" class="language-label" data-translation-key="objects.vincoli" data-italiano="🔧 Vincoli">🔧 Vincoli</h4></div>' +
                 '<div class="pv-vincoli-body" id="pv-vincoli-body">' +
-                    '<p style="color:#999;text-align:center;padding:40px;">Seleziona un oggetto per configurare i vincoli.</p>' +
+                    '<p class="language-label" data-translation-key="objects.seleziona-vincoli" data-italiano="Seleziona un oggetto per configurare i vincoli." style="color:#999;text-align:center;padding:40px;">Seleziona un oggetto per configurare i vincoli.</p>' +
                 '</div>' +
             '</div>' +
         '</div>' +
         '<div id="pv-oggetti-actions" style="padding:0 8px;"></div>' +
         '<div class="pv-3d-preview">' +
             '<div class="pv-3d-header">' +
-                '<span class="pv-3d-title">Anteprima 3D</span>' +
+                '<span class="pv-3d-title language-label" data-translation-key="objects.anteprima" data-italiano="Anteprima 3D">Anteprima 3D</span>' +
             '</div>' +
             '<div class="pv-3d-canvas-wrap" id="pv-3d-canvas-wrap">' +
                 '<div class="pv-3d-placeholder" id="pv-3d-placeholder">' +
                     '<span class="pv-3d-placeholder-icon">📦</span>' +
-                    '<span>Seleziona un oggetto per visualizzarlo in 3D</span>' +
+                    '<span class="language-label" data-translation-key="objects.seleziona-preview" data-italiano="Seleziona un oggetto per visualizzarlo in 3D">Seleziona un oggetto per visualizzarlo in 3D</span>' +
                 '</div>' +
             '</div>' +
             '<div class="pv-3d-controls">' +
                 '<div class="pv-3d-controls-row pv-3d-rot-row">' +
-                    '<span class="pv-3d-rot-status">🖱️ Trascina sul canvas per ruotare</span>' +
+                    '<span class="pv-3d-rot-status language-label" data-translation-key="objects.trascina-ruota" data-italiano="🖱️ Trascina sul canvas per ruotare">🖱️ Trascina sul canvas per ruotare</span>' +
                     '<span class="pv-3d-rot-angles">' +
                         '<span class="pv-3d-rot-axis"><span style="color:#ff4444;">X</span> <span class="pv-3d-rot-angle" id="pv3d-rot-x-angle">0°</span></span>' +
                         '<span style="margin:0 4px;color:#ccc;">|</span>' +
@@ -197,7 +197,7 @@ function renderOggettiPanel() {
         
         // Aggiungi checkbox select-all
         var selectAllHtml = '<label class="pv-list-select-all" title="Seleziona/Deseleziona tutti">' +
-            '<input type="checkbox" id="pv-select-all" autocomplete="off"> seleziona</label>';
+            '<input type="checkbox" id="pv-select-all" autocomplete="off"> <span class="language-label" data-translation-key="objects.seleziona" data-italiano="seleziona">seleziona</span></label>';
         listHeader.insertAdjacentHTML('afterbegin', selectAllHtml);
 
         // Checkbox "Archiviati" — creato via DOM per evitare autofill browser
@@ -210,7 +210,13 @@ function renderOggettiPanel() {
         archCheck.id = 'pv-show-archiviati-oggetti';
         archCheck.checked = _oggettiMostraArchiviati;
         archLabel.appendChild(archCheck);
-        archLabel.appendChild(document.createTextNode(' Archiviati'));
+        archLabel.appendChild(document.createTextNode(' '));
+        var archiviatiLabel = document.createElement('span');
+        archiviatiLabel.className = 'language-label';
+        archiviatiLabel.dataset.translationKey = 'objects.archiviati';
+        archiviatiLabel.dataset.italiano = 'Archiviati';
+        archiviatiLabel.textContent = 'Archiviati';
+        archLabel.appendChild(archiviatiLabel);
         listHeader.appendChild(archLabel);
         
         // Evento select-all
@@ -274,6 +280,10 @@ function renderOggettiPanel() {
     
     // Wire up 3D preview controls
     _wiringPreview3D();
+
+    // Il pannello e il form sono stati completati: applica la lingua attiva
+    // anche agli elementi creati durante questo rendering.
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
 }
 
 function _aggiornaPreview3D(oggettoId) {
@@ -342,23 +352,24 @@ function renderOggettiForm(oggettoId) {
 
     var formHtml =
         '<div class="field-row">' +
-            '<div class="field-group" style="flex:0 0 130px;"><label class="field-label">Codice</label><input type="text" class="form-input" id="pv-ogg-codice" value="' + (o ? escapeHtml(o.codice) : '') + '" placeholder="Es. CART-102"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Descrizione</label><input type="text" class="form-input" id="pv-ogg-desc" value="' + (o ? escapeHtml(o.descrizione || '') : '') + '" placeholder="Scatole cartone"></div>' +
+            '<div class="field-group" style="flex:0 0 130px;"><label class="field-label language-label" data-translation-key="objects.codice" data-italiano="Codice">Codice</label><input type="text" class="form-input" id="pv-ogg-codice" value="' + (o ? escapeHtml(o.codice) : '') + '" placeholder="Es. CART-102"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.descrizione" data-italiano="Descrizione">Descrizione</label><input type="text" class="form-input" id="pv-ogg-desc" value="' + (o ? escapeHtml(o.descrizione || '') : '') + '" placeholder="Scatole cartone"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">L (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-lungh" value="' + (o ? formatCm(o.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">P (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-larg" value="' + (o ? formatCm(o.larghezza_mm) : '') + '" placeholder="Larghezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">H (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-alt" value="' + (o ? formatCm(o.altezza_mm) : '') + '" placeholder="Altezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.lunghezza" data-italiano="L (cm)">L (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-lungh" value="' + (o ? formatCm(o.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.larghezza" data-italiano="W (cm)">W (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-larg" value="' + (o ? formatCm(o.larghezza_mm) : '') + '" placeholder="Larghezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.altezza" data-italiano="H (cm)">H (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-alt" value="' + (o ? formatCm(o.altezza_mm) : '') + '" placeholder="Altezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">Peso (kg)</label><input type="number" class="form-input" id="pv-ogg-peso" value="' + (o ? o.peso_kg : '') + '" placeholder="Peso in kg" step="0.01" min="0.01"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Q.tà Disp.</label><input type="number" class="form-input" id="pv-ogg-qty" value="' + (o ? (o.quantita || 1) : 1) + '" min="1" step="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.peso" data-italiano="Peso (kg)">Peso (kg)</label><input type="number" class="form-input" id="pv-ogg-peso" value="' + (o ? o.peso_kg : '') + '" placeholder="Peso in kg" step="0.01" min="0.01"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.quantita" data-italiano="Q.tà Disp.">Q.tà Disp.</label><input type="number" class="form-input" id="pv-ogg-qty" value="' + (o ? (o.quantita || 1) : 1) + '" min="1" step="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group" style="flex:0 0 70px;"><label class="field-label">Colore</label><input type="color" class="form-input" id="pv-ogg-colore" value="' + coloreVal + '" style="height:36px;padding:2px 4px;cursor:pointer;"' + (!isEdit && !hasColor ? ' disabled' : '') + '></div>' +
-            '<div class="field-group flex-grow" style="flex-direction:row;justify-content:flex-end;align-items:flex-end;gap:12px;"><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-ogg-colore-enable" ' + (hasColor ? 'checked' : '') + '> 🎨 Colore personalizzato</label><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-ogg-archiviato"' + (o && o.archiviato ? ' checked' : '') + '> Archivia</label></div>' +
+            '<div class="field-group" style="flex:0 0 70px;"><label class="field-label language-label" data-translation-key="objects.colore" data-italiano="Colore">Colore</label><input type="color" class="form-input" id="pv-ogg-colore" value="' + coloreVal + '" style="height:36px;padding:2px 4px;cursor:pointer;"' + (!isEdit && !hasColor ? ' disabled' : '') + '></div>' +
+            '<div class="field-group flex-grow" style="flex-direction:row;justify-content:flex-end;align-items:flex-end;gap:12px;"><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-ogg-colore-enable" ' + (hasColor ? 'checked' : '') + '> <span class="language-label" data-translation-key="objects.colore-personalizzato" data-italiano="Colore personalizzato">🎨 Colore personalizzato</span></label><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-ogg-archiviato"' + (o && o.archiviato ? ' checked' : '') + '> <span class="language-label" data-translation-key="objects.archivia" data-italiano="Archivia">Archivia</span></label></div>' +
         '</div>';
     DOM.pvFormBody.innerHTML = formHtml;
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
 
     // --- Bottoni azione sopra la preview 3D (spostati fuori dal form) ---
     var actionsEl = document.getElementById('pv-oggetti-actions');
@@ -455,11 +466,11 @@ function renderOggettiForm(oggettoId) {
                 }
                 // Aggiorna colore nei panel items del carico attuale (se presenti)
                 if (typeof aggiornaColoreNeiPanelItems === 'function') {
-                    aggiornaColoreNeiPanelItems(oggettoId, colore || '#447e9b');
+                    aggiornaColoreNeiPanelItems(oggettoId, colore || data.colore || '#447e9b');
                 }
                 // Aggiorna colore nella scena 3D — usa il vecchio codice (i mesh hanno ancora quello)
                 if (typeof aggiornaColoreOggettoInScena === 'function' && (vecchioCodice || codice)) {
-                    aggiornaColoreOggettoInScena(vecchioCodice || codice, colore || '#447e9b');
+                    aggiornaColoreOggettoInScena(vecchioCodice || codice, colore || data.colore || '#447e9b');
                 }
             } else {
                 WS.oggettiDisponibili.push({ id: serverId, codice: data.codice, descrizione: data.descrizione, lunghezza_mm: data.lunghezza_mm, larghezza_mm: data.larghezza_mm, altezza_mm: data.altezza_mm, peso_kg: data.peso_kg, quantita: data.quantita_disponibile, colore: data.colore || '', archiviato: archiviato });
@@ -604,19 +615,19 @@ function _mostraVincoliDefault() {
     var vincBody = document.getElementById('pv-vincoli-body');
     if (!vincBody) return;
     vincBody.innerHTML =
-        '<div class="field-group"><label class="field-label">Orientamento</label>' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-x" checked> Rotazione su X</label>' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-y" checked> Rotazione su Y</label>' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-z" checked> Rotazione su Z</label>' +
+        '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.orientamento" data-italiano="Orientamento">Orientamento</label>' +
+            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-x" checked> <span class="language-label" data-translation-key="objects.rotazione-x" data-italiano="Rotazione su X">Rotazione su X</span></label>' +
+            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-y" checked> <span class="language-label" data-translation-key="objects.rotazione-y" data-italiano="Rotazione su Y">Rotazione su Y</span></label>' +
+            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-z" checked> <span class="language-label" data-translation-key="objects.rotazione-z" data-italiano="Rotazione su Z">Rotazione su Z</span></label>' +
         '</div>' +
-        '<div class="field-group"><label class="field-label">Impilabilità</label>' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" checked> Può sostenere altri oggetti</label>' +
+        '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.impilabilita" data-italiano="Impilabilità">Impilabilità</label>' +
+            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" checked> <span class="language-label" data-translation-key="objects.sostegno" data-italiano="Può sostenere altri oggetti">Può sostenere altri oggetti</span></label>' +
         '</div>' +
-        '<div class="field-group"><label class="field-label">Peso max sul tetto (kg)</label>' +
+        '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.peso-tetto" data-italiano="Peso max sul tetto (kg)">Peso max sul tetto (kg)</label>' +
             '<input type="number" class="form-input" id="pv-vinc-pesomax" value="0" min="0" step="0.5">' +
         '</div>' +
         '<div class="field-group">' +
-            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-piano"> Solo su pavimento</label>' +
+            '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-piano"> <span class="language-label" data-translation-key="objects.solo-pavimento" data-italiano="Solo su pavimento">Solo su pavimento</span></label>' +
         '</div>';
 }
 
@@ -641,21 +652,22 @@ function renderVincoliInOggetti(oggettoId) {
         .then(function (v) {
             v = v || {};
             var formHtml =
-                '<div class="field-group"><label class="field-label">Orientamento' + lockIcon + '</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-x" ' + (v.rotazione_su_x !== false ? 'checked' : '') + lockAttr + lockTitle + '> Rotazione su X</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-y" ' + (v.rotazione_su_y !== false ? 'checked' : '') + lockAttr + lockTitle + '> Rotazione su Y</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-z" ' + (v.rotazione_su_z !== false ? 'checked' : '') + lockAttr + lockTitle + '> Rotazione su Z</label>' +
+                '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.orientamento" data-italiano="Orientamento">Orientamento' + lockIcon + '</label>' +
+                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-x" ' + (v.rotazione_su_x !== false ? 'checked' : '') + lockAttr + lockTitle + '> <span class="language-label" data-translation-key="objects.rotazione-x" data-italiano="Rotazione su X">Rotazione su X</span></label>' +
+                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-y" ' + (v.rotazione_su_y !== false ? 'checked' : '') + lockAttr + lockTitle + '> <span class="language-label" data-translation-key="objects.rotazione-y" data-italiano="Rotazione su Y">Rotazione su Y</span></label>' +
+                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-rot-z" ' + (v.rotazione_su_z !== false ? 'checked' : '') + lockAttr + lockTitle + '> <span class="language-label" data-translation-key="objects.rotazione-z" data-italiano="Rotazione su Z">Rotazione su Z</span></label>' +
                 '</div>' +
-                '<div class="field-group"><label class="field-label">Impilabilità' + lockIcon + '</label>' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" ' + (v.sovrapponibile !== false ? 'checked' : '') + lockAttr + lockTitle + '> Può sostenere altri oggetti</label>' +
+                '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.impilabilita" data-italiano="Impilabilità">Impilabilità' + lockIcon + '</label>' +
+                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" ' + (v.sovrapponibile !== false ? 'checked' : '') + lockAttr + lockTitle + '> <span class="language-label" data-translation-key="objects.sostegno" data-italiano="Può sostenere altri oggetti">Può sostenere altri oggetti</span></label>' +
                 '</div>' +
-                '<div class="field-group"><label class="field-label">Peso max sul tetto (kg)</label>' +
+                '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.peso-tetto" data-italiano="Peso max sul tetto (kg)">Peso max sul tetto (kg)</label>' +
                     '<input type="number" class="form-input" id="pv-vinc-pesomax" value="' + (v.peso_massimo_tetto_kg || 0) + '" min="0" step="0.5">' +
                 '</div>' +
                 '<div class="field-group">' +
-                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-piano" ' + (v.solo_su_piano === true ? 'checked' : '') + '> Solo su pavimento</label>' +
+                    '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-piano" ' + (v.solo_su_piano === true ? 'checked' : '') + '> <span class="language-label" data-translation-key="objects.solo-pavimento" data-italiano="Solo su pavimento">Solo su pavimento</span></label>' +
                 '</div>';
             document.getElementById('pv-vincoli-body').innerHTML = formHtml;
+            document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
         })
         .catch(function () {
             document.getElementById('pv-vincoli-body').innerHTML = '<p style="color:#c0392b;text-align:center;padding:40px;">Errore caricamento vincoli.</p>';

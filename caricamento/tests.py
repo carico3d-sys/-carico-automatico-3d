@@ -26,6 +26,7 @@ from caricamento.client_ip import get_client_ip
 from caricamento.views import _check_demo_abuse, _save_demo_fingerprints
 
 from caricamento.engine.common import (
+    COLORI_PACCHI,
     ConfigurazioneOttimizzazione,
     ItemPacked,
     _build_lookup_vincoli_tra,
@@ -103,6 +104,59 @@ from caricamento.engine.tre_d.grid import SpatialGrid
 # =============================================================================
 # TEST: FACTORY STRATEGIE
 # =============================================================================
+
+class TestOggettoColoriAnagrafica(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="color-owner")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def _payload(self, codice):
+        return {
+            "codice": codice,
+            "descrizione": "Oggetto test",
+            "lunghezza_cm": 10,
+            "larghezza_cm": 10,
+            "altezza_cm": 10,
+            "peso_kg": "1.00",
+            "quantita_disponibile": 1,
+        }
+
+    def test_nuovi_oggetti_usano_colori_anagrafica_distinti(self):
+        risposte = [
+            self.client.post("/api/oggetti/", self._payload(f"COLOR-{i}"), format="json")
+            for i in range(3)
+        ]
+        self.assertTrue(all(response.status_code == 201 for response in risposte))
+        self.assertEqual(
+            [response.data["colore"] for response in risposte],
+            COLORI_PACCHI[:3],
+        )
+
+    def test_colore_di_riga_non_occupa_un_colore_anagrafico(self):
+        oggetto = Oggetto.objects.create(
+            owner=self.user,
+            codice="ROW-COLOR",
+            lunghezza_mm=100,
+            larghezza_mm=100,
+            altezza_mm=100,
+            peso_kg=Decimal("1"),
+        )
+        container = Contenitore.objects.create(
+            owner=self.user,
+            nome="Color container",
+            lunghezza_mm=1000,
+            larghezza_mm=1000,
+            altezza_mm=1000,
+            carico_massimo_kg=Decimal("100"),
+        )
+        piano = PianoDiCarico.objects.create(owner=self.user, nome="Color plan", contenitore=container)
+        OggettoDaCaricare.objects.create(piano_di_carico=piano, oggetto=oggetto, colore=COLORI_PACCHI[0])
+
+        response = self.client.post("/api/oggetti/", self._payload("ANAG-COLOR"), format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["colore"], COLORI_PACCHI[0])
+
 
 class TestStrategyFactory(TestCase):
     def test_seleziona_deterministica(self):
