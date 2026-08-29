@@ -232,7 +232,12 @@
 }
 .panel-toggle-handle:hover { background: var(--color-accent-hover); }
 .panel-toggle-handle:focus-visible { outline: 3px solid #f39c12; outline-offset: 2px; }
-.panel-toggle-handle { touch-action: manipulation; pointer-events: auto; }
+.panel-toggle-handle {
+    touch-action: none;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+}
 
 /* Sui dispositivi touch aumenta l'area cliccabile senza modificare il layout
    desktop con mouse/tastiera. */

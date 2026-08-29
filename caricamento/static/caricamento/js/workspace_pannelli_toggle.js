@@ -27,6 +27,8 @@
         var right = document.getElementById('toggle-panel-destro-btn');
         if (!page || !sidebar || !panel || !left || !right) return;
 
+        var ultimoPointerTouch = 0;
+
         function gestisciToggle(button, classe, target, lato) {
             var aperta = !page.classList.contains(classe);
             page.classList.toggle(classe, aperta);
@@ -35,21 +37,33 @@
             ridimensionaViewport();
         }
 
+        function gestisciPointer(button, classe, target, lato, event) {
+            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+            event.preventDefault();
+            event.stopPropagation();
+            ultimoPointerTouch = Date.now();
+            gestisciToggle(button, classe, target, lato);
+        }
+
+        left.addEventListener('pointerdown', function (event) {
+            gestisciPointer(left, 'sidebar-collapsed', sidebar, 'sinistra', event);
+        });
         left.addEventListener('click', function (event) {
             event.preventDefault();
+            if (Date.now() - ultimoPointerTouch < 700) return;
             gestisciToggle(left, 'sidebar-collapsed', sidebar, 'sinistra');
         });
-        left.addEventListener('pointerup', function (event) {
-            if (event.pointerType === 'touch' || event.pointerType === 'pen') event.preventDefault();
-        });
 
+
+        right.addEventListener('pointerdown', function (event) {
+            gestisciPointer(right, 'panel-destro-collapsed', panel, 'destra', event);
+        });
         right.addEventListener('click', function (event) {
             event.preventDefault();
+            if (Date.now() - ultimoPointerTouch < 700) return;
             gestisciToggle(right, 'panel-destro-collapsed', panel, 'destra');
         });
-        right.addEventListener('pointerup', function (event) {
-            if (event.pointerType === 'touch' || event.pointerType === 'pen') event.preventDefault();
-        });
+
 
         /* Il click resta l'evento unico: evita il doppio toggle su touch. */
 
