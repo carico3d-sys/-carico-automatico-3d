@@ -1039,6 +1039,18 @@
     /* Le maniglie restano disponibili anche con il pannello destro nascosto. */
     #panel-destro { display: flex; }
     #sidebar { width: 60px; min-width: 60px; }
+
+    /* Le classi di chiusura devono prevalere sulle regole responsive. */
+    #page.sidebar-collapsed #sidebar {
+        display: none;
+        width: 0;
+        min-width: 0;
+    }
+    #page.panel-destro-collapsed #panel-destro {
+        display: none;
+        width: 0;
+        min-width: 0;
+    }
     /* Sidebar ridotta a 60px: riallinea il pannello Aiuto accanto ad essa */
     .modal-overlay.modal-overlay-clean {
         padding-left: 72px;
