@@ -235,7 +235,6 @@
 .panel-toggle-handle {
     touch-action: none;
     pointer-events: auto;
-    -webkit-user-select: none;
     user-select: none;
     -webkit-user-select: none;
 }
@@ -261,9 +260,7 @@
     text-align: center;
 }
 
-/* Le coordinate vengono assegnate da JavaScript usando i bordi reali delle
-   colonne. Non servono regole aggiuntive per gli stati chiusi: il JS mantiene
-   le maniglie visibili e le riallinea dopo ogni cambio di layout. */
+/* Le coordinate vengono assegnate da JavaScript usando i bordi reali delle colonne. */
 
 /* Overlay iniziale e messaggi */
 .viewport-placeholder {

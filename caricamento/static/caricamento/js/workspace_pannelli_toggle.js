@@ -24,26 +24,10 @@
 
         var sidebarRect = sidebar.getBoundingClientRect();
         var panelRect = panel.getBoundingClientRect();
-        var rightRect = right.getBoundingClientRect();
-
-        // Ancoriamo direttamente il bordo sinistro della maniglia sinistra
-        // al bordo destro reale della sidebar.
-
+        // Ancoriamo direttamente le maniglie ai bordi reali delle colonne.
         left.style.left = sidebarRect.right + 'px';
-        // Ancoriamo direttamente il bordo destro della maniglia al bordo
-        // sinistro reale del pannello, indipendentemente dalla sua larghezza.
         right.style.left = 'auto';
         right.style.right = (window.innerWidth - panelRect.left) + 'px';
-        var bordoDestroDesiderato = panelRect.left;
-        var bordoDestroAttuale = rightRect.right;
-        var scostamento = bordoDestroDesiderato - bordoDestroAttuale;
-
-        // Diagnostica disponibile dalla console del browser.
-        window.__maniglieDebug = {
-            pannello: { left: panelRect.left, right: panelRect.right, width: panelRect.width },
-            manigliaDestra: { left: rightRect.left, right: rightRect.right, width: rightRect.width },
-            scostamento: scostamento
-        };
 
     }
 
@@ -121,11 +105,6 @@
         aggiornaManiglia(left, true, 'sinistra');
         aggiornaManiglia(right, true, 'destra');
         posizionaManiglie();
-        window.debugManiglie = function () {
-            posizionaManiglie();
-            console.table(window.__maniglieDebug);
-            return window.__maniglieDebug;
-        };
         window.addEventListener('resize', posizionaManiglie);
         window.addEventListener('orientationchange', function () {
             setTimeout(posizionaManiglie, 50);
