@@ -2154,11 +2154,11 @@ def api_icone_config(request):
                         entry["color"] = color.lower()
                     else:
                         entry.pop("color", None)
-                # Dimensioni bottone: larghezza % (5-100) e altezza px (20-120).
-                # Il minimo 5% permette bottoni stretti (es. Elimina al 10%).
+                # Dimensioni bottone: larghezza % (1-100) e altezza px (20-120).
+                # Il minimo 1% permette bottoni molto stretti, se necessario.
                 if "width_pct" in entry:
                     try:
-                        entry["width_pct"] = max(5, min(100, int(entry["width_pct"])))
+                        entry["width_pct"] = max(1, min(100, int(entry["width_pct"])))
                     except (TypeError, ValueError):
                         entry.pop("width_pct", None)
                 if "height_px" in entry:

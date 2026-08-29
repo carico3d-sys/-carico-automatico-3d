@@ -517,7 +517,7 @@
       "label_size": 12,
       "label_pos": "row",
       "color": "#94d1ff",
-      "width_pct": 5,
+      "width_pct": 1,
       "height_px": 44
     },
     "panel-toggle-right": {
@@ -531,7 +531,7 @@
       "label_size": 12,
       "label_pos": "row",
       "color": "#94d1ff",
-      "width_pct": 5,
+      "width_pct": 1,
       "height_px": 44
     },
     "auto-elabora": {

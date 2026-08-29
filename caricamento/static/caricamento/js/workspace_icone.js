@@ -1297,8 +1297,10 @@ function _popolaTabellaBottoni(tbodyId, tab) {
         var pos = cfg.label_pos || btnDef.label_pos || 'row';
         var color = (cfg.color && _isHexColor(cfg.color)) ? cfg.color : (btnDef.color_default || '#6c757d');
         var textColor = _textColorFor(color);
-        var btnW = cfg.width_pct || 100;
-        var btnH = cfg.height_px || btnDef.height_default || 52;
+        var btnW = (cfg.width_pct !== undefined && cfg.width_pct !== null && cfg.width_pct !== '')
+            ? Number(cfg.width_pct) : 100;
+        var btnH = (cfg.height_px !== undefined && cfg.height_px !== null && cfg.height_px !== '')
+            ? Number(cfg.height_px) : (btnDef.height_default || 52);
 
         var iconPreview = '';
         if (isPng) {
@@ -1499,7 +1501,8 @@ function _aggiornaAnteprimaBottone(row) {
     var pos = row.querySelector('.bt-pos-select').value;
     var colorHex = row.querySelector('.bt-color-hex').value.trim();
     var color = _isHexColor(colorHex) ? colorHex : (btnDef.color_default || '#6c757d');
-    var btnW = parseInt(row.querySelector('.bt-size-w').value) || 100;
+    var btnWValue = parseInt(row.querySelector('.bt-size-w').value, 10);
+    var btnW = Number.isFinite(btnWValue) ? Math.min(100, Math.max(1, btnWValue)) : 100;
     var btnH = parseInt(row.querySelector('.bt-size-h').value) || (btnDef.height_default || 52);
 
     var iconHtml;
