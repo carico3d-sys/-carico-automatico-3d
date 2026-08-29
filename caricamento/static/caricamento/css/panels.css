@@ -228,7 +228,7 @@
     border: 1px solid rgba(255,255,255,0.65);
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     cursor: pointer;
-    transition: left var(--transition), right var(--transition), background var(--transition);
+    transition: left var(--transition), background var(--transition);
 }
 .panel-toggle-handle:hover { background: var(--color-accent-hover); }
 .panel-toggle-handle:focus-visible { outline: 3px solid #f39c12; outline-offset: 2px; }
@@ -250,26 +250,19 @@
     }
 }
 .panel-toggle-handle-left {
-    left: calc(var(--sidebar-w) - 1px);
+    left: 0;
     border-radius: 0 7px 7px 0;
 }
 .panel-toggle-handle-right {
-    right: calc(var(--panel-w) - 1px);
-    border-radius: 7px 0 0 7px;
-}
-
-/* La sidebar ha larghezza ridotta sotto 860px. */
-@media (max-width: 860px) {
-    .panel-toggle-handle-left { left: 59px; }
-    .panel-toggle-handle-right { right: 0; }
-}
-
-#page.sidebar-collapsed .panel-toggle-handle-left {
     left: 0;
+    border-radius: 7px 0 0 7px;
+    justify-content: center;
+    text-align: center;
 }
-#page.panel-destro-collapsed .panel-toggle-handle-right {
-    right: 0;
-}
+
+/* Le coordinate vengono assegnate da JavaScript usando i bordi reali delle
+   colonne. Non servono regole aggiuntive per gli stati chiusi: il JS mantiene
+   le maniglie visibili e le riallinea dopo ogni cambio di layout. */
 
 /* Overlay iniziale e messaggi */
 .viewport-placeholder {

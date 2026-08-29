@@ -15,8 +15,42 @@
         }
     }
 
+    function posizionaManiglie() {
+        var sidebar = document.getElementById('sidebar');
+        var panel = document.getElementById('panel-destro');
+        var left = document.getElementById('toggle-sidebar-btn');
+        var right = document.getElementById('toggle-panel-destro-btn');
+        if (!sidebar || !panel || !left || !right) return;
+
+        var sidebarRect = sidebar.getBoundingClientRect();
+        var panelRect = panel.getBoundingClientRect();
+        var rightRect = right.getBoundingClientRect();
+
+        // Ancoriamo direttamente il bordo sinistro della maniglia sinistra
+        // al bordo destro reale della sidebar.
+
+        left.style.left = sidebarRect.right + 'px';
+        // Ancoriamo direttamente il bordo destro della maniglia al bordo
+        // sinistro reale del pannello, indipendentemente dalla sua larghezza.
+        right.style.left = 'auto';
+        right.style.right = (window.innerWidth - panelRect.left) + 'px';
+        var bordoDestroDesiderato = panelRect.left;
+        var bordoDestroAttuale = rightRect.right;
+        var scostamento = bordoDestroDesiderato - bordoDestroAttuale;
+
+        // Diagnostica disponibile dalla console del browser.
+        window.__maniglieDebug = {
+            pannello: { left: panelRect.left, right: panelRect.right, width: panelRect.width },
+            manigliaDestra: { left: rightRect.left, right: rightRect.right, width: rightRect.width },
+            scostamento: scostamento
+        };
+
+    }
+
     function ridimensionaViewport() {
+        posizionaManiglie();
         window.dispatchEvent(new Event('resize'));
+        requestAnimationFrame(posizionaManiglie);
     }
 
     function inizializza() {
@@ -64,11 +98,20 @@
             gestisciToggle(right, 'panel-destro-collapsed', panel, 'destra');
         });
 
-
         /* Il click resta l'evento unico: evita il doppio toggle su touch. */
 
         aggiornaManiglia(left, true, 'sinistra');
         aggiornaManiglia(right, true, 'destra');
+        posizionaManiglie();
+        window.debugManiglie = function () {
+            posizionaManiglie();
+            console.table(window.__maniglieDebug);
+            return window.__maniglieDebug;
+        };
+        window.addEventListener('resize', posizionaManiglie);
+        window.addEventListener('orientationchange', function () {
+            setTimeout(posizionaManiglie, 50);
+        });
     }
 
     if (document.readyState === 'loading') {
