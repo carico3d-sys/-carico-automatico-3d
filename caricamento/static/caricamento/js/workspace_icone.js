@@ -1342,7 +1342,7 @@ function _popolaTabellaBottoni(tbodyId, tab) {
                 '</td>' +
                 '<td class="bt-col-btnsize">' +
                     '<div class="icone-dims-row">' +
-                        '<input type="number" class="form-input bt-size-w" value="' + btnW + '" min="5" max="100" step="5">' +
+                        '<input type="number" class="form-input bt-size-w" value="' + btnW + '" min="1" max="100" step="1">' +
                         '<span>%</span>' +
                         '<input type="number" class="form-input bt-size-h" value="' + btnH + '" min="20" max="120" step="1">' +
                         '<span>px</span>' +
@@ -2000,8 +2000,10 @@ function _raccogliConfigBottoniDallaTabella() {
         var colorHex = row.querySelector('.bt-color-hex').value.trim();
         var color = _isHexColor(colorHex) ? colorHex : (btnDef.color_default || '#6c757d');
         var defaultColor = (btnDef.color_default || '#6c757d').toLowerCase();
-        var btnW = parseInt(row.querySelector('.bt-size-w').value) || 0;
-        var btnH = parseInt(row.querySelector('.bt-size-h').value) || 0;
+        var btnWValue = parseInt(row.querySelector('.bt-size-w').value, 10);
+        var btnW = Number.isFinite(btnWValue) ? Math.min(100, Math.max(1, btnWValue)) : 0;
+        var btnHValue = parseInt(row.querySelector('.bt-size-h').value, 10);
+        var btnH = Number.isFinite(btnHValue) ? Math.min(120, Math.max(20, btnHValue)) : 0;
         var defaultH = btnDef.height_default || 52;
 
         // Salva la voce solo se c'è almeno una personalizzazione
