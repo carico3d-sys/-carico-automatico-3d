@@ -1036,7 +1036,8 @@
 }
 
 @media (max-width: 860px) {
-    #panel-destro { display: none; }
+    /* Le maniglie restano disponibili anche con il pannello destro nascosto. */
+    #panel-destro { display: flex; }
     #sidebar { width: 60px; min-width: 60px; }
     /* Sidebar ridotta a 60px: riallinea il pannello Aiuto accanto ad essa */
     .modal-overlay.modal-overlay-clean {

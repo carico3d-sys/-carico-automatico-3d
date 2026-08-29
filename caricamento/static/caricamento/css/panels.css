@@ -211,6 +211,43 @@
     display: block;
 }
 
+/* Maniglie laterali: sono nel campo 3D, appena a ridosso delle barre. */
+.panel-toggle-handle {
+    position: absolute;
+    top: 50%;
+    z-index: 10000;
+    width: 32px;
+    height: 52px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #fff;
+    background: var(--color-accent);
+    border: 1px solid rgba(255,255,255,0.65);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: left var(--transition), right var(--transition), background var(--transition);
+}
+.panel-toggle-handle:hover { background: var(--color-accent-hover); }
+.panel-toggle-handle:focus-visible { outline: 3px solid #f39c12; outline-offset: 2px; }
+.panel-toggle-handle-left {
+    left: calc(var(--sidebar-w) - 1px);
+    border-radius: 0 7px 7px 0;
+}
+.panel-toggle-handle-right {
+    right: calc(var(--panel-w) - 1px);
+    border-radius: 7px 0 0 7px;
+}
+
+#page.sidebar-collapsed .panel-toggle-handle-left {
+    left: 0;
+}
+#page.panel-destro-collapsed .panel-toggle-handle-right {
+    right: 0;
+}
+
 /* Overlay iniziale e messaggi */
 .viewport-placeholder {
     position: absolute;
@@ -294,6 +331,7 @@
    ============================================================================= */
 
 #panel-destro {
+    position: relative;
     width: var(--panel-w);
     min-width: var(--panel-w);
     background: var(--color-white);

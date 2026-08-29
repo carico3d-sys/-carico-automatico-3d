@@ -250,6 +250,7 @@ body {
    ============================================================================= */
 
 #sidebar {
+    position: relative;
     width: var(--sidebar-w);
     min-width: var(--sidebar-w);
     background: var(--color-sidebar-bg);
@@ -1155,6 +1156,23 @@ body {
 /* =============================================================================
    2. AREA CENTRALE — VIEWPORT 3D
    ============================================================================= */
+
+#page.sidebar-collapsed #sidebar {
+    width: 0;
+    min-width: 0;
+    border-right-width: 0;
+}
+
+#page.panel-destro-collapsed #panel-destro {
+    width: 0;
+    min-width: 0;
+    border-left-width: 0;
+}
+
+#page {
+    overflow: visible;
+    position: relative;
+}
 
 #main {
     flex: 1;

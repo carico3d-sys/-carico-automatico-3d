@@ -506,6 +506,34 @@
     }
   },
   "bottoni": {
+    "panel-toggle-left": {
+      "type": "bootstrap",
+      "file": "",
+      "dims_px": [
+        18,
+        18
+      ],
+      "label": "",
+      "label_size": 12,
+      "label_pos": "row",
+      "color": "#94d1ff",
+      "width_pct": 5,
+      "height_px": 44
+    },
+    "panel-toggle-right": {
+      "type": "bootstrap",
+      "file": "",
+      "dims_px": [
+        18,
+        18
+      ],
+      "label": "",
+      "label_size": 12,
+      "label_pos": "row",
+      "color": "#94d1ff",
+      "width_pct": 5,
+      "height_px": 44
+    },
     "auto-elabora": {
       "type": "png",
       "file": "icons8-arrow-right-50.png",

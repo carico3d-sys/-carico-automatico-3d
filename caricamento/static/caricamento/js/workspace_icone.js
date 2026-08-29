@@ -107,6 +107,10 @@ var ICON_CATALOG = [
 
     // --- Panel View ---
 
+    // --- Maniglie pannelli (icone personalizzabili dal tab Bottoni) ---
+    { id: 'panel-toggle-left',  type: 'bootstrap', iconClass: 'bi bi-chevron-left',  file: '', dims: [18, 18], desc: 'Maniglia barra sinistra', location: 'Viewport', selector: '#toggle-sidebar-btn > i' },
+    { id: 'panel-toggle-right', type: 'bootstrap', iconClass: 'bi bi-chevron-right', file: '', dims: [18, 18], desc: 'Maniglia barra destra',  location: 'Viewport', selector: '#toggle-panel-destro-btn > i' },
+
     // --- Panel Destro ---
     { id: 'panel-header-icon',  type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [17, 17], desc: 'Panel Destro: icona header',                location: 'Panel Destro', selector: '#panel-destro .panel-header h3 > i' },
     { id: 'panel-trash',        type: 'bootstrap', iconClass: 'bi bi-trash',             file: '', dims: [16, 16], desc: 'Panel Destro: elimina selezionati',         location: 'Panel Destro', selector: '#panel-header-trash > i' },
@@ -144,6 +148,9 @@ var ICON_CATALOG = [
 // =============================================================================
 
 var BUTTON_CATALOG = [
+    // --- Maniglie laterali del viewport ---
+    { id: 'panel-toggle-left', selector: '#toggle-sidebar-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-left', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'panel-toggle-right', selector: '#toggle-panel-destro-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-right', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     // --- Tab Auto (bottoni alti 52px) ---
     // Il flusso è unico: ELABORA (principale, genera l'anteprima) + SALVA
     // (conferma sul piano reale). Il vecchio "OTTIMIZZA E SALVA" è stato
@@ -395,7 +402,7 @@ function _iconaDinamicaAttesa(icon) {
 }
 
 function _bottoneDinamicoAtteso(btnDef) {
-    return !!btnDef && (btnDef.tab === 'finestre' || /^settings-/.test(btnDef.id));
+    return !!btnDef && (btnDef.tab === 'finestre' || /^settings-/.test(btnDef.id) || /^panel-toggle-/.test(btnDef.id));
 }
 
 /**

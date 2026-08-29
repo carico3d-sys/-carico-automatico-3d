@@ -277,10 +277,11 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=22" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=23" defer></script>
+    <script src="{% static 'caricamento/js/workspace_pannelli_toggle.js' %}?v=1" defer></script>
 
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
-    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=51" defer></script>
+    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=52" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
     <script src="{% static 'caricamento/js/gestione_file.js' %}?v=11" defer></script>
@@ -437,6 +438,13 @@
     <!-- PAGE LAYOUT: 3 colonne -->
     <!-- ================================================================ -->
     <div id="page">
+        <!-- Maniglie esterne alle barre: non vengono ritagliate dai pannelli. -->
+        <button type="button" id="toggle-sidebar-btn" class="panel-toggle-handle panel-toggle-handle-left" title="Nascondi barra sinistra" aria-label="Nascondi barra sinistra" aria-expanded="true">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="toggle-panel-destro-btn" class="panel-toggle-handle panel-toggle-handle-right" title="Nascondi barra destra" aria-label="Nascondi barra destra" aria-expanded="true">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </button>
 
         <!-- ============================================================ -->
         <!-- COLONNA 1: SIDEBAR SINISTRA (MENU A 4 TAB) -->
