@@ -27,21 +27,31 @@
         var right = document.getElementById('toggle-panel-destro-btn');
         if (!page || !sidebar || !panel || !left || !right) return;
 
-        left.addEventListener('click', function () {
-            var aperta = !page.classList.contains('sidebar-collapsed');
-            page.classList.toggle('sidebar-collapsed', aperta);
-            sidebar.classList.toggle('sidebar-collapsed', aperta);
-            aggiornaManiglia(left, !aperta, 'sinistra');
+        function gestisciToggle(button, classe, target, lato) {
+            var aperta = !page.classList.contains(classe);
+            page.classList.toggle(classe, aperta);
+            target.classList.toggle(classe, aperta);
+            aggiornaManiglia(button, !aperta, lato);
             ridimensionaViewport();
+        }
+
+        left.addEventListener('click', function (event) {
+            event.preventDefault();
+            gestisciToggle(left, 'sidebar-collapsed', sidebar, 'sinistra');
+        });
+        left.addEventListener('pointerup', function (event) {
+            if (event.pointerType === 'touch' || event.pointerType === 'pen') event.preventDefault();
         });
 
-        right.addEventListener('click', function () {
-            var aperta = !page.classList.contains('panel-destro-collapsed');
-            page.classList.toggle('panel-destro-collapsed', aperta);
-            panel.classList.toggle('panel-destro-collapsed', aperta);
-            aggiornaManiglia(right, !aperta, 'destra');
-            ridimensionaViewport();
+        right.addEventListener('click', function (event) {
+            event.preventDefault();
+            gestisciToggle(right, 'panel-destro-collapsed', panel, 'destra');
         });
+        right.addEventListener('pointerup', function (event) {
+            if (event.pointerType === 'touch' || event.pointerType === 'pen') event.preventDefault();
+        });
+
+        /* Il click resta l'evento unico: evita il doppio toggle su touch. */
 
         aggiornaManiglia(left, true, 'sinistra');
         aggiornaManiglia(right, true, 'destra');

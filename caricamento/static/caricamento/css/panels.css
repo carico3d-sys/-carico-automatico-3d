@@ -232,6 +232,18 @@
 }
 .panel-toggle-handle:hover { background: var(--color-accent-hover); }
 .panel-toggle-handle:focus-visible { outline: 3px solid #f39c12; outline-offset: 2px; }
+.panel-toggle-handle { touch-action: manipulation; pointer-events: auto; }
+
+/* Sui dispositivi touch aumenta l'area cliccabile senza modificare il layout
+   desktop con mouse/tastiera. */
+@media (hover: none) and (pointer: coarse) {
+    .panel-toggle-handle {
+        width: 44px;
+        height: 56px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+}
 .panel-toggle-handle-left {
     left: calc(var(--sidebar-w) - 1px);
     border-radius: 0 7px 7px 0;
