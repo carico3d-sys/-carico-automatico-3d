@@ -1042,14 +1042,16 @@
 
     /* Le classi di chiusura devono prevalere sulle regole responsive. */
     #page.sidebar-collapsed #sidebar {
-        display: none;
-        width: 0;
-        min-width: 0;
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        flex: 0 0 0 !important;
     }
     #page.panel-destro-collapsed #panel-destro {
-        display: none;
-        width: 0;
-        min-width: 0;
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        flex: 0 0 0 !important;
     }
     /* Sidebar ridotta a 60px: riallinea il pannello Aiuto accanto ad essa */
     .modal-overlay.modal-overlay-clean {
