@@ -74,11 +74,20 @@
         function gestisciPointer(button, classe, target, lato, event) {
             if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
             event.preventDefault();
-            event.stopPropagation();
+            event.stopImmediatePropagation();
             ultimoPointerTouch = Date.now();
             gestisciToggle(button, classe, target, lato);
         }
 
+        left.addEventListener('pointerup', function (event) {
+            gestisciPointer(left, 'sidebar-collapsed', sidebar, 'sinistra', event);
+        });
+        left.addEventListener('touchend', function (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ultimoPointerTouch = Date.now();
+            gestisciToggle(left, 'sidebar-collapsed', sidebar, 'sinistra');
+        }, { passive: false });
         left.addEventListener('pointerdown', function (event) {
             gestisciPointer(left, 'sidebar-collapsed', sidebar, 'sinistra', event);
         });
@@ -89,6 +98,15 @@
         });
 
 
+        right.addEventListener('pointerup', function (event) {
+            gestisciPointer(right, 'panel-destro-collapsed', panel, 'destra', event);
+        });
+        right.addEventListener('touchend', function (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            ultimoPointerTouch = Date.now();
+            gestisciToggle(right, 'panel-destro-collapsed', panel, 'destra');
+        }, { passive: false });
         right.addEventListener('pointerdown', function (event) {
             gestisciPointer(right, 'panel-destro-collapsed', panel, 'destra', event);
         });

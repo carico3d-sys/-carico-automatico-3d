@@ -213,9 +213,9 @@
 
 /* Maniglie laterali: sono nel campo 3D, appena a ridosso delle barre. */
 .panel-toggle-handle {
-    position: fixed;
-    top: calc(var(--header-h) + (100vh - var(--header-h)) / 2);
-    z-index: 10000;
+    position: absolute;
+    top: calc(50%);
+    z-index: 2147483647;
     width: 32px;
     height: 52px;
     transform: translateY(-50%);
@@ -235,6 +235,7 @@
 .panel-toggle-handle {
     touch-action: none;
     pointer-events: auto;
+    -webkit-user-select: none;
     user-select: none;
     -webkit-user-select: none;
 }
