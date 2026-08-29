@@ -213,8 +213,8 @@
 
 /* Maniglie laterali: sono nel campo 3D, appena a ridosso delle barre. */
 .panel-toggle-handle {
-    position: absolute;
-    top: 50%;
+    position: fixed;
+    top: calc(var(--header-h) + (100vh - var(--header-h)) / 2);
     z-index: 10000;
     width: 32px;
     height: 52px;
@@ -239,6 +239,12 @@
 .panel-toggle-handle-right {
     right: calc(var(--panel-w) - 1px);
     border-radius: 7px 0 0 7px;
+}
+
+/* La sidebar ha larghezza ridotta sotto 860px. */
+@media (max-width: 860px) {
+    .panel-toggle-handle-left { left: 59px; }
+    .panel-toggle-handle-right { right: 0; }
 }
 
 #page.sidebar-collapsed .panel-toggle-handle-left {
