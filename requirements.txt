@@ -33,5 +33,8 @@ requests==2.34.2
 # WSGI server per la produzione
 gunicorn==23.0.0
 
+# Serving dei file statici con Gunicorn/Render
+whitenoise==6.12.0
+
 # Fingerprinting browser (opzionale, per demo abuse prevention)
 # fingerprintjs è caricato via CDN nel frontend
