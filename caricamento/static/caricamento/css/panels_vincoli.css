@@ -718,6 +718,51 @@
     flex: 1;
     display: flex;
     overflow: hidden;
+    position: relative;
+}
+
+/* Separatore trascinabile tra lista e form */
+#panel-view-split.pv-resizable #panel-view-list {
+    flex: 0 0 var(--pv-list-width, 50%);
+}
+
+.pv-panel-resizer {
+    flex: 0 0 8px;
+    width: 8px;
+    margin-left: -4px;
+    margin-right: -4px;
+    position: relative;
+    z-index: 20;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+}
+
+.pv-panel-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 2px;
+    background: var(--color-border);
+    transition: background 0.15s ease, width 0.15s ease;
+}
+
+.pv-panel-resizer:hover::after,
+.pv-panel-resizer.dragging::after {
+    left: 2px;
+    width: 4px;
+    background: var(--color-accent);
+}
+
+body.pv-resizing,
+body.pv-resizing * {
+    cursor: col-resize !important;
+}
+
+@media (max-width: 860px) {
+    .pv-panel-resizer { display: none; }
 }
 
 /* --- Selezione Multipla Oggetti --- */

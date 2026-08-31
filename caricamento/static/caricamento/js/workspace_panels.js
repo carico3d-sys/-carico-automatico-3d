@@ -86,6 +86,8 @@ function mostraPanelView(viewType) {
     var splitEl = document.getElementById('panel-view-split');
     if (splitEl) splitEl.style.display = '';
     _ripristinaFormOggetti();
+    var resizerEl = document.getElementById('pv-panel-resizer');
+    if (resizerEl) resizerEl.dataset.ready = '';
     if (!_panelViewPronto(viewType)) return;
     if (!DOM.viewport3d || !DOM.panelView) {
         console.error('[Panel View] Contenitori principali mancanti.');
@@ -116,29 +118,33 @@ function mostraViewport() {
     _ripristinaFormOggetti();
     DOM.panelView.style.display = 'none';
     DOM.viewport3d.style.display = '';
+    // Se il canvas della scena è stato rimosso durante un reset, ricrea il
+    // placeholder in modo sincrono e lascia che nessun pannello dinamico lo
+    // sostituisca al frame successivo.
+    if (!WS.treSceneLoaded && typeof mostraPlaceholder === 'function') {
+        mostraPlaceholder();
+    }
     // Tornati al main view: ripristina il pannello alternative se l'utente
     // aveva ancora soluzioni in memoria (la lista non viene rigenerata,
     // resta la selezione corrente).
     if (typeof mostraPannelloAlternativeSePresente === 'function') {
         mostraPannelloAlternativeSePresente();
     }
-    // Il renderer 3D ha dimensioni 0×0 mentre il viewport è nascosto:
-    // forza il resize dopo che il browser ha applicato il cambio display.
-    // Doppio RAF garantisce che il layout CSS sia stato calcolato.
-    requestAnimationFrame(function () {
+    // Ridimensiona solo una scena realmente attiva. Nel MainView vuoto non
+    // deve partire alcuna inizializzazione del canvas sopra il placeholder.
+    if (WS.treSceneLoaded) {
         requestAnimationFrame(function () {
-            if (typeof handleResize === 'function') handleResize();
+            requestAnimationFrame(function () {
+                if (WS.treSceneLoaded && typeof handleResize === 'function') handleResize();
+            });
         });
-    });
-    // Fallback sicuro: se il renderer è ancora a 0×0 dopo 100ms, riprova.
-    setTimeout(function () {
-        if (typeof STATE !== 'undefined' && STATE.renderer && STATE.renderer.domElement) {
-            var c = STATE.renderer.domElement.parentElement;
-            if (c && c.clientWidth > 0 && typeof handleResize === 'function') {
-                handleResize();
+        setTimeout(function () {
+            if (WS.treSceneLoaded && typeof STATE !== 'undefined' && STATE.renderer && STATE.renderer.domElement) {
+                var c = STATE.renderer.domElement.parentElement;
+                if (c && c.clientWidth > 0 && typeof handleResize === 'function') handleResize();
             }
-        }
-    }, 100);
+        }, 100);
+    }
     // Toolbar orizzontale sostituita dalla palette flottante — non mostrarla
     setActiveView('carico');
 }
@@ -835,8 +841,8 @@ function renderPianiPanel() {
     var pagEl = document.getElementById('piani-pagination');
     if (pagEl) pagEl.style.display = '';
 
-    // Restringi lista sinistra al 30%
-    document.getElementById('panel-view-list').style.flex = '0 0 30%';
+    // Lo splitter gestisce la larghezza della lista anche per i piani.
+    document.getElementById('panel-view-list').style.flex = '';
 
     // Reset stato selezione multipla piani
     _pianiSelState.pianiSelezionati = [];

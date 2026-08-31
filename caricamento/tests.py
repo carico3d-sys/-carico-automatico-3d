@@ -9,6 +9,9 @@ Copre:
 """
 
 import copy
+import hashlib
+import hmac
+import json
 import random
 import tempfile
 from datetime import timedelta
@@ -18,7 +21,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -399,6 +402,7 @@ class TestRigheDuplicateCarico(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 400)
+
 
     def test_optimizer_uses_row_color_for_each_lot(self):
         prima = OggettoDaCaricare.objects.create(

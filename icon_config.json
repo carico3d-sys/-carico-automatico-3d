@@ -80,6 +80,14 @@
         40
       ]
     },
+    "mainview-logo": {
+      "type": "png",
+      "file": "icons8-3d-64.png",
+      "dims": [
+        40,
+        40
+      ]
+    },
     "sidebar-nav": {
       "type": "png",
       "file": "icons8-file-96.png",
@@ -440,14 +448,6 @@
         40
       ]
     },
-    "vp-placeholder": {
-      "type": "bootstrap",
-      "file": "icons8-object-94.png",
-      "dims": [
-        40,
-        40
-      ]
-    },
     "vp-slider-icon": {
       "type": "png",
       "file": "icons8-object-94.png",
@@ -664,13 +664,13 @@
       "type": "png",
       "file": "icons8-group-objects-96.png",
       "dims_px": [
-        30,
-        30
+        25,
+        25
       ],
       "label": "+",
       "label_size": 12,
       "label_pos": "row",
-      "color": "#1f6feb",
+      "color": "#94d1ff",
       "width_pct": 100,
       "height_px": 45
     },

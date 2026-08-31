@@ -64,11 +64,18 @@ urlpatterns = [
     # Helper landing: verifica esistenza username (form login/registrazione)
     path("api/check-username/", views.check_username, name="check_username"),
 
-    # Pagamenti — Lemon Squeezy
+    # Pagamenti — Fungies.io
     path("api/payments/checkout/", payments.checkout, name="payments_checkout"),
     path("api/payments/webhook/", payments.webhook, name="payments_webhook"),
     path("api/payments/status/", payments.status_, name="payments_status"),
 
     # Verifica email
     path("verify-email/<str:token>/", views.verify_email, name="verify_email"),
+
+    # User language API
+    path("api/user-lingua/", views.api_user_lingua, name="api_user_lingua"),
+
+    # English versions
+    path("landing_it/", views.landing_it, name="landing_it"),
+    path("landing_en/", views.landing_en, name="landing_en"),
 ]

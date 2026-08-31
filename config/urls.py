@@ -65,6 +65,11 @@ urlpatterns = [
     path('cookie-policy/', views.pagina_legale, {'slug': 'cookie-policy'}, name='cookie_policy'),
     path('termini/', views.pagina_legale, {'slug': 'termini'}, name='termini'),
     path('rimborsi/', views.pagina_legale, {'slug': 'rimborsi'}, name='rimborsi'),
+    # Italian versions of policy pages
+    path('privacy_it/', views.pagina_legale, {'slug': 'privacy-it'}, name='privacy_it'),
+    path('cookie_it/', views.pagina_legale, {'slug': 'cookie-policy-it'}, name='cookie_it'),
+    path('termini_it/', views.pagina_legale, {'slug': 'termini-it'}, name='termini_it'),
+    path('rimborsi_it/', views.pagina_legale, {'slug': 'rimborsi-it'}, name='rimborsi_it'),
     # API REST dell'ottimizzazione carico 3D
     path('', include('caricamento.urls')),
 ]

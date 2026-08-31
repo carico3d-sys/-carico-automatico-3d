@@ -139,8 +139,8 @@ function renderOggettiPanel() {
     }
     _origFormInnerHTML = formEl.innerHTML;
     
-    // Set list to 30%
-    listEl.style.flex = '0 0 30%';
+    // Lascia la larghezza alla maniglia condivisa lista/form.
+    listEl.style.flex = '';
     
     // Rebuild form area as 2-column (object form + vincoli) + 3D preview below
     formEl.innerHTML = 
@@ -412,6 +412,8 @@ function renderOggettiForm(oggettoId) {
         renderVincoliInOggetti(oggettoId);
     }
 
+    if (typeof window.applicaTraduzioni === 'function') window.applicaTraduzioni(document.getElementById('pv-vincoli-body'));
+
     document.getElementById('pv-ogg-save').addEventListener('click', async function () {
         var codice = document.getElementById('pv-ogg-codice').value.trim();
         var desc = document.getElementById('pv-ogg-desc').value.trim();
@@ -609,9 +611,14 @@ function _aggiornaListaOggettiESeleziona(oggettoId) {
 
 // --- Vincoli: mostra form con valori di default (per nuovo oggetto) ---
 
+function _traduciOggetti(key, fallback) {
+    var lingua = window.CARICO3D_LANGUAGE === 'en' ? 'en' : 'it';
+    return (window.DIZIONARIO && window.DIZIONARIO[lingua] && window.DIZIONARIO[lingua][key]) || fallback;
+}
+
 function _mostraVincoliDefault() {
     var vincTitle = document.getElementById('pv-vincoli-title');
-    if (vincTitle) vincTitle.textContent = '🔧 Vincoli (default)';
+    if (vincTitle) vincTitle.textContent = '🔧 ' + _traduciOggetti('objects.vincoli-default', 'Vincoli (default)');
     var vincBody = document.getElementById('pv-vincoli-body');
     if (!vincBody) return;
     vincBody.innerHTML =

@@ -122,14 +122,16 @@ Q_CLUSTER = {
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Lemon Squeezy — Pagamenti (Merchant of Record)
+# Fungies.io — Pagamenti (Merchant of Record)
 # ---------------------------------------------------------------------------
 
-LEMONSQUEEZY_API_KEY = os.environ.get('LEMONSQUEEZY_API_KEY', '')
-LEMONSQUEEZY_STORE_ID = os.environ.get('LEMONSQUEEZY_STORE_ID', '')
-LEMONSQUEEZY_WEBHOOK_SECRET = os.environ.get('LEMONSQUEEZY_WEBHOOK_SECRET', '')
-LEMONSQUEEZY_VARIANT_MENSILE_ID = os.environ.get('LEMONSQUEEZY_VARIANT_MENSILE_ID', '')
-LEMONSQUEEZY_VARIANT_ANNUALE_ID = os.environ.get('LEMONSQUEEZY_VARIANT_ANNUALE_ID', '')
+FUNGIES_WEBHOOK_SECRET = os.environ.get('FUNGIES_WEBHOOK_SECRET', '')
+FUNGIES_STORE_URL = os.environ.get('FUNGIES_STORE_URL', '')
+FUNGIES_PORTAL_URL = os.environ.get('FUNGIES_PORTAL_URL', '')
+FUNGIES_OFFER_MENSILE_ID = os.environ.get('FUNGIES_OFFER_MENSILE_ID', '')
+FUNGIES_OFFER_ANNUALE_ID = os.environ.get('FUNGIES_OFFER_ANNUALE_ID', '')
+FUNGIES_CHECKOUT_ELEMENT_MENSILE_ID = os.environ.get('FUNGIES_CHECKOUT_ELEMENT_MENSILE_ID', '')
+FUNGIES_CHECKOUT_ELEMENT_ANNUALE_ID = os.environ.get('FUNGIES_CHECKOUT_ELEMENT_ANNUALE_ID', '')
 
 # Millisecondi stimati per "operazione" (un tentativo di piazzamento con una
 # singola orientazione). Default conservativo per una vCPU condivisa (es.

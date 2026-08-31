@@ -1,24 +1,29 @@
 /* ============================================================
-   PALETTE FLOTTANTE VISTA — resize nativo, flex-wrap naturale
+   PALETTE FLOTTANTE VISTA — toolbar compatta ridimensionabile
    Niente clamp(), niente vw, niente conflitti JS/CSS
    ============================================================ */
 
 #vp-floating-palette {
     position: fixed;
     z-index: 500;
-    right: 16px;
-    top: 50px;
+    /* Posizione iniziale: angolo superiore destro dell'area 3D,
+       appena prima del pannello destro. */
+    right: calc(var(--panel-w, 360px) + 16px);
+    top: calc(var(--header-h, 58px) + 28px);
     background: #fff;
     border: 1px solid #d0d5dc;
     border-radius: 10px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
-    /* resize nativo: l'utente trascina l'angolo per ridimensionare */
+    /* La palette parte stretta, ma può essere ridimensionata sia in
+       larghezza sia in altezza. */
     resize: both;
-    overflow: auto;
-    /* dimensioni: naturali, con limiti esatti */
-    width: auto;
-    min-width: 70px;      /* 1 icona (40) + padding (20) + bordo (2) + respiro */
-    max-width: 480px;     /* 10 icone in 1 riga (478 - 20 padding)/44 = 10.4 */
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* Dimensione iniziale: una fila completa di 10 icone.
+       L’utente può poi ridimensionare la palette in entrambe le direzioni. */
+    width: 458px;
+    min-width: 62px;
+    max-width: 458px;
     min-height: 120px;    /* 1 riga + header + padding */
     max-height: 550px;    /* 10 icone in 1 colonna + margine */
     user-select: none;
@@ -40,7 +45,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: 8px 6px;
     border-bottom: 1px solid #eee;
     cursor: grab;
     background: #f8f9fa;
@@ -67,10 +72,13 @@
 }
 .vp-palette-close:hover { background: #fce4e4; color: #e74c3c; }
 
-/* body — flex-wrap naturale, altezza cresce da sola */
+/* body — le icone si dispongono in più colonne quando la palette viene
+   allargata, senza generare una barra orizzontale. */
 .vp-palette-body {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
     padding: 10px;
 }

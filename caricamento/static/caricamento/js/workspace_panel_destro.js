@@ -68,7 +68,7 @@ function selezionaMezzo(mezzoId, skipResetPianoAttivo) {
         // Se deseleziono il mezzo e non c'è un carico ottimizzato, mostra il placeholder
         if (!WS.activePianoId) {
             WS.treSceneLoaded = false;
-            mostraPlaceholder('Visualizzazione 3D', 'Seleziona un mezzo per vedere il contenitore vuoto, poi aggiungi oggetti e dal tab \u26a1 Automatica clicca "Elabora Ottimizzazione".');
+            mostraPlaceholder();
         }
     }
 }
@@ -508,7 +508,7 @@ function svuotaCarico() {
         try { resetScene(); } catch (e) {}
     }
     DOM.viewport3d.querySelectorAll('canvas').forEach(function (c) { c.remove(); });
-    mostraPlaceholder('Visualizzazione 3D', 'Aggiungi oggetti nel pannello di destra, seleziona un mezzo e dal tab \u26a1 Automatica clicca "Elabora Ottimizzazione" per vedere il carico in 3D.');
+    mostraPlaceholder();
    _setHeaderCaricoLabel('');
 
    // Reset task status
@@ -1011,6 +1011,11 @@ function aggiornaColoreNeiPanelItems(oggettoId, nuovoColore) {
 // VIEWPORT 3D
 // =============================================================================
 
+function traduciPlaceholder(key, fallback, lingua) {
+    var dizionario = window.DIZIONARIO && window.DIZIONARIO[lingua || (window.CARICO3D_LANGUAGE === 'en' ? 'en' : 'it')];
+    return (dizionario && dizionario[key]) || fallback;
+}
+
 function mostraPlaceholder(titolo, messaggio) {
     var viewport = DOM.viewport3d || document.getElementById('viewport-3d');
     if (!viewport) return;
@@ -1024,13 +1029,50 @@ function mostraPlaceholder(titolo, messaggio) {
     // Il placeholder deve stare nel viewport corrente: dopo un piano può
     // essere rimasto detached o riferito a un vecchio nodo DOM.
     if (placeholder.parentElement !== viewport) viewport.appendChild(placeholder);
+    placeholder.dataset.placeholderManaged = 'true';
 
+    var lingua = window.CARICO3D_LANGUAGE === 'en' ? 'en' : 'it';
+    var traduci = function (key, fallback) {
+        return traduciPlaceholder(key, fallback, lingua);
+    };
+    var headerLogo = document.querySelector('#header-logo img');
+    var logoCfg = window.ICON_CONFIG && (window.ICON_CONFIG['mainview-logo'] || window.ICON_CONFIG['header-documenti']);
+    var logoFile = logoCfg && logoCfg.type === 'png' && logoCfg.file ? logoCfg.file : '';
+    var logoHtml = logoFile && typeof _urlPng === 'function'
+        ? '<img class="vp-icon vp-brand-logo" src="' + _urlPng(logoFile) + '" alt="LoadPlanner3d">'
+        : headerLogo
+            ? '<img class="vp-icon vp-brand-logo" src="' + headerLogo.src + '" alt="LoadPlanner3d">'
+            : '<div class="vp-brand-fallback"><span>📦</span><strong>LoadPlanner3d</strong></div>';
+    // Il logo del MainView deve essere sempre presente anche quando il
+    // placeholder viene ricreato dopo Ctrl+Shift+R o Nuovo Carico.
+    if (!logoHtml || logoHtml.indexOf('vp-brand-logo') === -1 && logoHtml.indexOf('vp-brand-fallback') === -1) {
+        logoHtml = '<div class="vp-brand-fallback"><span>📦</span><strong>LoadPlanner3d</strong></div>';
+    }
+    // Helper: data-translation-key + data-italiano per traduzione dinamica al cambio lingua
+    var _vt = function (key, fallbackIT) {
+        return ' data-translation-key="' + key + '" data-italiano="' + escapeHtml(fallbackIT) + '"';
+    };
     placeholder.innerHTML =
-        '<i class="bi bi-box-seam vp-icon"></i>' +
-        '<h3>' + escapeHtml(titolo || 'Visualizzazione 3D') + '</h3>' +
-        '<p>' + escapeHtml(messaggio || '') + '</p>' +
-        '<p class="vp-hint-controls"><i class="bi bi-lightbulb"></i> <strong>Trascina</strong> per ruotare &nbsp;|&nbsp; <strong>Rotellina</strong> per zoom &nbsp;|&nbsp; <strong>Tasto destro</strong> per spostare</p>';
+        logoHtml +
+        '<h3' + _vt('viewport.titolo', 'Visualizzazione 3D') + '>' + escapeHtml(titolo || traduci('viewport.titolo', 'Visualizzazione 3D')) + '</h3>' +
+        '<div class="vp-instructions">' +
+            '<p class="vp-instructions-intro"><strong' + _vt('viewport.inizia', 'Per iniziare:') + '>' + traduci('viewport.inizia', 'Per iniziare:') + '</strong></p>' +
+            '<ol>' +
+                '<li' + _vt('viewport.step-aggiungi', 'Aggiungi uno o più oggetti dal pannello di destra.') + '>' + traduci('viewport.step-aggiungi', 'Aggiungi uno o più oggetti dal pannello di destra.') + '</li>' +
+                '<li' + _vt('viewport.step-seleziona', 'Seleziona un mezzo.') + '>' + traduci('viewport.step-seleziona', 'Seleziona un mezzo.') + '</li>' +
+                '<li' + _vt('viewport.step-elabora', 'Fai clic su “Elabora ottimizzazione”.') + '>' + traduci('viewport.step-elabora', 'Fai clic su “Elabora ottimizzazione”.') + '</li>' +
+            '</ol>' +
+            '<p' + _vt('viewport.risultato', 'Il carico verrà visualizzato nell’area 3D.') + '>' + traduci('viewport.risultato', 'Il carico verrà visualizzato nell’area 3D.') + '</p>' +
+        '</div>' +
+        '<p class="vp-hint-controls"><strong' + _vt('viewport.controlli', 'Controlli della vista') + '>' + traduci('viewport.controlli', 'Controlli della vista') + '</strong></p>' +
+        '<table class="vp-controls-table"><tbody>' +
+            '<tr><td><i class="bi bi-arrow-repeat vp-ctrl-icon"></i></td><td' + _vt('viewport.trascina', 'Trascina con il mouse') + '>' + traduci('viewport.trascina', 'Trascina con il mouse') + '</td></tr>' +
+            '<tr><td><i class="bi bi-search vp-ctrl-icon"></i></td><td' + _vt('viewport.rotellina', 'Usa la rotellina') + '>' + traduci('viewport.rotellina', 'Usa la rotellina') + '</td></tr>' +
+            '<tr><td><i class="bi bi-arrows-move vp-ctrl-icon"></i></td><td' + _vt('viewport.tasto-destro', 'Tieni premuto il tasto destro e trascina') + '>' + traduci('viewport.tasto-destro', 'Tieni premuto il tasto destro e trascina') + '</td></tr>' +
+        '</tbody></table>';
     placeholder.style.display = 'flex';
+    placeholder.style.visibility = 'visible';
+    placeholder.style.opacity = '1';
     DOM.viewportPlaceholder = placeholder;
     _setHeaderCaricoLabel('');
     WS.treSceneLoaded = false;
@@ -1265,7 +1307,7 @@ function nuovoCarico() {
             STATE.animating = false;
         }
     } catch (e) { console.warn('[nuovoCarico] Errore pulizia 3D:', e); }
-    DOM.viewport3d.querySelectorAll('canvas').forEach(function (c) { c.remove(); });
+    DOM.viewport3d.querySelectorAll('canvas, .loading-overlay, .error-overlay').forEach(function (node) { node.remove(); });
    // Reset task status
     DOM.taskDot.className = 'task-dot idle';
     DOM.taskStatusText.textContent = 'Nessuna elaborazione in corso';
@@ -1281,7 +1323,9 @@ function nuovoCarico() {
     DOM.panelView.style.display = 'none';
     DOM.viewport3d.style.display = '';
     DOM.viewport3d.querySelectorAll('canvas').forEach(function (c) { c.remove(); });
-    mostraPlaceholder('Visualizzazione 3D', 'Aggiungi oggetti nel pannello di destra, seleziona un mezzo e clicca "Elabora Ottimizzazione" per vedere il carico in 3D.');
+    // Dopo aver eliminato la scena il viewport è vuoto: ricrea esplicitamente
+    // il MainView con logo, descrizioni e tabella dei controlli.
+    mostraPlaceholder();
     showToast('🆕 Nuovo carico pronto.', 'info');
 }
 

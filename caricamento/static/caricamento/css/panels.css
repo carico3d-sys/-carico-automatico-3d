@@ -277,9 +277,68 @@
     padding: 24px;
 }
 
+.viewport-placeholder .vp-brand-fallback {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #447e9b;
+    font-size: 22px;
+}
+
+.viewport-placeholder .vp-brand-fallback span {
+    font-size: 42px;
+}
+
 .viewport-placeholder .vp-icon {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
     font-size: 48px;
-    opacity: 0.5;
+    opacity: 0.85;
+}
+
+.viewport-placeholder .vp-instructions {
+    max-width: 420px;
+    text-align: left;
+    color: #778;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.viewport-placeholder .vp-instructions-intro {
+    margin-bottom: 4px;
+}
+
+.viewport-placeholder .vp-instructions ol {
+    margin: 0 0 8px 22px;
+    padding: 0;
+}
+
+.viewport-placeholder .vp-instructions p {
+    margin: 5px 0;
+}
+
+.viewport-placeholder .vp-controls-table {
+    border-collapse: collapse;
+    min-width: 300px;
+    color: #667;
+    font-size: 12px;
+}
+
+.viewport-placeholder .vp-controls-table td {
+    padding: 3px 10px;
+    border-bottom: 1px solid rgba(120, 140, 160, 0.18);
+}
+
+.viewport-placeholder .vp-controls-table td:first-child {
+    font-weight: 600;
+    color: #556;
+}
+
+.viewport-placeholder .vp-ctrl-icon {
+    font-size: 18px;
+    vertical-align: -2px;
+    color: #5a7a9a;
 }
 
 .viewport-placeholder h3 {

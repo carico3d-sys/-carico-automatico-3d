@@ -152,7 +152,19 @@ window.DIZIONARIO = Object.freeze({
         'plan.libero': 'Libero',
         'plan.anteprima': '🎯 Anteprima Carico',
         'plan.nessun-oggetto': 'Nessun oggetto posizionato',
-        'plan.nessuna-sezione': 'Nessuna sezione configurata per questo mezzo'
+        'viewport.titolo': 'Visualizzazione 3D',
+        'viewport.inizia': 'Per iniziare:',
+        'viewport.step-aggiungi': 'Aggiungi uno o più oggetti dal pannello di destra.',
+        'viewport.step-seleziona': 'Seleziona un mezzo.',
+        'viewport.step-elabora': 'Fai clic su “Elabora ottimizzazione”.',
+        'viewport.risultato': 'Il carico verrà visualizzato nell’area 3D.',
+        'viewport.controlli': 'Controlli della vista',
+        'viewport.ruota': 'Ruota',
+        'viewport.trascina': 'Trascina con il mouse',
+        'viewport.zoom': 'Zoom',
+        'viewport.rotellina': 'Usa la rotellina',
+        'viewport.sposta': 'Sposta',
+        'viewport.tasto-destro': 'Tieni premuto il tasto destro e trascina'
     },
     en: {
         'button.auto.elabora': 'Process',
@@ -306,7 +318,19 @@ window.DIZIONARIO = Object.freeze({
         'plan.libero': 'Free',
         'plan.anteprima': '🎯 Load Preview',
         'plan.nessun-oggetto': 'No objects placed',
-        'plan.nessuna-sezione': 'No sections configured for this vehicle'
+        'viewport.titolo': '3D View',
+        'viewport.inizia': 'To get started:',
+        'viewport.step-aggiungi': 'Add one or more objects from the right panel.',
+        'viewport.step-seleziona': 'Select a vehicle.',
+        'viewport.step-elabora': 'Click “Run optimization”.',
+        'viewport.risultato': 'The load will be displayed in the 3D area.',
+        'viewport.controlli': 'View controls',
+        'viewport.ruota': 'Rotate',
+        'viewport.trascina': 'Drag with the mouse',
+        'viewport.zoom': 'Zoom',
+        'viewport.rotellina': 'Use the mouse wheel',
+        'viewport.sposta': 'Pan',
+        'viewport.tasto-destro': 'Hold the right mouse button and drag'
     }
 });
 

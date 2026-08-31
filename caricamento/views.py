@@ -608,10 +608,16 @@ def logout_completo(request):
 
 # Slug -> (template, titolo pagina). Solo questi slug sono ammessi.
 _PAGINE_LEGALI = {
+    # English (default)
     "privacy": ("caricamento/privacy.html", "Privacy Policy"),
     "cookie-policy": ("caricamento/cookie_policy.html", "Cookie Policy"),
-    "termini": ("caricamento/termini.html", "Termini di Servizio"),
-    "rimborsi": ("caricamento/rimborsi.html", "Informativa Rimborsi"),
+    "termini": ("caricamento/termini.html", "Terms of Service"),
+    "rimborsi": ("caricamento/rimborsi.html", "Refund Policy"),
+    # Italian
+    "privacy-it": ("caricamento/privacy_it.html", "Informativa Privacy"),
+    "cookie-policy-it": ("caricamento/cookie_it.html", "Cookie Policy"),
+    "termini-it": ("caricamento/termini_it.html", "Termini di Servizio"),
+    "rimborsi-it": ("caricamento/rimborsi_it.html", "Informativa Rimborsi"),
 }
 
 
@@ -706,11 +712,17 @@ def workspace(request, piano_id=None):
     # icone Bootstrap. Stessa fonte dell'endpoint /api/icone-config/.
     icon_config = _load_icon_config()
 
-    # Varianti Lemon Squeezy per la vista Abbonamento (vuote finché non configurate)
-    ls_variant_ids = {
-        "mensile": getattr(settings, "LEMONSQUEEZY_VARIANT_MENSILE_ID", ""),
-        "annuale": getattr(settings, "LEMONSQUEEZY_VARIANT_ANNUALE_ID", ""),
+    # Offer Fungies per la vista Abbonamento (vuote finché non configurate)
+    fungies_offer_ids = {
+        "mensile": getattr(settings, "FUNGIES_OFFER_MENSILE_ID", ""),
+        "annuale": getattr(settings, "FUNGIES_OFFER_ANNUALE_ID", ""),
     }
+
+    # Get user language preference
+    lingua = 'en'
+    profile = getattr(request.user, 'profile', None)
+    if profile and profile.lingua:
+        lingua = profile.lingua
 
     return render(request, "caricamento/workspace.html", {
         "piani": piani,
@@ -721,7 +733,14 @@ def workspace(request, piano_id=None):
         "vincoli_tra_oggetti": vincoli_tra_js,
         "piano_id": piano_id,
         "icon_config": icon_config,
-        "ls_variant_ids": ls_variant_ids,
+        "fungies_offer_ids": fungies_offer_ids,
+        "fungies_portal_url": (
+            getattr(settings, "FUNGIES_PORTAL_URL", "").strip()
+            or f"{getattr(settings, 'FUNGIES_STORE_URL', '').strip().rstrip('/')}/portal"
+        ),
+        "user_email": request.user.email or "",
+        "user_id": request.user.id,
+        "lingua": lingua,
     })
 
 
@@ -1935,9 +1954,11 @@ class PianoDiCaricoViewSet(viewsets.ModelViewSet):
                 elif not piano.algoritmo:
                     piano.algoritmo = "Algoritmo 3D Semplificato"
                 update_fields.append("algoritmo")
-                # Le posizioni salvate (sia da Elabora che da Salva) confermano
-                # il piano: se non è già completato, segnalo come completato.
-                if piano.stato != StatoPiano.COMPLETATO:
+                # Una sincronizzazione di una soluzione automatica completa il
+                # piano, ma non deve trasformare un risultato già dichiarato
+                # parziale in completato: l'utente deve continuare a vedere
+                # che alcune istanze non erano state posizionate.
+                if piano.stato not in (StatoPiano.COMPLETATO, StatoPiano.PARZIALE):
                     piano.stato = StatoPiano.COMPLETATO
                     update_fields.append("stato")
             piano.save(update_fields=update_fields)
@@ -2388,3 +2409,89 @@ def api_icone_upload(request):
 
     logger.info("Icon PNG uploaded: %s by %s", safe_name, request.user.username)
     return JsonResponse({"success": True, "filename": safe_name})
+
+
+def landing_it(request):
+    """Landing page in Italiano."""
+    from .models import ImpostazioniSistema
+    imp = ImpostazioniSistema.get()
+    # Save language preference if user is logged in
+    if request.user.is_authenticated:
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.lingua != 'it':
+            profile.lingua = 'it'
+            profile.save(update_fields=['lingua'])
+    return render(request, "caricamento/landing_it.html", {
+        "google_oauth_attivo": imp.google_oauth_attivo,
+        "demo_attiva": imp.demo_attiva,
+        "login_error": False,
+        "trial_expired": False,
+        "trial_used": False,
+        "email_verification_sent": False,
+        "password_confirmation_error": False,
+        "account_disabled": False,
+        "demo_disabled": False,
+        "switch_account": False,
+    })
+
+
+def landing_en(request):
+    """Landing page in English."""
+    # Save language preference if user is logged in
+    if request.user.is_authenticated:
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.lingua != 'en':
+            profile.lingua = 'en'
+            profile.save(update_fields=['lingua'])
+    return render(request, "caricamento/landing_en.html")
+
+
+def privacy_en(request):
+    """Privacy policy in English."""
+    return render(request, "caricamento/privacy_en.html")
+
+
+def cookie_en(request):
+    """Cookie policy in English."""
+    return render(request, "caricamento/cookie_en.html")
+
+
+def termini_en(request):
+    """Terms of service in English."""
+    return render(request, "caricamento/termini_en.html")
+
+
+def rimborsi_en(request):
+    """Refund policy in English."""
+    return render(request, "caricamento/rimborsi_en.html")
+
+
+# ===========================================================================
+# API: Lingua utente
+# ===========================================================================
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def api_user_lingua(request):
+    """Legge o salva la lingua preferita dell'utente.
+
+    GET /api/user-lingua/
+        Restituisce {"lingua": "it"|"en"}.
+
+    PUT /api/user-lingua/
+        Aggiorna la lingua. Payload: {"lingua": "it"} oppure {"lingua": "en"}.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile:
+        return Response({"error": "Profile not found"}, status=400)
+
+    if request.method == "GET":
+        return Response({"lingua": profile.lingua or "en"})
+
+    lingua = request.data.get("lingua", "en")
+    if lingua not in ('it', 'en'):
+        return Response({"error": "Invalid language"}, status=400)
+
+    profile.lingua = lingua
+    profile.save(update_fields=['lingua'])
+    return Response({"lingua": lingua})

@@ -123,32 +123,33 @@ body {
     gap: 12px;
 }
 
-/* Selettore lingua: posizione accanto all'icona Sistema */
-.language-selector {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    margin-left: 4px;
-    padding: 2px;
-    border: 1px solid rgba(255,255,255,0.18);
+/* Selettore lingua: combo inline tra Icone e username */
+.header-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 3px 20px 3px 8px;
+    background: rgba(255,255,255,0.08) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.5)'/%3E%3C/svg%3E") no-repeat right 6px center;
+    border: 1px solid rgba(255,255,255,0.12);
     border-radius: var(--radius-sm);
-    background: rgba(255,255,255,0.06);
-}
-
-.language-btn {
-    border: 0;
-    border-radius: 3px;
-    padding: 3px 5px;
-    background: transparent;
-    color: rgba(255,255,255,0.6);
-    font: 600 10px inherit;
+    color: rgba(255,255,255,0.8);
+    font: 600 11px inherit;
     cursor: pointer;
+    line-height: 1;
+    margin-left: 6px;
 }
 
-.language-btn:hover,
-.language-btn.active {
-    background: rgba(255,255,255,0.18);
-    color: #fff;
+.header-lang-select:hover {
+    background-color: rgba(255,255,255,0.14);
+}
+
+.header-lang-select:focus {
+    outline: 1px solid rgba(255,255,255,0.3);
+    outline-offset: -1px;
+}
+
+.header-lang-select option {
+    background: #2a2e35;
+    color: #ddd;
 }
 
 .header-btn {

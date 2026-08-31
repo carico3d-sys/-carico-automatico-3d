@@ -19,7 +19,7 @@ function _buildMezziListHtml() {
         // !!c.archiviato: tratta undefined come false (robustezza per dati pre-migration)
         if (!!c.archiviato !== _mezziMostraArchiviati) return;
         var volM3 = (c.lunghezza_mm * c.larghezza_mm * c.altezza_mm) / 1000000000;
-        var archBadge = c.archiviato ? ' <span style="font-size:10px;color:#999;">📁 archiviato</span>' : '';
+        var archBadge = c.archiviato ? ' <span class="language-label" data-translation-key="vehicles.archiviati" data-italiano="Archiviato" style="font-size:10px;color:#999;">📁 Archiviato</span>' : '';
         listHtml += '<div class="pv-list-item" data-mezzo-id="' + c.id + '">' +
             '<div class="pv-list-item-info">' +
                 '<strong>' + escapeHtml(c.nome) + '</strong>' +
@@ -27,7 +27,7 @@ function _buildMezziListHtml() {
             '</div>' +
         '</div>';
     });
-    return listHtml || '<div class="pv-empty"><span class="pv-empty-icon">🚛</span><span>Nessun mezzo censito</span></div>';
+    return listHtml || '<div class="pv-empty"><span class="pv-empty-icon">🚛</span><span class="language-label" data-translation-key="vehicles.nessun-mezzo" data-italiano="Nessun mezzo censito">Nessun mezzo censito</span></div>';
 }
 
 // Helper: wiring click sugli item della lista mezzi
@@ -59,7 +59,7 @@ function renderMezziPanel() {
         // Checkbox "Archiviati" — creato via DOM per evitare autofill browser
         var archLabel = document.createElement('label');
         archLabel.className = 'pv-list-select-all pv-list-archiviati';
-        archLabel.title = 'Mostra/Nascondi mezzi archiviati';
+        archLabel.title = (window.DIZIONARIO && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it'] && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it']['vehicles.mostra-archiviati']) || 'Mostra/Nascondi mezzi archiviati';
         archLabel.style.marginLeft = 'auto';
         var archCheck = document.createElement('input');
         archCheck.type = 'checkbox';
@@ -101,7 +101,7 @@ function renderMezziForm(mezzoId) {
     if (typeof _panelViewPronto === 'function' && !_panelViewPronto('form mezzo')) return;
     var m = mezzoId ? WS.contenitori.find(function (c) { return c.id == mezzoId; }) : null;
     var isEdit = !!m;
-    DOM.pvFormTitle.innerHTML = isEdit ? '<i class="bi bi-pencil"></i> Modifica: ' + escapeHtml(m.nome) : '<i class="bi bi-plus-circle"></i> Nuovo Mezzo';
+    DOM.pvFormTitle.innerHTML = isEdit ? '<i class="bi bi-pencil"></i> <span class="language-label" data-translation-key="vehicles.modifica" data-italiano="Modifica">Modifica</span>: ' + escapeHtml(m.nome) : '<i class="bi bi-plus-circle"></i> <span class="language-label" data-translation-key="vehicles.nuovo" data-italiano="Nuovo Mezzo">Nuovo Mezzo</span>';
 
     // Deseleziona lista se in modalità creazione
     if (!isEdit) {
@@ -109,7 +109,9 @@ function renderMezziForm(mezzoId) {
     }
 
     var tipoOptions = ['bilico','autocarro','autotreno','furgone','container_20','container_40','container_40_hc','nave','treno','altro'];
-    var tipoLabels = ['Autoarticolato','Autocarro','Autotreno','Furgone','Container 20\'','Container 40\'','Container 40\' HC','Nave','Treno','Altro'];
+    var tipoLabelsIt = ['Autoarticolato','Autocarro','Autotreno','Furgone','Container 20\'','Container 40\'','Container 40\' HC','Nave','Treno','Altro'];
+    var tipoLabelsEn = ['Semi-trailer','Truck','Road train','Van','20\' Container','40\' Container','40\' HC Container','Ship','Train','Other'];
+    var tipoLabels = window.CARICO3D_LANGUAGE === 'en' ? tipoLabelsEn : tipoLabelsIt;
     var tipoHtml = tipoOptions.map(function (v, i) {
         return '<option value="' + v + '" ' + (m && m.tipo === v ? 'selected' : (v === 'container_40_hc' && !m ? 'selected' : '')) + '>' + tipoLabels[i] + '</option>';
     }).join('');
@@ -124,9 +126,9 @@ function renderMezziForm(mezzoId) {
             '<select class="form-select" id="pv-mezzo-tipo">' + tipoHtml + '</select>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">L (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">W (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" placeholder="Larghezza in cm" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">H (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" placeholder="Altezza in cm" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.lunghezza-label" data-italiano="L">L</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.larghezza-label" data-italiano="W">W</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" placeholder="Larghezza in cm" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.altezza-label" data-italiano="H">H</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" placeholder="Altezza in cm" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
             '<div class="field-group" style="flex:0 0 180px;"><label class="field-label"><span class="language-label" data-translation-key="vehicles.portata" data-italiano="Portata (kg)">Portata (kg)</span></label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" placeholder="Portata in kg" data-translation-key="vehicles.portata-placeholder" data-italiano="Portata in kg" step="0.1" min="1"></div>' +
@@ -135,16 +137,19 @@ function renderMezziForm(mezzoId) {
         _renderSezioniTable(m ? m.sezioni || [] : [], m ? m.lunghezza_mm : null) +
         (isEdit
             ? '<div class="field-row" style="gap:8px;">' +
-                '<button class="btn" id="pv-mezzo-nuovo">➕ Nuovo</button>' +
-                '<button class="btn btn-primary" style="flex:1;" id="pv-mezzo-save">💾 Aggiorna</button>' +
-                '<button class="btn btn-danger" id="pv-mezzo-delete">🗑 Elimina</button>' +
+                '<button class="btn" id="pv-mezzo-nuovo">➕ <span class="language-label" data-translation-key="button.window.nuovo" data-italiano="Nuovo">Nuovo</span></button>' +
+                '<button class="btn btn-primary" style="flex:1;" id="pv-mezzo-save">💾 <span class="language-label" data-translation-key="vehicles.modifica" data-italiano="Aggiorna">Aggiorna</span></button>' +
+                '<button class="btn btn-danger" id="pv-mezzo-delete">🗑 <span class="language-label" data-translation-key="button.window.elimina" data-italiano="Elimina">Elimina</span></button>' +
               '</div>'
             : '<div class="field-row" style="gap:8px;">' +
-                '<button class="btn btn-primary" style="flex:1;" id="pv-mezzo-save">➕ Crea Mezzo</button>' +
+                '<button class="btn btn-primary" style="flex:1;" id="pv-mezzo-save">➕ <span class="language-label" data-translation-key="vehicles.crea" data-italiano="Crea Mezzo">Crea Mezzo</span></button>' +
               '</div>'
         );
 
     DOM.pvFormBody.innerHTML = formHtml;
+    // Il form è generato via innerHTML: applica direttamente il dizionario
+    // corrente, senza dipendere dagli handler del selettore lingua.
+    if (typeof window.applicaTraduzioni === 'function') window.applicaTraduzioni(DOM.pvFormBody);
 
     // Pulsante Nuovo (solo in modifica)
     var nuovoBtn = document.getElementById('pv-mezzo-nuovo');

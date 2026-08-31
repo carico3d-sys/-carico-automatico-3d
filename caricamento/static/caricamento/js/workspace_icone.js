@@ -37,6 +37,9 @@ var ICON_CATALOG = [
     // --- Header Logo ---
     { id: 'header-logo',        type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [20, 20], desc: 'Header: logo Carico 3D',                   location: 'Header',  selector: '#header-logo > i' },
 
+    // --- MainView ---
+    { id: 'mainview-logo',      type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [56, 56], desc: 'MainView: logo placeholder iniziale',       location: 'MainView', selector: '#viewport-placeholder .vp-icon', tab: 'icone' },
+
     // --- Sidebar Tabs ---
     { id: 'sidebar-nav',        type: 'bootstrap', iconClass: 'bi bi-compass',           file: '', dims: [18, 18], desc: 'Sidebar: tab Documenti',                   translation_key: 'sidebar.documenti', location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="documenti"] .sidebar-tab-icon' },
     { id: 'sidebar-anagrafica', type: 'bootstrap', iconClass: 'bi bi-journal-text',      file: '', dims: [18, 18], desc: 'Sidebar: tab Anagrafica',                  translation_key: 'sidebar.anagrafica', location: 'Sidebar', selector: '#sidebar-tabs .sidebar-tab[data-tab="anagrafica"] .sidebar-tab-icon' },
@@ -98,7 +101,7 @@ var ICON_CATALOG = [
     { id: 'palette-close',      type: 'bootstrap', iconClass: 'bi bi-x',                 file: '', dims: [16, 16], desc: 'Palette Vista: chiudi',                    location: 'Viewport', selector: '#vp-palette-close > i' },
 
     // --- Viewport Placeholder ---
-    { id: 'vp-placeholder',     type: 'bootstrap', iconClass: 'bi bi-box-seam',          file: '', dims: [56, 56], desc: 'Viewport: icona placeholder',              location: 'Viewport', selector: '#viewport-placeholder .vp-icon' },
+    // vp-placeholder rimosso: usa lo stesso selettore di mainview-logo e distrugge il logo PNG dopo _applyIconConfig()
     { id: 'vp-lightbulb',       type: 'bootstrap', iconClass: 'bi bi-lightbulb',         file: '', dims: [16, 16], desc: 'Viewport: hint controlli',                 location: 'Viewport', selector: '#viewport-placeholder .vp-hint-controls i' },
 
     // --- Slider Sequenza ---
@@ -166,7 +169,7 @@ var BUTTON_CATALOG = [
     { id: 'man-salva',      selector: '#manuale-btn-salva',     iconSelRelative: '.manuale-emoji', iconClass: '',                  extraClass: 'manuale-emoji', label_default: 'Salva',               translation_key: 'button.manuale.salva', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
     { id: 'man-ghost',      selector: '#manuale-btn-ghost-toggle', iconSelRelative: '.manuale-emoji', iconClass: '',               extraClass: 'manuale-emoji', label_default: 'Ghost: OFF',          translation_key: 'button.manuale.ghost', location: 'Tab Manuale', dims_px: [20, 20], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
     { id: 'man-annulla',    selector: '#manuale-btn-annulla-ghost', iconSelRelative: 'i',     iconClass: 'bi bi-arrow-counterclockwise', extraClass: '',            label_default: 'Annulla ultima modifica', translation_key: 'button.manuale.annulla', location: 'Tab Manuale', dims_px: [18, 18], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
-    { id: 'man-marquee',    selector: '#manuale-btn-marquee-toggle', iconSelRelative: 'i',   iconClass: 'bi bi-check2-square',          extraClass: '',            label_default: 'Selezione multipla',     translation_key: 'button.manuale.marquee', location: 'Tab Manuale', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#1f6feb' },
+    { id: 'man-marquee',    selector: '#manuale-btn-marquee-toggle', iconSelRelative: 'i',   iconClass: 'bi bi-plus-square',           extraClass: '',            label_default: 'Selezione multipla',     translation_key: 'button.manuale.marquee', location: 'Tab Manuale', dims_px: [16, 16], height_default: 33, label_size: 12, label_pos: 'row', color_default: '#1f6feb', },
 
     // --- Tab Impostazioni (renderizzati dinamicamente) ---
     { id: 'settings-salva',  selector: '#btn-save-impostazioni',  iconSelRelative: 'i', iconClass: 'bi bi-save',                  extraClass: '', label_default: 'Salva impostazioni',  translation_key: 'button.settings.salva', location: 'Tab Impostazioni', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#27ae60' },
@@ -226,6 +229,10 @@ var COLOR_CATALOG = [
 // CATALOGO HEADER — altezze (px) delle barre header della sidebar e finestre
 // =============================================================================
 
+// Icona dedicata al logo del placeholder centrale del MainView.
+// È gestita separatamente dalle icone dei pulsanti e dell'header.
+var MAINVIEW_ICON_SELECTOR = '#viewport-placeholder .vp-icon';
+
 var HEADER_CATALOG = [
     { id: 'sidebar-tabs',          variable: '--header-tab-h',                   label: 'Barra tab (sidebar sinistra)', def: 44, min: 20, max: 120 },
     { id: 'panel-destro',          variable: '--header-panel-destro-h',          label: 'Header "Oggetti nel Carico"', def: 45, min: 20, max: 120 },
@@ -245,6 +252,9 @@ var HEADER_CATALOG = [
 // =============================================================================
 
 var ICON_CONFIG = {};      // { 'header-documenti': { type: 'png', file: 'folder.png', dims: [40, 40] }, ... }
+// Espone la configurazione anche ai renderer dinamici del workspace.
+window.ICON_CONFIG = ICON_CONFIG;
+window._carico3dIconConfigReady = false;
 var BOTTONI_CONFIG = {};   // { 'auto-ottimizza': { type, file, dims_px, label, label_size, label_pos, color }, ... }
 var COLOR_CONFIG = {};     // { 'header': '#1a1a2e', ... }
 var HEADER_CONFIG = {};    // { 'sidebar-tabs': 44, 'pv-list-header': 45, 'pv-form-header': 45 }
@@ -297,6 +307,7 @@ function _applicaConfigInline() {
     try {
         var inlineData = JSON.parse(inlineEl.textContent);
         ICON_CONFIG = inlineData.config || {};
+        window.ICON_CONFIG = ICON_CONFIG;
         BOTTONI_CONFIG = inlineData.bottoni || {};
         COLOR_CONFIG = inlineData.colori || {};
         HEADER_CONFIG = inlineData.header || {};
@@ -335,6 +346,8 @@ async function _loadIconConfig() {
         _applyColorConfig();
         _applyHeaderConfig();
         _mostraIcone();
+        window._carico3dIconConfigReady = true;
+        document.dispatchEvent(new CustomEvent('carico3d:icon-config-ready'));
         return;
     }
     try {
@@ -342,6 +355,7 @@ async function _loadIconConfig() {
         if (resp.ok) {
             var data = await resp.json();
             ICON_CONFIG = data.config || {};
+            window.ICON_CONFIG = ICON_CONFIG;
             BOTTONI_CONFIG = data.bottoni || {};
             COLOR_CONFIG = data.colori || {};
             HEADER_CONFIG = data.header || {};
@@ -354,6 +368,8 @@ async function _loadIconConfig() {
     _applyColorConfig();
     _applyHeaderConfig();
     _mostraIcone();
+    window._carico3dIconConfigReady = true;
+    document.dispatchEvent(new CustomEvent('carico3d:icon-config-ready'));
 }
 
 /**
@@ -417,9 +433,14 @@ var _applyIconConfig = function _applyIconConfig() {
     ICON_CATALOG.forEach(function (icon) {
         var cfg = ICON_CONFIG[icon.id];
         var elements = _trovaElementiIcona(icon);
+        if (icon.id === 'mainview-logo') {
+            var placeholderLogo = document.querySelector('#viewport-placeholder .vp-icon');
+            if (placeholderLogo) elements = [placeholderLogo];
+        }
 
         // Quando la configurazione torna a Bootstrap, ripristina l'<i>.
         if (!cfg || cfg.type !== 'png' || !cfg.file) {
+            if (icon.id === 'mainview-logo') return;
             elements.forEach(function (el) {
                 if (el.tagName === 'IMG') {
                     var i = document.createElement('i');
@@ -449,14 +470,16 @@ var _applyIconConfig = function _applyIconConfig() {
 
         elements.forEach(function (el) {
             if (el.closest && el.closest('#icone-manager-overlay')) return;
+            var oldClassName = el.className;
+            var oldId = el.id;
             var img = el;
             if (el.tagName !== 'IMG') {
                 img = document.createElement('img');
                 el.parentNode.replaceChild(img, el);
             }
             img.src = imgUrl;
-            img.className = el.className;
-            img.id = el.id;
+            img.className = oldClassName;
+            img.id = oldId;
             img.style.width = dims[0] + 'px';
             img.style.height = dims[1] + 'px';
             img.style.objectFit = 'contain';
@@ -466,7 +489,7 @@ var _applyIconConfig = function _applyIconConfig() {
             img.style.pointerEvents = 'none';
             img.alt = '';
             img.dataset.iconConfigFile = cfg.file;
-            if (el.classList.contains('header-cat-icon')) {
+            if (oldClassName.indexOf('header-cat-icon') !== -1) {
                 img.classList.add('header-cat-icon');
             }
             applicate += 1;
@@ -536,7 +559,12 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
         var labelItaliano = cfg.label || btnDef.label_default || '';
         var translationKey = btnDef.translation_key || labelItaliano;
         var dizionarioLingua = window.DIZIONARIO && window.DIZIONARIO[lingua];
-        var labelVisualizzata = (dizionarioLingua && dizionarioLingua[translationKey]) || labelItaliano;
+        // Se l'utente ha impostato un label custom diverso dal default,
+        // usalo direttamente (senza traduzione) — altrimenti traduci.
+        var labelCustomUtente = cfg.label && cfg.label !== btnDef.label_default;
+        var labelVisualizzata = labelCustomUtente
+            ? cfg.label
+            : ((dizionarioLingua && dizionarioLingua[translationKey]) || labelItaliano);
         var appliedState = JSON.stringify(cfg) + '|' + lingua + '|' +
             (isGhostToggle ? String(_ghostModeEnabled) : '');
         // Aggiorna icone/Salva possono passare una mappa degli ID modificati:
@@ -2184,7 +2212,11 @@ function initIconManager() {
         var el = document.querySelector(btnDef.selector);
         if (el) _btnSnapshot[btnDef.id] = el.innerHTML;
     });
-    _loadIconConfig();
+    _loadIconConfig();        // La configurazione icone non deve mai toccare il placeholder del
+        // MainView: il logo centrale appartiene alla vista, non ai bottoni.
+    document.addEventListener('carico3d:icon-config-ready', function () {
+        return;
+    });
 
     // I bottoni delle finestre del main view (Piani di carico, Articoli,
     // Vincoli, Trasporti) vengono creati dinamicamente all'apertura della
@@ -2207,6 +2239,11 @@ function initIconManager() {
  * n'è almeno uno nuovo, applica la configurazione corrente.
  */
 function _osservaBottoniFinestre() {
+    // Il MainView non fa parte della gestione icone: escludilo per evitare
+    // che l'osservatore tocchi il placeholder centrale.
+    var mainView = document.getElementById('viewport-placeholder');
+    if (mainView) mainView.dataset.iconManagerIgnore = 'true';
+
     // I bottoni delle finestre vengono distrutti e ricreati a ogni apertura
     // della vista (e a ogni dettaglio diverso). Riapplichiamo la config ogni
     // volta che un bottone del catalogo è presente nel DOM: _applyButtonConfig
@@ -2224,6 +2261,10 @@ function _osservaBottoniFinestre() {
     // finestre) vengono riallineate quando il DOM viene ricostruito.
     // _applyIconConfig è idempotente: sugli elementi già applicati aggiorna
     // solo gli attributi, senza ricreare nodi né innescare loop.
-    _applyIconConfig();
+    // Non applicare mai la configurazione globale mentre il MainView è vuoto:
+    // il suo logo è un contenuto autonomo e non deve essere ricostruito.
+    if (WS.treSceneLoaded || !document.getElementById('viewport-placeholder')) {
+        _applyIconConfig();
+    }
     if (trovato) _applyButtonConfig();
 }

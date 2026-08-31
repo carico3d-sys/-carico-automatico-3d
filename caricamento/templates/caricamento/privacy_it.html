@@ -1,0 +1,198 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — Carico 3D</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --accent: #447e9b; --header: #1a1a2e; --bg: #f0f2f5; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 15px; color: #333; background: var(--bg); line-height: 1.7;
+        }
+        .navbar {
+            height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 40px;
+        }
+        .navbar-brand {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 18px; font-weight: 800; color: var(--header); text-decoration: none;
+        }
+        .navbar-brand i { font-size: 22px; color: var(--accent); }
+        .navbar-back { font-size: 14px; color: var(--accent); text-decoration: none; font-weight: 600; }
+        .navbar-back:hover { text-decoration: underline; }
+        .container {
+            max-width: 860px; margin: 40px auto; background: #fff;
+            border-radius: 12px; border: 1px solid #e8e8e8;
+            padding: 40px 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        h1 { font-size: 26px; color: var(--header); margin-bottom: 6px; }
+        .updated { font-size: 13px; color: #888; margin-bottom: 24px; }
+        h2 { font-size: 17px; color: var(--header); margin: 26px 0 10px; }
+        p { margin-bottom: 12px; }
+        ul { margin: 0 0 12px 22px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--accent); }
+        .footer {
+            text-align: center; padding: 24px; color: #888; font-size: 13px;
+        }
+        .footer a { color: #666; text-decoration: none; margin: 0 10px; }
+        .footer a:hover { color: var(--accent); }
+        @media (max-width: 640px) {
+            .navbar { padding: 0 16px; }
+            .container { margin: 16px; padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a class="navbar-brand" href="/"><i>📦</i> Carico 3D</a>
+        <a class="navbar-back" href="/"><span data-translation-key="pol.privacy.nav.home">← Torna alla home</span></a>
+    </nav>
+
+    <div class="container">
+        <h1 data-translation-key="pol.privacy.h1">Informativa Privacy</h1>
+        <div class="updated" data-translation-key="pol.privacy.updated">Aggiornata al 26 agosto 2026 · ai sensi dell'art. 13 del Regolamento UE 2016/679 (GDPR)</div>
+
+        <h2 data-translation-key="pol.privacy.s1">1. Titolare del trattamento</h2>
+        <p>
+            Il Titolare del trattamento dei dati personali è <strong>{{ titolare }}</strong>{% if sede_titolare %}, con sede in {{ sede_titolare }}{% endif %}{% if piva_titolare %} (Partita IVA {{ piva_titolare }}){% endif %}.
+            Per qualsiasi questione relativa al trattamento dei tuoi dati puoi scrivere a
+            <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>.
+        </p>
+
+        <h2 data-translation-key="pol.privacy.s2">2. Dati che trattiamo</h2>
+        <p>I dati si dividono in due gruppi, a seconda di chi li tratta:</p>
+        <h3 style="font-size:15px;color:var(--header);margin:16px 0 8px;">2.1 Dati trattati da {{ titolare }}</h3>
+        <ul>
+            <li><strong>Dati di account</strong>: username, indirizzo email, password (memorizzata in forma crittografata), identificativo Google (se accedi con Google OAuth).</li>
+            <li><strong>Dati di utilizzo</strong>: piani di carico, mezzi, oggetti, vincoli e preferenze di ottimizzazione che crei e salvi nel servizio.</li>
+            <li><strong>Dati di abbonamento</strong>: stato del pagamento, identificativo del cliente e dell'abbonamento presso il fornitore di pagamenti — ricevuti tramite comunicazione automatica (webhook) esclusivamente per verificare che l'abbonamento sia attivo.</li>
+            <li><strong>Dati tecnici anti-abuso</strong>: hash dell'indirizzo IP, hash del fingerprint del browser e un token persistente firmato (cookie <code>cb_demo</code> / <code>cb_fp</code>), usati esclusivamente per impedire l'uso ripetuto della prova gratuita.</li>
+        </ul>
+        <h3 style="font-size:15px;color:var(--header);margin:16px 0 8px;">2.2 Dati trattati da Fungies.io</h3>
+        <p>
+            <strong>Non trattiamo noi</strong> i dati di fatturazione inseriti al momento del pagamento.
+            Quando acquisti un abbonamento, il pagamento avviene sulla piattaforma di
+            <em>Fungies.io Inc.</em> (merchant of record): è <strong>Fungies.io il titolare autonomo</strong>
+            di nome, cognome, indirizzo di fatturazione, partita IVA, dati della carta e di ogni altro dato
+            inserito nel modulo di pagamento. Questi dati sono raccolti da Fungies.io e non vengono
+            mai trasmessi a noi.
+        </p>
+
+        <h2 data-translation-key="pol.privacy.s3">3. Finalità e base giuridica</h2>
+        <ul>
+            <li><strong>Erogazione del servizio</strong> (esecuzione del contratto, art. 6.1.b GDPR): creazione dell'account, salvataggio dei dati, ottimizzazione dei carichi.</li>
+            <li><strong>Comunicazioni di servizio</strong> (art. 6.1.b GDPR): verifica dell'email, recupero password, notifiche relative all'abbonamento.</li>
+            <li><strong>Prevenzione abusi</strong> (legittimo interesse, art. 6.1.f GDPR): i segnali tecnici di cui al punto 2 impediscono di ottenere più periodi di prova gratuita.</li>
+            <li><strong>Adempimenti fiscali e contabili</strong> (obbligo legale, art. 6.1.c GDPR): gestione delle fatture tramite Fungies.io.</li>
+        </ul>
+
+        <h2 data-translation-key="pol.privacy.s4">4. Trasferimenti extra-UE</h2>
+        <p>
+            Per l'erogazione del servizio ci avvaliamo di fornitori che possono trasferire dati al di fuori dello Spazio Economico Europeo:
+        </p>
+        <ul>
+            <li><strong>Google LLC</strong> (USA) — autenticazione tramite OAuth. I dati trasferiti sono quelli del tuo account Google che scegli di condividere.</li>
+            <li><strong>Fungies.io</strong> (USA) — elaborazione dei pagamenti e relativa gestione fiscale.</li>
+        </ul>
+        <p>
+            Tali trasferimenti avvengono sulla base delle clausole contrattuali standard della Commissione Europea o di altre garanzie adeguate ai sensi dell'art. 46 GDPR.
+        </p>
+
+        <h2 data-translation-key="pol.privacy.s5">5. Fungies.io e i dati di pagamento</h2>
+        <p>
+            Per l'erogazione del servizio a pagamento utilizziamo <strong>Fungies.io</strong> come
+            fornitore di pagamenti e merchant of record. In questo ambito:
+        </p>
+        <ul>
+            <li><strong>Chi raccoglie i dati di pagamento</strong>: Fungies.io. Il checkout è ospitato sulla sua piattaforma e i dati di fatturazione (nome, indirizzo, IVA, carta) sono trattati da lui come <strong>titolare autonomo</strong> del trattamento, anche per adempiere ai propri obblighi fiscali. La sua informativa privacy è disponibile su <a href="https://www.fungies.io/privacy" target="_blank" rel="noopener">fungies.io/privacy</a>.</li>
+            <li><strong>Quali dati riceviamo noi</strong>: solo l'indirizzo email e lo stato dell'abbonamento (attivo / scaduto / cancellato), necessari per verificare l'accesso al servizio. Non riceviamo né conserviamo dati della carta o dati bancari.</li>
+            <li><strong>Cosa possiamo cancellare</strong>: tutti i dati che trattiamo noi (account, contenuti, segnali tecnici). Puoi richiederne la cancellazione in qualsiasi momento scrivendo a <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>.</li>
+            <li><strong>Cosa non può essere cancellato</strong>: i dati di fatturazione conservati da Fungies.io, che è tenuto a mantenerli per i propri obblighi fiscali e contabili (generalmente 10 anni) ai sensi dell'art. 17.3.b GDPR. Per la cancellazione di questi dati devi rivolgerti direttamente a Fungies.io.</li>
+        </ul>
+
+        <h2 data-translation-key="pol.privacy.s6">6. Conservazione dei dati</h2>
+        <ul>
+            <li><strong>Account e contenuti</strong>: per tutta la durata del rapporto contrattuale e fino alla richiesta di cancellazione.</li>
+            <li><strong>Segnali anti-abuso</strong>: mantenuti finché necessario alla prevenzione degli abusi (la prova gratuita è una tantum).</li>
+            <li><strong>Dati fiscali</strong>: per il periodo previsto dalla legge (10 anni), conservati dal fornitore di pagamenti (v. punto 5).</li>
+            <li><strong>Sessioni</strong>: i cookie di sessione scadono alla chiusura del browser.</li>
+        </ul>
+
+        <h2 data-translation-key="pol.privacy.s7">7. I tuoi diritti</h2>
+        <p>
+            Ai sensi degli artt. 15–22 GDPR hai il diritto di:
+        </p>
+        <ul>
+            <li>accedere ai tuoi dati personali (<strong>accesso</strong>);</li>
+            <li>ottenere la rettifica di dati inesatti (<strong>rettifica</strong>);</li>
+            <li>ottenere la cancellazione dei dati (<strong>diritto all'oblio</strong>);</li>
+            <li>ottenere la limitazione del trattamento;</li>
+            <li>ricevere i dati in formato strutturato (<strong>portabilità</strong>);</li>
+            <li>opporti al trattamento basato su legittimo interesse;</li>
+            <li>revocare in qualsiasi momento il consenso eventualmente prestato;</li>
+            <li>proporre <strong>reclamo all'Autorità Garante</strong> (www.garanteprivacy.it).</li>
+        </ul>
+        <p>
+            Puoi esercitare i tuoi diritti scrivendo a <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>.
+            Risponderemo entro 30 giorni.
+        </p>
+        <p>
+            <strong>Nota sulla cancellazione</strong>: la richiesta di cancellazione riguarda i dati trattati da noi
+            (v. punto 2.1). I dati di fatturazione conservati da Fungies.io non possono essere cancellati su tua
+            richiesta in quanto soggetti a obblighi fiscali (v. punto 5).
+        </p>
+
+        <h2 data-translation-key="pol.privacy.s8">8. Cookie</h2>
+        <p>
+            Il sito utilizza esclusivamente cookie tecnici e di sicurezza (sessione, CSRF e anti-abuso).
+            Nessun cookie di profilazione o di terze parti pubblicitarie.
+            Consulta la <a href="{% url 'cookie_it' %}">Cookie Policy</a> per i dettagli.
+        </p>
+
+        <h2 data-translation-key="pol.privacy.s9">9. Modifiche alla presente informativa</h2>
+        <p>
+            Eventuali modifiche saranno pubblicate su questa pagina con l'indicazione della data di aggiornamento.
+            Per modifiche sostanziali che richiedono il consenso, provvederemo a richiederlo nuovamente.
+        </p>
+
+        <p style="margin-top:24px;font-size:13px;color:#888;">
+            Servizio disponibile all'indirizzo <a href="{{ sito_url }}">{{ sito_url }}</a>
+        </p>
+    </div>
+
+    <footer class="footer">
+        <a href="{% url 'privacy_it' %}" data-translation-key="pol.privacy.footer.privacy">Privacy</a>
+        <a href="{% url 'cookie_it' %}" data-translation-key="pol.privacy.footer.cookie">Cookie</a>
+        <a href="{% url 'termini_it' %}" data-translation-key="pol.privacy.footer.termini">Termini</a>
+        <a href="{% url 'rimborsi_it' %}" data-translation-key="pol.privacy.footer.rimborsi">Rimborsi</a>
+    </footer>
+
+<script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=30"></script>
+<script>
+// Traduzione dinamica pagine informative
+(function() {
+    var dizionario = window.DIZIONARIO || {};
+    function traduci(key, fallback) {
+        var lingua = localStorage.getItem('carico3d-language') || 'it';
+        var d = dizionario[lingua];
+        return (d && d[key]) || fallback || key;
+    }
+    function traduciPagina() {
+        document.querySelectorAll('[data-translation-key]').forEach(function(el) {
+            var key = el.getAttribute('data-translation-key');
+            var testo = traduci(key);
+            if (testo && testo !== key) el.innerHTML = testo;
+        });
+        var lingua = localStorage.getItem('carico3d-language') || 'it';
+        document.documentElement.lang = lingua;
+    }
+    traduciPagina();
+})();
+</script>
+</body>
+</html>

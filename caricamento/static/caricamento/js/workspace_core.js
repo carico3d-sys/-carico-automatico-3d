@@ -654,14 +654,14 @@ function _renderSidebarNavigazione(cat) {
 
         case 'anagrafica':
             html = '' +
-                '<button class="sidebar-nav-item" data-view="oggetti">' +
-                    '<i class="bi bi-box-seam sidebar-icon"></i> <span class="language-label" data-italiano="Oggetti">Oggetti</span>' +
+                '<button class="sidebar-nav-item" data-view="oggetti" data-translation-key="sidebar.oggetti">' +
+                    '<i class="bi bi-box-seam sidebar-icon"></i> <span class="language-label" data-translation-key="sidebar.oggetti" data-italiano="Oggetti">Oggetti</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="vincoli-tra">' +
-                    '<i class="bi bi-link-45deg sidebar-icon"></i> <span class="language-label" data-italiano="Vincoli">Vincoli</span>' +
+                '<button class="sidebar-nav-item" data-view="vincoli-tra" data-translation-key="sidebar.vincoli">' +
+                    '<i class="bi bi-link-45deg sidebar-icon"></i> <span class="language-label" data-translation-key="sidebar.vincoli" data-italiano="Vincoli">Vincoli</span>' +
                 '</button>' +
-                '<button class="sidebar-nav-item" data-view="mezzi">' +
-                    '<i class="bi bi-truck sidebar-icon"></i> <span class="language-label" data-italiano="Trasporti">Trasporti</span>' +
+                '<button class="sidebar-nav-item" data-view="mezzi" data-translation-key="sidebar.trasporti">' +
+                    '<i class="bi bi-truck sidebar-icon"></i> <span class="language-label" data-translation-key="sidebar.trasporti" data-italiano="Trasporti">Trasporti</span>' +
                 '</button>' +
                 strumentiRapidiHtml;
             break;

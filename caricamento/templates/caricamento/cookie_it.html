@@ -1,0 +1,159 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Policy — Carico 3D</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --accent: #447e9b; --header: #1a1a2e; --bg: #f0f2f5; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 15px; color: #333; background: var(--bg); line-height: 1.7;
+        }
+        .navbar {
+            height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 40px;
+        }
+        .navbar-brand {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 18px; font-weight: 800; color: var(--header); text-decoration: none;
+        }
+        .navbar-brand i { font-size: 22px; color: var(--accent); }
+        .navbar-back { font-size: 14px; color: var(--accent); text-decoration: none; font-weight: 600; }
+        .navbar-back:hover { text-decoration: underline; }
+        .container {
+            max-width: 860px; margin: 40px auto; background: #fff;
+            border-radius: 12px; border: 1px solid #e8e8e8;
+            padding: 40px 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        h1 { font-size: 26px; color: var(--header); margin-bottom: 6px; }
+        .updated { font-size: 13px; color: #888; margin-bottom: 24px; }
+        h2 { font-size: 17px; color: var(--header); margin: 26px 0 10px; }
+        p { margin-bottom: 12px; }
+        ul { margin: 0 0 12px 22px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--accent); }
+        table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+        th, td { border: 1px solid #e2e6ea; padding: 8px 12px; text-align: left; }
+        th { background: #f8f9fb; font-weight: 600; }
+        code { background: #f0f2f5; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+        .footer {
+            text-align: center; padding: 24px; color: #888; font-size: 13px;
+        }
+        .footer a { color: #666; text-decoration: none; margin: 0 10px; }
+        .footer a:hover { color: var(--accent); }
+        @media (max-width: 640px) {
+            .navbar { padding: 0 16px; }
+            .container { margin: 16px; padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a class="navbar-brand" href="/"><i>📦</i> Carico 3D</a>
+        <a class="navbar-back" href="/"><span data-translation-key="pol.cookie.nav.home">← Torna alla home</span></a>
+    </nav>
+
+    <div class="container">
+        <h1 data-translation-key="pol.cookie.h1">Cookie Policy</h1>
+        <div class="updated" data-translation-key="pol.cookie.updated">Aggiornata al 26 agosto 2026</div>
+
+        <h2 data-translation-key="pol.cookie.s1">1. Cosa sono i cookie</h2>
+        <p>
+            I cookie sono piccoli file di testo salvati dal browser sul tuo dispositivo.
+            Questo sito utilizza <strong>esclusivamente cookie tecnici e di sicurezza</strong>,
+            necessari al funzionamento del servizio. <strong>Non utilizziamo cookie di
+            profilazione, cookie pubblicitari o strumenti di tracciamento di terze parti.</strong>
+        </p>
+
+        <h2 data-translation-key="pol.cookie.s2">2. Cookie utilizzati</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th data-translation-key="pol.cookie.th.cookie">Cookie</th>
+                    <th data-translation-key="pol.cookie.th.finalita">Finalità</th>
+                    <th data-translation-key="pol.cookie.th.tipo">Tipo</th>
+                    <th data-translation-key="pol.cookie.th.durata">Durata</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>sessionid</code></td>
+                    <td data-translation-key="pol.cookie.s2.r1c2">Sessione di autenticazione Django (ti tiene collegato)</td>
+                    <td data-translation-key="pol.cookie.s2.r1c3">Tecnico</td>
+                    <td data-translation-key="pol.cookie.s2.r1c4">Sessione (fino alla chiusura del browser)</td>
+                </tr>
+                <tr>
+                    <td><code>csrftoken</code></td>
+                    <td data-translation-key="pol.cookie.s2.r2c2">Protezione da attacchi CSRF sui moduli</td>
+                    <td>Tecnico</td>
+                    <td>Sessione</td>
+                </tr>
+                <tr>
+                    <td><code>cb_demo</code></td>
+                    <td data-translation-key="pol.cookie.s2.r3c2">Token firmato anti-abuso: impedisce di ottenere più di una prova gratuita dallo stesso dispositivo</td>
+                    <td>Sicurezza / anti-frode</td>
+                    <td data-translation-key="pol.cookie.s2.r3c4">365 giorni</td>
+                </tr>
+                <tr>
+                    <td><code>cb_fp</code></td>
+                    <td data-translation-key="pol.cookie.s2.r4c2">Hash del fingerprint del browser per il controllo anti-abuso della demo</td>
+                    <td>Sicurezza / anti-frode</td>
+                    <td>365 giorni</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            I cookie <code>cb_demo</code> e <code>cb_fp</code> non servono a profilarti:
+            contengono solo valori pseudonimizzati (hash) usati per il controllo
+            anti-abuso descritto nella <a href="{% url 'privacy_it' %}">Privacy Policy</a>
+            (base giuridica: legittimo interesse).
+        </p>
+
+        <h2 data-translation-key="pol.cookie.s3">3. Gestione dei cookie dal browser</h2>
+        <p>
+            Puoi visualizzare, bloccare o eliminare i cookie dalle impostazioni del tuo
+            browser. Tieni presente che bloccando i cookie tecnici il servizio potrebbe
+            non funzionare correttamente (es. login o salvataggio dei dati).
+        </p>
+
+        <h2 data-translation-key="pol.cookie.s4">4. Contatti</h2>
+        <p>
+            Per domande sui cookie scrivi a <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>.
+        </p>
+    </div>
+
+    <footer class="footer">
+        <a href="{% url 'privacy_it' %}" data-translation-key="pol.cookie.footer.privacy">Privacy</a>
+        <a href="{% url 'cookie_it' %}" data-translation-key="pol.cookie.footer.cookie">Cookie</a>
+        <a href="{% url 'termini_it' %}" data-translation-key="pol.cookie.footer.termini">Termini</a>
+        <a href="{% url 'rimborsi_it' %}" data-translation-key="pol.cookie.footer.rimborsi">Rimborsi</a>
+    </footer>
+
+<script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=30"></script>
+<script>
+// Traduzione dinamica pagine informative
+(function() {
+    var dizionario = window.DIZIONARIO || {};
+    function traduci(key, fallback) {
+        var lingua = localStorage.getItem('carico3d-language') || 'it';
+        var d = dizionario[lingua];
+        return (d && d[key]) || fallback || key;
+    }
+    function traduciPagina() {
+        document.querySelectorAll('[data-translation-key]').forEach(function(el) {
+            var key = el.getAttribute('data-translation-key');
+            var testo = traduci(key);
+            if (testo && testo !== key) el.innerHTML = testo;
+        });
+        var lingua = localStorage.getItem('carico3d-language') || 'it';
+        document.documentElement.lang = lingua;
+    }
+    traduciPagina();
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
  * Workspace Carico 3D — Abbonamento Module
  *
  * Vista "Abbonamento" integrata nel main view (mostraPanelView).
- * Due card piani (Mensile / Annuale) con selettore utenti e checkout Lemon Squeezy.
+ * Due card piani (Mensile / Annuale) con selettore utenti e checkout Fungies.io.
  *
  * Depends on: workspace_core.js
  */
@@ -12,15 +12,15 @@
 // =============================================================================
 
 var ABBONAMENTO_PIANI = [
-    { nome: 'Mensile', tipo: 'mensile', prezzoUnitario: 19, periodo: '/mese', variantId: '' },
-    { nome: 'Annuale', tipo: 'annuale', prezzoUnitario: 190, periodo: '/anno', variantId: '' }
+    { nome: 'Mensile', tipo: 'mensile', prezzoUnitario: 19, periodo: '/mese', offerId: '' },
+    { nome: 'Annuale', tipo: 'annuale', prezzoUnitario: 190, periodo: '/anno', offerId: '' }
 ];
 
-// Carica i variant ID dal server (iniettati nel template)
-if (typeof WORKSPACE_CONFIG !== 'undefined' && WORKSPACE_CONFIG.lsVariantIds) {
+// Carica gli offer ID dal server (iniettati nel template)
+if (typeof WORKSPACE_CONFIG !== 'undefined' && WORKSPACE_CONFIG.fungiesOfferIds) {
     ABBONAMENTO_PIANI.forEach(function (p) {
-        if (WORKSPACE_CONFIG.lsVariantIds[p.tipo]) {
-            p.variantId = WORKSPACE_CONFIG.lsVariantIds[p.tipo];
+        if (WORKSPACE_CONFIG.fungiesOfferIds[p.tipo]) {
+            p.offerId = WORKSPACE_CONFIG.fungiesOfferIds[p.tipo];
         }
     });
 }
@@ -31,35 +31,17 @@ var _checkoutInCorso = false;   // evita doppi click sul checkout
 
 
 // =============================================================================
-// LEMON.JS: Setup event handler (Checkout.Success)
+// FUNGIES CHECKOUT: evento di completamento dell'overlay
 // =============================================================================
 
-function _initLemonSqueezy() {
-    if (typeof LemonSqueezy === 'undefined') return;
-    try {
-        LemonSqueezy.Setup({
-            eventHandler: function (data) {
-                if (!data || !data.event) return;
-                if (data.event === 'Checkout.Success') {
-                    _checkoutInCorso = false;
-                    if (typeof setStatus === 'function') setStatus('idle', '');
-                    if (typeof showToast === 'function') {
-                        showToast('Pagamento completato! Aggiornamento stato...', 'success');
-                    }
-                    // L'overlay si chiude: ricarica lo stato abbonamento
-                    renderAbbonamentoPanel();
-                }
-            }
-        });
-    } catch (e) {
-        // Lemon.js non disponibile o Setup non supportato: nessun handler
+document.addEventListener('fungies:checkout:complete', function () {
+    _checkoutInCorso = false;
+    if (typeof setStatus === 'function') setStatus('idle', '');
+    if (typeof showToast === 'function') {
+        showToast('Pagamento completato! Aggiornamento stato...', 'success');
     }
-}
-
-// Inizializza Lemon.js appena possibile (se lo script è già caricato)
-if (typeof LemonSqueezy !== 'undefined') {
-    _initLemonSqueezy();
-}
+    renderAbbonamentoPanel();
+});
 
 
 // =============================================================================
@@ -154,7 +136,7 @@ function _renderAbbonamentoContent(data) {
         });
     } else {
         // Se pagante: mostra solo riepilogo
-        cardsHtml = '<p style="text-align:center;color:#666;padding:20px;">Gestisci il tuo abbonamento dal portale cliente Lemon Squeezy.</p>';
+        cardsHtml = '<p style="text-align:center;color:#666;padding:20px;">Gestisci il tuo abbonamento dal portale cliente Fungies.</p>';
     }
 
     // --- Selettore utenti ---
@@ -177,7 +159,7 @@ function _renderAbbonamentoContent(data) {
         selettoreHtml =
             '<div class="abbonamento-selettore">' +
                 '<a class="btn btn-primary btn-block btn-lg" ' +
-                   'href="https://app.lemonsqueezy.com/my-orders" target="_blank" rel="noopener">' +
+                   'href="' + _escapeHtml((typeof WORKSPACE_CONFIG !== 'undefined' && WORKSPACE_CONFIG.fungiesPortalUrl) || '#') + '" id="fungies-portal-link" target="_blank" rel="noopener">' +
                     '<i class="bi bi-box-arrow-up-right"></i> Gestisci abbonamento' +
                 '</a>' +
                 '<p class="abbonamento-hint" style="margin-top:12px;">' +
@@ -276,7 +258,7 @@ function _aggiornaPrezzoAbbonamento(tipo, quantity) {
 
 function _avviaCheckout(tipo, quantity) {
     var piano = ABBONAMENTO_PIANI.find(function (p) { return p.tipo === tipo; });
-    if (!piano || !piano.variantId) {
+    if (!piano || !piano.offerId) {
         showToast('Configurazione pagamenti incompleta. Contatta il supporto.', 'error');
         return;
     }
@@ -284,16 +266,8 @@ function _avviaCheckout(tipo, quantity) {
     if (_checkoutInCorso) return;
     _checkoutInCorso = true;
 
-    // Assicurati che Lemon.js sia inizializzato (script potrebbe caricarsi dopo)
-    if (typeof LemonSqueezy !== 'undefined') {
-        _initLemonSqueezy();
-    }
-
     if (typeof showToast === 'function') showToast('Preparazione checkout...', 'info');
     if (typeof setStatus === 'function') setStatus('busy', 'Checkout...');
-
-    // Redirect post-pagamento (fallback se l'overlay non è disponibile)
-    var redirectUrl = window.location.origin + '/workspace/?view=abbonamento';
 
     fetch('/api/payments/checkout/', {
         method: 'POST',
@@ -301,7 +275,7 @@ function _avviaCheckout(tipo, quantity) {
             'Content-Type': 'application/json',
             'X-CSRFToken': typeof getCSRFToken === 'function' ? getCSRFToken() : '',
         },
-        body: JSON.stringify({ variant_id: piano.variantId, quantity: quantity, redirect_url: redirectUrl }),
+        body: JSON.stringify({ plan: tipo, quantity: quantity }),
     })
     .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || 'HTTP ' + r.status); }); })
     .then(function (data) {
@@ -311,8 +285,16 @@ function _avviaCheckout(tipo, quantity) {
             showToast('Errore: nessun URL checkout ricevuto.', 'error');
             return;
         }
-        // Apri il checkout in un nuovo tab (evita problemi iframe/overlay)
-        window.open(data.url, '_blank');
+        if (typeof Fungies === 'undefined' || !Fungies.Checkout) {
+            throw new Error('Checkout Fungies non disponibile. Riprova.');
+        }
+        Fungies.Checkout.open({
+            checkoutUrl: data.url,
+            settings: { mode: 'overlay' },
+            quantity: quantity,
+            customFields: { carico3d_user_id: String(typeof WORKSPACE_CONFIG !== 'undefined' ? WORKSPACE_CONFIG.userId || '' : '') },
+            billingData: { email: typeof WORKSPACE_CONFIG !== 'undefined' ? WORKSPACE_CONFIG.userEmail || '' : '' }
+        });
         _checkoutInCorso = false;
         if (typeof setStatus === 'function') setStatus('idle', '');
     })

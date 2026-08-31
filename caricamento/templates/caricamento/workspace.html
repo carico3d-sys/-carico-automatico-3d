@@ -21,8 +21,8 @@
     <title>Carico 3D – Workspace</title>
     <link rel="icon" type="image/png" href="{% static 'caricamento/img/icons8-3d-64.png' %}">
 
-    <!-- Lemon Squeezy checkout overlay -->
-    <script src="https://app.lemonsqueezy.com/js/lemon.js" defer></script>
+    <!-- Fungies hosted checkout overlay (carta gestita da Fungies) -->
+    <script src="https://cdn.jsdelivr.net/npm/@fungies/fungies-js@0" defer data-auto-init></script>
 
     <!-- Three.js via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -37,7 +37,7 @@
     <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=5">
 
     <!-- Palette flottante Vista — file isolato -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/floating_palette.css' %}?v=16">
+    <link rel="stylesheet" href="{% static 'caricamento/css/floating_palette.css' %}?v=21">
 
     <!-- Barra slider spaziatura oggetti nella sidebar -->
     <link rel="stylesheet" href="{% static 'caricamento/css/workspace_spaziatura.css' %}?v=5">
@@ -277,35 +277,36 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=23" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=24" defer></script>
     <script src="{% static 'caricamento/js/workspace_pannelli_toggle.js' %}?v=20" defer></script>
 
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
-    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=52" defer></script>
+    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=65" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
     <script src="{% static 'caricamento/js/gestione_file.js' %}?v=11" defer></script>
 
     <!-- 3. Sezioni di Carico (assi) nel form Mezzi -->
-    <script src="{% static 'caricamento/js/workspace_sezioni.js' %}?v=4" defer></script>
+    <script src="{% static 'caricamento/js/workspace_sezioni.js' %}?v=6" defer></script>
+    <script src="{% static 'caricamento/js/workspace_pannelli_resizer.js' %}?v=4" defer></script>
 
     <!-- 4. Vincoli tra Oggetti: rotazioni → canvas → orchestratore -->
     <script src="{% static 'caricamento/js/workspace_vt_rotazioni.js' %}?v=3" defer></script>
-    <script src="{% static 'caricamento/js/workspace_vt_canvas.js' %}?v=4" defer></script>
+    <script src="{% static 'caricamento/js/workspace_vt_canvas.js' %}?v=6" defer></script>
     <script src="{% static 'caricamento/js/workspace_vt.js' %}?v=7" defer></script>
 
     <!-- 5. Anteprima 3D Oggetto (nella vista Anagrafica Oggetti) -->
     <script src="{% static 'caricamento/js/preview_oggetto_3d.js' %}?v=9" defer></script>
 
     <!-- 6. Pannello Destro: selezione mezzo, carico, editor inline, viewport, export -->
-    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=16" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panel_destro.js' %}?v=37" defer></script>
 
     <!-- 7. Panel Views: orchestratore (mostraPanelView, mostraViewport) -->
     <script src="{% static 'caricamento/js/workspace_panels.js' %}?v=22" defer></script>
     <!-- 7a. Panel Mezzi (lista e form) -->
-    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=18" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels_mezzi.js' %}?v=20" defer></script>
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
-    <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=14" defer></script>
+    <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=16" defer></script>
 
     <!-- 8. Soluzioni alternative generate dal Simulated Annealing -->
     <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=8" defer></script>
@@ -327,13 +328,13 @@
     <!-- 10. Impostazioni: strategia, performance, output -->
     <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=3" defer></script>
 
-    <!-- 10b. Abbonamento / Pagamenti (Lemon Squeezy) -->
+    <!-- 10b. Abbonamento / Pagamenti (Fungies.io) -->
     <script src="{% static 'caricamento/js/workspace_abbonamento.js' %}?v=2" defer></script>
 
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
     <script src="{% static 'caricamento/js/workspace.js' %}?v=35" defer></script>
     <script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=22"></script>
-    <script src="{% static 'caricamento/js/selettore_lingua.js' %}?v=25"></script>
+    <script src="{% static 'caricamento/js/selettore_lingua.js' %}?v=30"></script>
 
     <script>
         window.WORKSPACE_CONFIG = {
@@ -368,7 +369,10 @@
                 {% endfor %}
             ],
             activePianoId: {{ piano_id|default:"null" }},
-            lsVariantIds: { mensile: "{{ ls_variant_ids.mensile|escapejs }}", annuale: "{{ ls_variant_ids.annuale|escapejs }}" },
+            fungiesOfferIds: { mensile: "{{ fungies_offer_ids.mensile|escapejs }}", annuale: "{{ fungies_offer_ids.annuale|escapejs }}" },
+            fungiesPortalUrl: "{{ fungies_portal_url|escapejs }}",
+            userId: "{{ user_id|escapejs }}",
+            userEmail: "{{ user_email|escapejs }}",
             user: { username: "{{ request.user.username }}", isStaff: {% if request.user.is_staff %}true{% else %}false{% endif %} }
         };
     </script>
@@ -418,16 +422,17 @@
                 <i class="bi bi-gear header-cat-icon"></i>
                 <span class="header-cat-label">Sistema</span>
             </button>
-            <div class="language-selector" role="group" aria-label="Selettore lingua">
-                <button type="button" class="language-btn active" data-language="it" aria-pressed="true">IT</button>
-                <button type="button" class="language-btn" data-language="en" aria-pressed="false">EN</button>
-            </div>
+
         </nav>
         <div id="header-tools">
             <button id="header-export-btn" class="header-btn" title="Esporta solo posizioni txt" disabled><i class="bi bi-filetype-txt"></i> Posizioni</button>
             {% if request.user.is_staff %}
             <button id="header-icone-btn" class="header-btn" title="Gestione Icone"><i class="bi bi-palette"></i> Icone</button>
             {% endif %}
+            <select id="header-lang-select" class="header-lang-select" aria-label="Lingua" data-server-lingua="{{ lingua }}">
+                <option value="it" {% if lingua == 'it' %}selected{% endif %}>it</option>
+                <option value="en" {% if lingua == 'en' %}selected{% endif %}>en</option>
+            </select>
             <span id="header-user">{{ request.user.username }}</span>
             <a href="/logout/" id="header-logout" title="Esci"><i class="bi bi-box-arrow-right"></i> <span class="language-label" data-italiano="Esci">Esci</span></a>
             <a href="/logout-completo/" id="header-logout-full" title="Logout completo (cambia account Google)"><i class="bi bi-door-open"></i> <span class="language-label" data-italiano="Logout">Logout</span></a>
@@ -503,7 +508,7 @@
                                 <i class="bi bi-keyboard"></i> ?
                             </button>
                             <button id="manuale-btn-marquee-toggle" class="manuale-help-btn" type="button" title="Selezione multipla ON/OFF (M)">
-                                <i class="bi bi-check2-square"></i>
+                                <i class="bi bi-plus-square"></i> Selezione multipla
                             </button>
                         </div>
                         <!-- Sezione D-Pad tastiera -->
@@ -715,10 +720,23 @@
             <!-- Container 3D -->
             <div id="viewport-3d">
                 <div class="viewport-placeholder" id="viewport-placeholder">
-                    <i class="bi bi-box-seam vp-icon"></i>
-                    <h3>Visualizzazione 3D</h3>
-                    <p>Aggiungi oggetti nel pannello di destra, seleziona un mezzo e clicca <strong>"Elabora Ottimizzazione"</strong> per vedere il carico in 3D.</p>
-                    <p class="vp-hint-controls"><i class="bi bi-lightbulb"></i> <strong>Trascina</strong> per ruotare &nbsp;|&nbsp; <strong>Rotellina</strong> per zoom &nbsp;|&nbsp; <strong>Tasto destro</strong> per spostare</p>
+                    <i class="bi bi-box-seam vp-icon vp-brand-logo"></i>
+                    <h3 data-translation-key="viewport.titolo" data-italiano="Visualizzazione 3D">Visualizzazione 3D</h3>
+                    <div class="vp-instructions">
+                        <p class="vp-instructions-intro"><strong data-translation-key="viewport.inizia" data-italiano="Per iniziare:">Per iniziare:</strong></p>
+                        <ol>
+                            <li data-translation-key="viewport.step-aggiungi" data-italiano="Aggiungi uno o più oggetti dal pannello di destra.">Aggiungi uno o più oggetti dal pannello di destra.</li>
+                            <li data-translation-key="viewport.step-seleziona" data-italiano="Seleziona un mezzo.">Seleziona un mezzo.</li>
+                            <li data-translation-key="viewport.step-elabora" data-italiano="Fai clic su “Elabora ottimizzazione”.">Fai clic su “Elabora ottimizzazione”.</li>
+                        </ol>
+                        <p data-translation-key="viewport.risultato" data-italiano="Il carico verrà visualizzato nell’area 3D.">Il carico verrà visualizzato nell’area 3D.</p>
+                    </div>
+                    <p class="vp-hint-controls"><strong data-translation-key="viewport.controlli" data-italiano="Controlli della vista">Controlli della vista</strong></p>
+                    <table class="vp-controls-table"><tbody>
+                        <tr><td><i class="bi bi-arrow-repeat vp-ctrl-icon"></i></td><td data-translation-key="viewport.trascina" data-italiano="Trascina con il mouse">Trascina con il mouse</td></tr>
+                        <tr><td><i class="bi bi-search vp-ctrl-icon"></i></td><td data-translation-key="viewport.rotellina" data-italiano="Usa la rotellina">Usa la rotellina</td></tr>
+                        <tr><td><i class="bi bi-arrows-move vp-ctrl-icon"></i></td><td data-translation-key="viewport.tasto-destro" data-italiano="Tieni premuto il tasto destro e trascina">Tieni premuto il tasto destro e trascina</td></tr>
+                    </tbody></table>
                 </div>
             </div>
 
@@ -800,6 +818,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    <div id="pv-panel-resizer" class="pv-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Ridimensiona pannelli" tabindex="0"></div>
                     <div id="panel-view-form">
                         <div class="pv-form-header">
                             <h4 id="pv-form-title">Dettaglio / Nuovo</h4>

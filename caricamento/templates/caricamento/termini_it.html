@@ -1,0 +1,153 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termini di Servizio — Carico 3D</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --accent: #447e9b; --header: #1a1a2e; --bg: #f0f2f5; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 15px; color: #333; background: var(--bg); line-height: 1.7;
+        }
+        .navbar {
+            height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 40px;
+        }
+        .navbar-brand {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 18px; font-weight: 800; color: var(--header); text-decoration: none;
+        }
+        .navbar-brand i { font-size: 22px; color: var(--accent); }
+        .navbar-back { font-size: 14px; color: var(--accent); text-decoration: none; font-weight: 600; }
+        .navbar-back:hover { text-decoration: underline; }
+        .container {
+            max-width: 860px; margin: 40px auto; background: #fff;
+            border-radius: 12px; border: 1px solid #e8e8e8;
+            padding: 40px 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        h1 { font-size: 26px; color: var(--header); margin-bottom: 6px; }
+        .updated { font-size: 13px; color: #888; margin-bottom: 24px; }
+        h2 { font-size: 17px; color: var(--header); margin: 26px 0 10px; }
+        p { margin-bottom: 12px; }
+        ul { margin: 0 0 12px 22px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--accent); }
+        .footer {
+            text-align: center; padding: 24px; color: #888; font-size: 13px;
+        }
+        .footer a { color: #666; text-decoration: none; margin: 0 10px; }
+        .footer a:hover { color: var(--accent); }
+        @media (max-width: 640px) {
+            .navbar { padding: 0 16px; }
+            .container { margin: 16px; padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a class="navbar-brand" href="/"><i>📦</i> Carico 3D</a>
+        <a class="navbar-back" href="/"><span data-translation-key="pol.termini.nav.home">← Torna alla home</span></a>
+    </nav>
+
+    <div class="container">
+        <h1 data-translation-key="pol.termini.h1">Termini di Servizio</h1>
+        <div class="updated" data-translation-key="pol.termini.updated">Aggiornati al 26 agosto 2026</div>
+
+        <h2 data-translation-key="pol.termini.s1">1. Oggetto del servizio</h2>
+        <p>
+            <strong>{{ titolare }}</strong>{% if sede_titolare %}, {{ sede_titolare }}{% endif %}{% if piva_titolare %} (P.IVA {{ piva_titolare }}){% endif %},
+            fornisce un servizio web di ottimizzazione tridimensionale del carico
+            ("il Servizio") disponibile all'indirizzo <a href="{{ sito_url }}">{{ sito_url }}</a>.
+            Utilizzando il Servizio accetti i presenti Termini.
+        </p>
+
+        <h2 data-translation-key="pol.termini.s2">2. Account e credenziali</h2>
+        <ul>
+            <li>Sei responsabile della riservatezza delle tue credenziali di accesso.</li>
+            <li>I dati di caricamento (piani, mezzi, oggetti) ti appartengono e restano accessibili solo a te.</li>
+            <li>Il Servizio è riservato a utenti maggiorenni o minori autorizzati da un genitore/tutore.</li>
+        </ul>
+
+        <h2 data-translation-key="pol.termini.s3">3. Abbonamento e pagamenti</h2>
+        <ul>
+            <li>Il Servizio è a pagamento tramite abbonamento mensile o annuale.</li>
+            <li>I pagamenti sono gestiti da <strong>Fungies.io</strong> (merchant of record): fatturazione, IVA e contabilità fiscale fanno capo a Fungies.io.</li>
+            <li>L'abbonamento <strong>non si rinnova automaticamente</strong>: copre solo il periodo acquistato e scade al suo termine. Se non vuoi continuare, non devi fare nulla: non verranno effettuati rinnovi né addebiti.</li>
+            <li>Non è previsto recesso per il periodo già acquistato e utilizzato. Per i dettagli consulta l'<a href="{% url 'rimborsi_it' %}">Informativa Rimborsi</a>.</li>
+        </ul>
+
+        <h2 data-translation-key="pol.termini.s4">4. Algoritmo proprietario</h2>
+        <p>
+            Il Servizio utilizza un <strong>algoritmo proprietario di ottimizzazione 3D</strong>.
+            I risultati prodotti (disposizioni del carico, percentuali di riempimento,
+            distribuzione dei pesi) hanno <strong>valore indicativo e di supporto decisionale</strong>:
+            non costituiscono una consulenza professionale, una certificazione di sicurezza
+            del trasporto né una garanzia di conformità normativa.
+        </p>
+        <p>
+            La responsabilità finale sulla sicurezza e sulla conformità del carico
+            (fissaggi, pesi, normative di trasporto) resta in capo all'utente.
+        </p>
+
+        <h2 data-translation-key="pol.termini.s5">5. Proprietà intellettuale</h2>
+        <p>
+            L'algoritmo, il software, i testi e i contenuti del Servizio sono di proprietà
+            di {{ titolare }} e protetti dalla legge. È vietata la copia, la modifica,
+            la decompilazione o il riutilizzo non autorizzato.
+        </p>
+
+        <h2 data-translation-key="pol.termini.s6">6. Limitazioni di responsabilità</h2>
+        <p>
+            Il Servizio è fornito "così com'è". Nella misura massima consentita dalla legge,
+            {{ titolare }} non è responsabile per danni indiretti o consequenziali derivanti
+            dall'uso del Servizio o dall'affidamento sui risultati dell'ottimizzazione.
+        </p>
+
+        <h2 data-translation-key="pol.termini.s7">7. Modifiche ai Termini</h2>
+        <p>
+            I presenti Termini possono essere aggiornati; la versione vigente è sempre
+            pubblicata su questa pagina con la data di aggiornamento.
+        </p>
+
+        <h2 data-translation-key="pol.termini.s8">8. Contatti</h2>
+        <p>
+            Per qualunque questione relativa ai Termini scrivi a
+            <a href="mailto:{{ email_titolare }}">{{ email_titolare }}</a>.
+        </p>
+    </div>
+
+    <footer class="footer">
+        <a href="{% url 'privacy_it' %}" data-translation-key="pol.termini.footer.privacy">Privacy</a>
+        <a href="{% url 'cookie_it' %}" data-translation-key="pol.termini.footer.cookie">Cookie</a>
+        <a href="{% url 'termini_it' %}" data-translation-key="pol.termini.footer.termini">Termini</a>
+        <a href="{% url 'rimborsi_it' %}" data-translation-key="pol.termini.footer.rimborsi">Rimborsi</a>
+    </footer>
+
+<script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=30"></script>
+<script>
+// Traduzione dinamica pagine informative
+(function() {
+    var dizionario = window.DIZIONARIO || {};
+    function traduci(key, fallback) {
+        var lingua = localStorage.getItem('carico3d-language') || 'it';
+        var d = dizionario[lingua];
+        return (d && d[key]) || fallback || key;
+    }
+    function traduciPagina() {
+        document.querySelectorAll('[data-translation-key]').forEach(function(el) {
+            var key = el.getAttribute('data-translation-key');
+            var testo = traduci(key);
+            if (testo && testo !== key) el.innerHTML = testo;
+        });
+        var lingua = localStorage.getItem('carico3d-language') || 'it';
+        document.documentElement.lang = lingua;
+    }
+    traduciPagina();
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,10 @@
 (function () {
     'use strict';
 
-    var linguaSalvata = window.localStorage.getItem('carico3d-language') || 'it';
+    // Prefer server-side value over localStorage
+    var langSelect = document.getElementById('header-lang-select');
+    var serverLingua = langSelect && langSelect.getAttribute('data-server-lingua');
+    var linguaSalvata = serverLingua || window.localStorage.getItem('carico3d-language') || 'en';
     var linguaCorrente = 'it';
 
     function traduci(key, fallback, lingua) {
@@ -110,14 +113,31 @@
 
     function aggiornaLingua(lingua) {
         linguaCorrente = lingua === 'en' ? 'en' : 'it';
-        document.querySelectorAll('.language-btn').forEach(function (button) {
-            var attivo = button.dataset.language === linguaCorrente;
-            button.classList.toggle('active', attivo);
-            button.setAttribute('aria-pressed', attivo ? 'true' : 'false');
-        });
+        window.applicaTraduzioni = function (root) {
+            aggiornaElementiTraducibili(root || document, linguaCorrente);
+        };
+        var langSelect = document.getElementById('header-lang-select');
+        if (langSelect) langSelect.value = linguaCorrente;
         document.documentElement.lang = linguaCorrente;
         window.CARICO3D_LANGUAGE = linguaCorrente;
         window.localStorage.setItem('carico3d-language', linguaCorrente);
+        // Save to backend if user is logged in
+        if (document.querySelector('meta[name="user-id"]') || document.getElementById('header-user')) {
+            // Get CSRF token from cookie
+            function getCookie(name) {
+                var v = null;
+                document.cookie.split(';').forEach(function(c) {
+                    c = c.trim();
+                    if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+                });
+                return v;
+            }
+            fetch('/api/user-lingua/', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || ''},
+                body: JSON.stringify({lingua: linguaCorrente})
+            }).catch(function() {});  // Silent fail if not logged in
+        }
         aggiornaHeader(linguaCorrente);
         aggiornaSidebar(linguaCorrente);
         aggiornaMenuSidebar(linguaCorrente);
@@ -130,6 +150,23 @@
         document.dispatchEvent(new CustomEvent('carico3d:language-change', {
             detail: { language: linguaCorrente }
         }));
+        // Il placeholder contiene testo generato dinamicamente: ricostruiscilo
+        // subito quando l'utente cambia lingua, senza attendere un nuovo render.
+        var placeholder = document.getElementById('viewport-placeholder');
+        if (placeholder && placeholder.style.display !== 'none' && typeof applicaTraduzioni === 'function') {
+            applicaTraduzioni(placeholder);
+        }
+        // I pannelli anagrafici sono dinamici: il render deve avvenire dopo
+        // l'evento, altrimenti i listener possono ricostruire il pannello in IT.
+        window.setTimeout(function () {
+            if (typeof renderMezziForm === 'function') {
+                var mezzoSelezionato = document.querySelector('#panel-view-list .pv-list-item.selected');
+                if (mezzoSelezionato && mezzoSelezionato.dataset.mezzoId) {
+                    renderMezziForm(parseInt(mezzoSelezionato.dataset.mezzoId, 10));
+                }
+            }
+            aggiornaElementiTraducibili(document.getElementById('panel-view'), linguaCorrente);
+        }, 0);
     }
 
     document.addEventListener('carico3d:sidebar-rendered', function () {
@@ -148,9 +185,14 @@
         aggiornaPannelloDestro(linguaCorrente);
     });
 
-    document.addEventListener('click', function (event) {
-        var button = event.target.closest('.language-btn');
-        if (button) aggiornaLingua(button.dataset.language);
+    document.addEventListener('change', function (event) {
+        var sel = event.target.closest('#header-lang-select');
+        if (sel) aggiornaLingua(sel.value);
+    });
+
+    document.addEventListener('carico3d:icon-config-ready', function () {
+        var placeholder = document.getElementById('viewport-placeholder');
+        if (placeholder && typeof mostraPlaceholder === 'function') mostraPlaceholder();
     });
 
     document.addEventListener('DOMContentLoaded', function () {

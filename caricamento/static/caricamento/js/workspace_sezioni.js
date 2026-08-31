@@ -40,6 +40,11 @@ _initSezioniDelegation();
 
 // --- Sezioni di Carico (assi) nel form Mezzi ---
 
+function _traduciSezione(key, fallback) {
+    var lingua = window.CARICO3D_LANGUAGE === 'en' ? 'en' : 'it';
+    return (window.DIZIONARIO && window.DIZIONARIO[lingua] && window.DIZIONARIO[lingua][key]) || fallback;
+}
+
 function _renderSezioniTable(sezioni, lunghezzaMm) {
     sezioni = sezioni || [];
     var righe = '';
@@ -50,8 +55,8 @@ function _renderSezioniTable(sezioni, lunghezzaMm) {
                 '<td><input type="number" class="form-input form-input-sm pv-sez-inizio" value="' + (s.inizio_x_mm || 0) + '" min="0" step="100"></td>' +
                 '<td><input type="number" class="form-input form-input-sm pv-sez-fine" value="' + (s.fine_x_mm || '') + '" min="1" step="100"></td>' +
                 '<td><input type="number" class="form-input form-input-sm pv-sez-carico" value="' + parseFloat(s.carico_massimo_kg || 0) + '" min="0.01" step="100"></td>' +
-                '<td class="pv-sez-info">' + (s.baricentro_x_mm ? 'CG @ ' + s.baricentro_x_mm + ' mm' : '—') + '</td>' +
-                '<td><button type="button" class="btn-item-action pv-sez-remove" title="Rimuovi">✕</button></td>' +
+                '<td class="pv-sez-info">' + (s.baricentro_x_mm ? '<span class="language-label" data-translation-key="vehicles.sezioni.cg" data-italiano="CG">CG</span> @ ' + s.baricentro_x_mm + ' mm' : '—') + '</td>' +
+                '<td><button type="button" class="btn-item-action pv-sez-remove" data-translation-key="vehicles.sezioni.rimuovi" data-italiano="Rimuovi" title="Rimuovi">✕</button></td>' +
             '</tr>';
     });
 
@@ -62,22 +67,22 @@ function _renderSezioniTable(sezioni, lunghezzaMm) {
         var coperturaTotale = primo.inizio_x_mm === 0 && ultimo.fine_x_mm === lunghezzaMm;
         coperturaHtml =
             '<div class="pv-sez-copertura" style="color:' + (coperturaTotale ? '#27ae60' : '#f39c12') + ';">' +
-                'Copertura: ' + (primo.inizio_x_mm || 0) + ' → ' + (ultimo.fine_x_mm || 0) + ' mm ' +
-                (coperturaTotale ? '✅ Completa' : '⚡ Parziale (max ' + lunghezzaMm + ' mm) — consentito') +
+                _traduciSezione('vehicles.sezioni.copertura', 'Copertura') + ': ' + (primo.inizio_x_mm || 0) + ' → ' + (ultimo.fine_x_mm || 0) + ' mm ' +
+                (coperturaTotale ? _traduciSezione('vehicles.sezioni.completa', '✅ Completa') : '<span class="language-label" data-translation-key="vehicles.sezioni.parziale" data-italiano="⚡ Parziale">⚡ Parziale</span> (max ' + lunghezzaMm + ' mm) — <span class="language-label" data-translation-key="vehicles.sezioni.consentito" data-italiano="consentito">consentito</span>') +
             '</div>';
     }
 
     return '' +
         '<div class="pv-sezioni-section">' +
             '<div class="pv-sezioni-header">' +
-                '<strong>🔧 Sezioni di Carico (Assi)</strong>' +
-                '<button class="btn btn-sm" id="pv-sez-add" type="button">+ Aggiungi</button>' +
+                '<strong>🔧 ' + _traduciSezione('vehicles.sezioni.titolo', 'Sezioni di Carico (Assi)').replace(/^🔧\s*/, '') + '</strong>' +
+                '<button class="btn btn-sm" id="pv-sez-add" type="button">' + _traduciSezione('vehicles.sezioni.aggiungi', '+ Aggiungi') + '</button>' +
             '</div>' +
             '<table class="pv-sezioni-table">' +
                 '<thead><tr>' +
-                    '<th>Nome</th><th>Inizio (mm)</th><th>Fine (mm)</th><th>Carico max (kg)</th><th>Baricentro</th><th></th>' +
+                    '<th>' + _traduciSezione('vehicles.sezioni.nome', 'Nome') + '</th><th>' + _traduciSezione('vehicles.sezioni.inizio', 'Inizio (mm)') + '</th><th>' + _traduciSezione('vehicles.sezioni.fine', 'Fine (mm)') + '</th><th>' + _traduciSezione('vehicles.sezioni.carico-max', 'Carico max (kg)') + '</th><th>' + _traduciSezione('vehicles.sezioni.baricentro', 'Baricentro') + '</th><th></th>' +
                 '</tr></thead>' +
-                '<tbody id="pv-sezioni-tbody">' + (righe || '<tr><td colspan="6" style="color:#999;text-align:center;padding:12px;">Nessuna sezione configurata. Clicca "+ Aggiungi".</td></tr>') + '</tbody>' +
+                '<tbody id="pv-sezioni-tbody">' + (righe || '<tr><td colspan="6" style="color:#999;text-align:center;padding:12px;"><span class="language-label" data-translation-key="vehicles.sezioni.nessuna" data-italiano="Nessuna sezione configurata. Clicca "+ Aggiungi".">Nessuna sezione configurata. Clicca "+ Aggiungi".</span></td></tr>') + '</tbody>' +
             '</table>' +
             coperturaHtml +
         '</div>';
@@ -142,8 +147,8 @@ function _aggiornaCoperturaSezioni() {
     var lunghMm = Math.round(lunghCm * 10);
     var coperturaTotale = primo.inizio_x_mm === 0 && ultimo.fine_x_mm === lunghMm;
     el.style.color = coperturaTotale ? '#27ae60' : '#f39c12';
-    el.innerHTML = 'Copertura: ' + primo.inizio_x_mm + ' → ' + ultimo.fine_x_mm + ' mm ' +
-        (coperturaTotale ? '✅ Completa' : '⚡ Parziale (max ' + lunghMm + ' mm) — consentito');
+    el.innerHTML = _traduciSezione('vehicles.sezioni.copertura', 'Copertura') + ': ' + primo.inizio_x_mm + ' → ' + ultimo.fine_x_mm + ' mm ' +
+        (coperturaTotale ? _traduciSezione('vehicles.sezioni.completa', '✅ Completa') : '<span class="language-label" data-translation-key="vehicles.sezioni.parziale" data-italiano="⚡ Parziale">⚡ Parziale</span> (max ' + lunghMm + ' mm) — <span class="language-label" data-translation-key="vehicles.sezioni.consentito" data-italiano="consentito">consentito</span>');
 }
 
 var _counterSezioni = 0;
@@ -162,7 +167,7 @@ function _aggiungiRigaSezione(inizio, fine, carico, nome) {
         '<td><input type="number" class="form-input form-input-sm pv-sez-fine" value="' + (fine || '') + '" min="1" step="100" oninput="_aggiornaCoperturaSezioni()"></td>' +
         '<td><input type="number" class="form-input form-input-sm pv-sez-carico" value="' + (carico || '') + '" min="0.01" step="100"></td>' +
         '<td class="pv-sez-info">—</td>' +
-        '<td><button type="button" class="btn-item-action pv-sez-remove" title="Rimuovi">✕</button></td>';
+        '<td><button type="button" class="btn-item-action pv-sez-remove" data-translation-key="vehicles.sezioni.rimuovi" data-italiano="Rimuovi" title="Rimuovi">✕</button></td>';
     tbody.appendChild(row);
     _aggiornaCoperturaSezioni();
 }

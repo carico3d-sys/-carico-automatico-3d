@@ -817,35 +817,40 @@ class UserProfile(models.Model):
         blank=True,
         help_text=_("Data/ora invio email di verifica."),
     )
-    # --- Lemon Squeezy ---
-    ls_customer_id = models.PositiveBigIntegerField(
+    lingua = models.CharField(
+        max_length=5,
+        default="en",
+        blank=True,
+        help_text=_("Lingua preferita dell'utente (es. 'it', 'en')."),
+    )
+    # --- Fungies.io ---
+    # Fungies usa UUID/stringhe, non gli ID numerici di Lemon Squeezy.
+    fungies_customer_id = models.CharField(
+        max_length=255,
         null=True,
         blank=True,
         unique=True,
-        help_text=_("ID cliente su Lemon Squeezy."),
+        help_text=_("ID cliente su Fungies.io."),
     )
-    ls_subscription_id = models.PositiveBigIntegerField(
+    fungies_subscription_id = models.CharField(
+        max_length=255,
         null=True,
         blank=True,
         unique=True,
-        help_text=_("ID abbonamento attivo su Lemon Squeezy."),
+        help_text=_("ID abbonamento attivo su Fungies.io."),
     )
-    ls_subscription_item_id = models.PositiveBigIntegerField(
+    fungies_offer_id = models.CharField(
+        max_length=255,
         null=True,
         blank=True,
-        help_text=_("ID subscription-item per aggiornare la quantity."),
+        help_text=_("ID offer Fungies.io scelta (mensile/annuale)."),
     )
-    ls_variant_id = models.PositiveBigIntegerField(
-        null=True,
-        blank=True,
-        help_text=_("Variante Lemon Squeezy scelta (mensile/annuale)."),
-    )
-    ls_quantity = models.PositiveSmallIntegerField(
+    fungies_quantity = models.PositiveSmallIntegerField(
         default=1,
         validators=[MinValueValidator(1)],
         help_text=_("Numero di utenti (seat) acquistati nell'abbonamento."),
     )
-    ls_plan = models.CharField(
+    fungies_plan = models.CharField(
         max_length=32,
         default="",
         blank=True,
@@ -895,14 +900,29 @@ class UserProfile(models.Model):
     def team_slots(self):
         """Posti utente disponibili (per futuro modello Team).
 
-        Oggi con account singolo vale ls_quantity; in futuro i membri del team
+        Oggi con account singolo vale fungies_quantity; in futuro i membri del team
         consumeranno uno slot ciascuno.
         """
-        return self.ls_quantity if self.is_paying else 0
+        return self.fungies_quantity if self.is_paying else 0
 
 
 # ---------------------------------------------------------------------------
-# 10. DEMO FINGERPRINT (Anti-abuso — 3 controlli)
+# 10. EVENTI WEBHOOK FUNGIES (idempotenza)
+# ---------------------------------------------------------------------------
+
+class FungiesWebhookEvent(models.Model):
+    """Evento Fungies già processato, per tollerare i retry at-least-once."""
+
+    event_id = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Evento Webhook Fungies")
+        verbose_name_plural = _("Eventi Webhook Fungies")
+
+
+# ---------------------------------------------------------------------------
+# 11. DEMO FINGERPRINT (Anti-abuso — 3 controlli)
 # ---------------------------------------------------------------------------
 
 class DemoFingerprint(models.Model):

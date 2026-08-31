@@ -146,11 +146,6 @@ function _vtRenderConfigCanvas(canvas, configIdx) {
     dl2.position.set(-30, 20, -30);
     scene.add(dl2);
 
-    // Grid
-    var grid = new THREE.GridHelper(Math.max(maxD * 2, 40), 20, 0xdddddd, 0xeeeeee);
-    grid.position.y = -0.5;
-    scene.add(grid);
-
     // Materiali: usa il colore definito nell'anagrafica dell'oggetto.
     // Il fallback mantiene la stessa palette usata dal resto del workspace
     // quando l'oggetto non ha un colore esplicito.
@@ -397,8 +392,6 @@ function _vtPopolaGrigliaConfigurazioni() {
             '<div class="vt-config-card-footer">' +
                 '<span class="vt-config-id">Config ' + c.id + '</span>' +
                 badgeHtml +
-                '<span class="vt-config-rots">A:' + c.rotA + ' B:' + c.rotB + '</span>' +
-                '<span class="vt-config-pos">' + escapeHtml((window.CARICO3D_LANGUAGE === 'en' && window.DIZIONARIO && window.DIZIONARIO.en ? (window.DIZIONARIO.en['constraints.posizione.' + (c.posizione_label || 'centro')] || c.posizione_label || 'centro') : (c.posizione_label || 'centro'))) + '</span>' +
             '</div>' +
         '</div>';
     });
