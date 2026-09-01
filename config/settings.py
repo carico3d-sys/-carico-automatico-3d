@@ -82,8 +82,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # Render esegue Gunicorn senza Nginx: WhiteNoise serve CSS/JS/immagini.
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'caricamento.middleware.RequestIDMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -228,19 +226,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 # Raccolta dei file statici per la produzione (collectstatic).
-# In Docker: volume condiviso con nginx; su Render vengono serviti da WhiteNoise.
+# In Docker: volume condiviso con nginx che serve direttamente i file statici.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# WhiteNoise serve gli asset raccolti direttamente da Gunicorn.
-# Il manifest permette nomi/hash riproducibili e la compressione gzip/brotli.
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
 
 
 # ---------------------------------------------------------------------------

@@ -194,14 +194,6 @@ function inizializza() {
 
     // --- Tastiera: shortcut scena 3D ---
     document.addEventListener('keydown', function (e) {
-        // Ctrl+Shift+R: torna alla schermata iniziale del MainView senza
-        // ricaricare la pagina (e quindi senza perdere lo stato applicativo).
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
-            e.preventDefault();
-            if (typeof nuovoCarico === 'function') nuovoCarico();
-            return;
-        }
-
         // Ignora se l'utente sta scrivendo in un input
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 

@@ -497,7 +497,7 @@
 <!-- ============================================================
      LOGIN MODAL
      ============================================================ -->
-<div class="modal-overlay{% if login_error or trial_expired or trial_used or email_verification_sent or password_confirmation_error or account_disabled or demo_disabled %} active{% endif %}" id="login-modal">
+<div class="modal-overlay{% if login_error or trial_expired or trial_used or trial_blocked or email_verification_sent or password_confirmation_error or account_disabled or demo_disabled %} active{% endif %}" id="login-modal">
     <div class="login-card {% if login_error %}shake{% endif %}" style="position:relative;">
         <button class="login-close" id="btn-close-login">&times;</button>
         <div class="login-logo-row">
@@ -514,6 +514,9 @@
         {% endif %}
         {% if trial_used %}
         <div class="login-warning">🆓 The free trial period has already been used.<br>Sign in with an existing account or contact the administrator.</div>
+        {% endif %}
+        {% if trial_blocked %}
+        <div class="login-warning" style="background:#fff3e0;border-color:#ff9800;color:#e65100;">🚫 Accesso bloccato. Il periodo di prova è terminato su questo dispositivo/rete.<br>Contatta l'amministratore per attivare un abbonamento.</div>
         {% endif %}
         {% if email_verification_sent %}
         <div class="login-warning" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">📧 Email di verifica inviata! Controlla la tua casella email e clicca il link per verificare l'indirizzo. Il link scade tra 24 ore.</div>

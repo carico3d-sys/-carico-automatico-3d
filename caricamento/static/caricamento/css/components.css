@@ -1458,7 +1458,7 @@
     background: transparent;
     border: none;
     border-bottom: 3px solid transparent;
-    color: rgba(255,255,255,0.65);
+    color: #888;
     font-size: 12px;
     font-family: inherit;
     font-weight: 500;
@@ -1470,13 +1470,13 @@
     min-width: 56px;
 }
 .header-cat-btn:hover {
-    background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.9);
-    border-bottom-color: rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.04);
+    color: #444;
+    border-bottom-color: rgba(0,0,0,0.12);
 }
 .header-cat-btn.active {
-    background: rgba(255,255,255,0.08);
-    color: #fff;
+    background: rgba(0,0,0,0.05);
+    color: var(--color-accent, #447e9b);
     border-bottom-color: var(--color-accent);
     font-weight: 600;
 }

@@ -748,6 +748,10 @@ function sincronizzaImpostazioniVisibilita() {
     if (typeof IMPOSTAZIONI !== 'undefined' && IMPOSTAZIONI.output_ottimizzazione) {
         STATE.mostraEtichetteOggetti = IMPOSTAZIONI.output_ottimizzazione.mostra_etichette_oggetti !== false;
         STATE.mostraEtichettaContenitore = IMPOSTAZIONI.output_ottimizzazione.mostra_etichetta_contenitore !== false;
+        // Griglia e assi
+        var griglia = IMPOSTAZIONI.output_ottimizzazione.mostra_griglia === true;
+        if (STATE.grigliaMesh) STATE.grigliaMesh.visible = griglia;
+        if (STATE.axesMesh) STATE.axesMesh.visible = griglia;
     }
 }
 

@@ -63,21 +63,51 @@ class DynamicGoogleAdapter(DefaultSocialAccountAdapter):
     """
 
     def pre_social_login(self, request, sociallogin):
-        # Un account Google già collegato resta indipendente dal dispositivo:
-        # il controllo anti-abuso vale solo quando si tenta di creare una nuova
-        # identità. Le nuove identità devono però rispettare anche il comando
-        # globale che disabilita le demo, inclusi gli accessi URL diretti.
-        if not sociallogin.is_existing:
-            from .models import ImpostazioniSistema
-            from .views import _attach_demo_cookie, _check_demo_abuse
+        from .models import ImpostazioniSistema, UserProfile
+        from .views import (
+            _attach_demo_cookie, _check_demo_abuse,
+            _check_fingerprint_expired_trial,
+        )
 
-            if not ImpostazioniSistema.get().demo_attiva:
-                response = redirect("/?demo=disabled")
-                raise ImmediateHttpResponse(_attach_demo_cookie(request, response))
+        # ── Account ESISTENTE con trial scaduto ──────────────────────
+        # Blocca se il fingerprint combacia con un'altra demo:
+        # impedisce il cambio identità dallo stesso device/rete.
+        if sociallogin.is_existing:
+            user = sociallogin.user
+            try:
+                profile = user.profile
+            except UserProfile.DoesNotExist:
+                return super().pre_social_login(request, sociallogin)
 
-            if _check_demo_abuse(request):
-                response = redirect("/?trial=used")
-                raise ImmediateHttpResponse(_attach_demo_cookie(request, response))
+            if (
+                not profile.is_trial_active
+                and not user.is_staff
+                and not profile.is_paying
+            ):
+                if _check_fingerprint_expired_trial(request, user):
+                    logger.warning(
+                        "Google OAuth BLOCKED: trial expired + fingerprint "
+                        "overlap user=%s ip=%s",
+                        user.username,
+                        request.META.get("REMOTE_ADDR", ""),
+                    )
+                    response = redirect("/?trial=blocked")
+                    raise ImmediateHttpResponse(
+                        _attach_demo_cookie(request, response)
+                    )
+            return super().pre_social_login(request, sociallogin)
+
+        # ── Nuovo account Google ─────────────────────────────────────
+        # Le nuove identità devono rispettare il comando globale demo
+        # e il controllo fingerprint anti-abuso.
+        if not ImpostazioniSistema.get().demo_attiva:
+            response = redirect("/?demo=disabled")
+            raise ImmediateHttpResponse(_attach_demo_cookie(request, response))
+
+        if _check_demo_abuse(request):
+            response = redirect("/?trial=used")
+            raise ImmediateHttpResponse(_attach_demo_cookie(request, response))
+
         return super().pre_social_login(request, sociallogin)
 
     def get_auth_params(self, request, action):

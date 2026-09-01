@@ -16,6 +16,7 @@ function getImpostazioniDefault() {
             backtracking_avanzato: false
         },
         output_ottimizzazione: {
+            mostra_griglia: false,
             azzera_grafico_pesi_nei_vuoti: false,
             mostra_etichette_oggetti: true,
             mostra_etichetta_contenitore: true,
@@ -415,6 +416,7 @@ function renderCardOutput() {
     var o = IMPOSTAZIONI.output_ottimizzazione;
 
     var checkboxFields = [
+        { id: 'imp-mostra-griglia', campo: 'mostra_griglia', icon: '<i class="bi bi-grid-3x3"></i>', label: 'Mostra griglia e assi', desc: 'Mostra la griglia di riferimento e gli assi XYZ nella vista 3D.' },
         { id: 'imp-etichette-ogg', campo: 'mostra_etichette_oggetti', icon: '<i class="bi bi-tags settings-output-etichette-icon"></i>', label: 'Mostra etichette oggetti', desc: 'Visualizza il codice di ogni oggetto direttamente sulle facce nella vista 3D.' },
         { id: 'imp-etichetta-cont', campo: 'mostra_etichetta_contenitore', icon: '<i class="bi bi-box settings-output-contenitore-icon"></i>', label: 'Mostra etichetta contenitore', desc: 'Visualizza il nome e le dimensioni del contenitore nella vista 3D.' },
         { id: 'imp-azzera-vuoti', campo: 'azzera_grafico_pesi_nei_vuoti', icon: '<i class="bi bi-graph-down settings-output-vuoti-icon"></i>', label: 'Azzera il grafico pesi nei vuoti', desc: 'Nel grafico distribuzione pesi per sezione, la linea scende a zero dove non ci sono sezioni cariche.' },
@@ -587,6 +589,15 @@ function agganciaEventiImpostazioni(sezione) {
     }
 
     if (sezione === 'output') {
+        // Toggle griglia e assi
+        var grigliaToggle = document.getElementById('imp-mostra-griglia');
+        if (grigliaToggle) grigliaToggle.addEventListener('change', function () {
+            _impostazioniDirty = true;
+            IMPOSTAZIONI.output_ottimizzazione.mostra_griglia = this.checked;
+            if (STATE.grigliaMesh) STATE.grigliaMesh.visible = this.checked;
+            if (STATE.axesMesh) STATE.axesMesh.visible = this.checked;
+        });
+
         // Checkbox output
         var etichetteOgg = document.getElementById('imp-etichette-ogg');
         if (etichetteOgg) etichetteOgg.addEventListener('change', function () {

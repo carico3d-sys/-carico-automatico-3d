@@ -900,13 +900,18 @@
     }
   },
   "colori": {
-    "header": "#1f3946",
-    "sidebar": "#ecf2f5",
-    "panel-bg": "#f4f7f9",
-    "panel-border": "#dae5eb",
-    "main-bg": "#e9f0f3",
-    "accent-hover": "#6998af",
-    "slider-track-start": "#c7d8e1"
+    "header": "#edf1f2",
+    "sidebar": "#e4eaec",
+    "panel-bg": "#eff3f4",
+    "panel-border": "#ced9dc",
+    "main-bg": "#fbfcfc",
+    "accent": "#205060",
+    "accent-hover": "#4d7380",
+    "slider-track-start": "#bccbcf",
+    "slider-track": "#205060",
+    "slider-thumb": "#205060",
+    "strategia-thumb": "#205060",
+    "base": "#205060"
   },
   "header": {
     "panel-destro": 64,

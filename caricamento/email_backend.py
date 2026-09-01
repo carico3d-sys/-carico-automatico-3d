@@ -71,12 +71,21 @@ class ResendEmailBackend(BaseEmailBackend):
         if bcc_list:
             payload["bcc"] = bcc_list
 
-        # Preferisci HTML a plain text
-        if msg.body:
-            if msg.content_subtype == "html":
-                payload["html"] = msg.body
-            else:
-                payload["text"] = msg.body
+        # Preferisci HTML a plain text.
+        # Django memorizza le alternative (HTML) in msg.alternatives;
+        # msg.body contiene il plain text come fallback.
+        html_body = None
+        if msg.content_subtype == "html":
+            html_body = msg.body
+        elif hasattr(msg, 'alternatives') and msg.alternatives:
+            for content, subtype in msg.alternatives:
+                if subtype == 'text/html':
+                    html_body = content
+                    break
+        if html_body:
+            payload["html"] = html_body
+        elif msg.body:
+            payload["text"] = msg.body
 
         # Allegati: Resend supporta附件 via multipart, ma per semplicita'
         # se ci sono allegati, convertili in base64 e aggiungili.

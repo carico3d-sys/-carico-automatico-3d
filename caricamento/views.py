@@ -252,6 +252,68 @@ def _check_demo_abuse(request, user=None):
     return blocked
 
 
+def _check_fingerprint_expired_trial(request, user):
+    """Verifica se un utente con trial scaduto ha fingerprint che matchano
+    con un'altra demo esistente (stesso device/rete).
+
+    Questo previene il "cambio identità": l'utente con trial scaduto non
+    può creare un nuovo account dallo stesso dispositivo/rete.
+    Restituisce True se l'accesso deve essere bloccato.
+    """
+    from .models import DemoFingerprint, ImpostazioniSistema, UserProfile
+
+    imp = ImpostazioniSistema.get()
+    if not imp.controlli_demo_attivi:
+        return False
+
+    # Non bloccare staff o utenti paganti
+    if user.is_staff or user.is_superuser:
+        return False
+    try:
+        profile = user.profile
+        if profile.is_paying:
+            return False
+    except UserProfile.DoesNotExist:
+        return False
+
+    soglia = imp.soglia_controlli_demo  # default 1
+
+    ip_raw = _client_ip(request)
+    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest() if ip_raw else ""
+    browser_hash = request.COOKIES.get("cb_fp", "") or None
+    cookie_token = _demo_cookie_token(request) or None
+
+    # Cerca fingerprint di demo che non appartengono a questo utente
+    # (altri utenti demo non paganti con trial scaduto)
+    matches = DemoFingerprint.objects.filter(
+        user_profile__is_paying=False,
+        user_profile__user__is_staff=False,
+        user_profile__user__is_superuser=False,
+    ).exclude(user_profile__user=user)
+
+    match_count = 0
+    matched_signals = []
+    if ip_hash and matches.filter(ip_hash=ip_hash).exists():
+        match_count += 1
+        matched_signals.append("ip")
+    if browser_hash and matches.filter(browser_hash=browser_hash).exists():
+        match_count += 1
+        matched_signals.append("browser")
+    if cookie_token and matches.filter(cookie_token=cookie_token).exists():
+        match_count += 1
+        matched_signals.append("cookie")
+
+    blocked = match_count >= soglia
+    if blocked:
+        logger.warning(
+            "Fingerprint EXPIRED TRIAL BLOCK: user=%s match_count=%d "
+            "soglia=%d signals=%s ip=%s",
+            user.username, match_count, soglia,
+            ",".join(matched_signals), ip_hash[:12],
+        )
+    return blocked
+
+
 def _setup_trial_for_user(user):
     """Crea o aggiorna il profilo utente con periodo di prova.
 
@@ -401,6 +463,7 @@ def homepage(request):
     email_verification_sent = False
     trial_expired = request.GET.get("trial") == "expired"
     trial_used = request.GET.get("trial") == "used"
+    trial_blocked = request.GET.get("trial") == "blocked"  # trial scaduto + fingerprint sovrapposto
     account_disabled = request.GET.get("account") == "disabled"
     demo_disabled = request.GET.get("demo") == "disabled"
     switch_account = request.GET.get("switch_account", "") == "1"
@@ -431,8 +494,18 @@ def homepage(request):
                 # account demo. Un account già esistente deve poter accedere
                 # finché è attivo e il suo trial non è scaduto (come già
                 # avviene per un'identità Google esistente).
+                # Se il trial è scaduto, verifica anche il fingerprint per
+                # bloccare il cambio identità dallo stesso device/rete.
                 elif not profile.is_trial_active and not user.is_staff:
-                    trial_expired = True
+                    if _check_fingerprint_expired_trial(request, user):
+                        trial_blocked = True
+                        logger.warning(
+                            "Login bloccato: trial scaduto + fingerprint "
+                            "sovrapposto user=%s ip=%s",
+                            user.username, _client_ip(request),
+                        )
+                    else:
+                        trial_expired = True
                 else:
                     auth_login(request, user)
                     _save_demo_fingerprints(request, user)
@@ -531,6 +604,7 @@ def homepage(request):
         "password_confirmation_error": password_confirmation_error,
         "trial_expired": trial_expired,
         "trial_used": trial_used,
+        "trial_blocked": trial_blocked,
         "account_disabled": account_disabled,
         "demo_disabled": demo_disabled,
         "email_verification_sent": email_verification_sent,

@@ -414,7 +414,7 @@ function _trovaElementiIcona(icon) {
 function _iconaDinamicaAttesa(icon) {
     if (!icon) return false;
     if (/^nav-/.test(icon.id)) return true;
-    return ['Impostazioni', 'Viewport', 'Panel View', 'Panel Destro'].indexOf(icon.location) >= 0;
+    return ['Impostazioni', 'MainView', 'Viewport', 'Panel View', 'Panel Destro'].indexOf(icon.location) >= 0;
 }
 
 function _bottoneDinamicoAtteso(btnDef) {
@@ -793,6 +793,57 @@ function apriModaleIcone() {
                 '<input type="text" class="form-input colori-base-hex" id="colori-base-hex" maxlength="7" placeholder="#rrggbb" title="Colore di riferimento">' +
                 '<span class="colori-base-hint">genera tonalità coordinate per tutte le aree<br><small>per grigi puri usa #808080 o un grigio perfettamente neutro</small></span>' +
                 '<button type="button" class="colori-base-gen" id="colori-base-gen"><i class="bi bi-magic"></i> Genera tonalità</button>' +
+            '</div>' +
+            '<div class="colori-hsl-sliders" id="colori-hsl-sliders">' +
+                '<div class="colori-hsl-row">' +
+                    '<span class="colori-hsl-preview" id="colori-hsl-preview"></span>' +
+                    '<div class="colori-hsl-fields">' +
+                        '<div class="colori-hsl-field">' +
+                            '<label class="colori-hsl-label">Tonalità</label>' +
+                            '<input type="range" class="colori-hsl-slider colori-hsl-hue" id="colori-hsl-hue" min="0" max="360" value="210" step="1">' +
+                            '<span class="colori-hsl-value" id="colori-hsl-hue-val">210°</span>' +
+                        '</div>' +
+                        '<div class="colori-hsl-field">' +
+                            '<label class="colori-hsl-label">Saturazione</label>' +
+                            '<input type="range" class="colori-hsl-slider colori-hsl-sat" id="colori-hsl-sat" min="0" max="100" value="50" step="1">' +
+                            '<span class="colori-hsl-value" id="colori-hsl-sat-val">50%</span>' +
+                        '</div>' +
+                        '<div class="colori-hsl-field">' +
+                            '<label class="colori-hsl-label">Luminosità</label>' +
+                            '<input type="range" class="colori-hsl-slider colori-hsl-lum" id="colori-hsl-lum" min="10" max="85" value="48" step="1">' +
+                            '<span class="colori-hsl-value" id="colori-hsl-lum-val">48%</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="colori-palette" id="colori-palette">' +
+                '<span class="colori-palette-label">Tonalità rapide:</span>' +
+                '<div class="colori-palette-grid" id="colori-palette-grid"></div>' +
+            '</div>' +
+            '<div class="colori-styles" id="colori-styles">' +
+                '<div class="colori-styles-label">Stili rapidi:</div>' +
+                '<div class="colori-styles-grid">' +
+                    '<button type="button" class="colori-style-btn" data-style="1" title="Header colorato, sidebar più scura">' +
+                        '<div class="colori-style-preview" id="colori-style-prev-1"></div>' +
+                        '<span class="colori-style-name">1. Header colorato</span>' +
+                        '<span class="colori-style-desc">Sidebar distinta</span>' +
+                    '</button>' +
+                    '<button type="button" class="colori-style-btn" data-style="2" title="Bordi e ombre leggere">' +
+                        '<div class="colori-style-preview" id="colori-style-prev-2"></div>' +
+                        '<span class="colori-style-name">2. Bordi e ombre</span>' +
+                        '<span class="colori-style-desc">Separazione morbida</span>' +
+                    '</button>' +
+                    '<button type="button" class="colori-style-btn" data-style="3" title="Contrasto forte, header scuro">' +
+                        '<div class="colori-style-preview" id="colori-style-prev-3"></div>' +
+                        '<span class="colori-style-name">3. Contrasto forte</span>' +
+                        '<span class="colori-style-desc">Header scuro classico</span>' +
+                    '</button>' +
+                    '<button type="button" class="colori-style-btn" data-style="4" title="Tonalità piena ovunque">' +
+                        '<div class="colori-style-preview" id="colori-style-prev-4"></div>' +
+                        '<span class="colori-style-name">4. Tonalità piena</span>' +
+                        '<span class="colori-style-desc">Tint ovunque, moderno</span>' +
+                    '</button>' +
+                '</div>' +
             '</div>' +
             '<div class="colori-preview">' +
                 '<div class="colori-preview-title">Anteprima live</div>' +
@@ -1655,24 +1706,24 @@ function _generaTonalitaDaBase(baseHex) {
     }
     var baseLum = luminanza(base);
 
-    // Header: base scurita molto (55% verso il nero)
-    var header = _mixColor(base, nero, 0.55);
+    // Header: base schiarita (92% verso il bianco) — stessa tonalità dei pannelli
+    var header = _mixColor(base, bianco, 0.92);
     // Accento: la base; se troppo chiara (luminanza > 0.72) la scurisco del
     // 35% verso il nero — tonalità identica, ma il testo resta leggibile.
     var accent = baseLum > 0.72 ? _mixColor(base, nero, 0.35) : base;
     // Hover: accento schiarito (20% verso il bianco)
     var accentHover = _mixColor(accent, bianco, 0.20);
     // Superfici: base schiarita verso il bianco (le aree chiare restano quasi bianche)
-    var sidebar = _mixColor(base, bianco, 0.90);
-    var panelBg = _mixColor(base, bianco, 0.94);
-    var panelBorder = _mixColor(base, bianco, 0.80);
-    var mainBg = _mixColor(base, bianco, 0.88);
+    var sidebar = _mixColor(base, bianco, 0.88);
+    var panelBg = _mixColor(base, bianco, 0.93);
+    var panelBorder = _mixColor(base, bianco, 0.78);
+    var mainBg = _mixColor(base, bianco, 0.98);
     // Slider
     var trackStart = _mixColor(base, bianco, 0.70);
     var trackEnd = accent;
     var thumb = accent;
     var strategiaThumb = accent;
-    var sequenceBg = _mixColor(base, nero, 0.55);
+    var sequenceBg = _mixColor(base, bianco, 0.92);
 
     var map = {
         'header': header,
@@ -1714,6 +1765,82 @@ function _applicaTonalitaDaBase(baseHex) {
     _applyColorConfig();
 }
 
+// =============================================================================
+// HSL ↔ HEX — conversioni per gli slider tonalità/saturazione/luminosità
+// =============================================================================
+
+function _hslToHex(h, s, l) {
+    h = h / 360;
+    s = s / 100;
+    l = l / 100;
+    var r, g, b;
+    if (s === 0) {
+        r = g = b = l;
+    } else {
+        function hue2rgb(p, q, t) {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+    function toHex(x) {
+        var hex = Math.round(x * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+function _hexToHsl(hex) {
+    hex = hex.replace(/^#/, '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substr(0, 2), 16) / 255;
+    var g = parseInt(hex.substr(2, 2), 16) / 255;
+    var b = parseInt(hex.substr(4, 2), 16) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+    if (max === min) {
+        h = s = 0;
+    } else {
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (max === g) h = ((b - r) / d + 2) / 6;
+        else h = ((r - g) / d + 4) / 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+/**
+ * Sincronizza gli slider HSL con il colore base corrente.
+ * Chiamata quando il colore base cambia da picker, hex, o generazione.
+ */
+function _syncHslSliders(hex) {
+    if (!_isHexColor(hex)) return;
+    var hsl = _hexToHsl(hex);
+    var hueSlider = document.getElementById('colori-hsl-hue');
+    var satSlider = document.getElementById('colori-hsl-sat');
+    var lumSlider = document.getElementById('colori-hsl-lum');
+    var hueVal = document.getElementById('colori-hsl-hue-val');
+    var satVal = document.getElementById('colori-hsl-sat-val');
+    var lumVal = document.getElementById('colori-hsl-lum-val');
+    var preview = document.getElementById('colori-hsl-preview');
+    if (hueSlider) hueSlider.value = hsl.h;
+    if (satSlider) satSlider.value = hsl.s;
+    if (lumSlider) lumSlider.value = hsl.l;
+    if (hueVal) hueVal.textContent = hsl.h + '°';
+    if (satVal) satVal.textContent = hsl.s + '%';
+    if (lumVal) lumVal.textContent = hsl.l + '%';
+    if (preview) preview.style.background = hex;
+}
+
 /**
  * Popola le liste Aree e Slider del tab Colori e inizializza la riga
  * "Colore di base" (generazione automatica delle tonalità coordinate).
@@ -1740,6 +1867,7 @@ function _popolaTabellaColori() {
             document.getElementById('colori-base-swatch').style.background = val;
             COLOR_CONFIG['base'] = val;
             _applicaTonalitaDaBase(val);
+            _syncHslSliders(val);
         }
         baseInput.addEventListener('input', sincronizzaBase);
         if (baseHex) baseHex.addEventListener('input', sincronizzaBase);
@@ -1749,9 +1877,151 @@ function _popolaTabellaColori() {
                 var val = (COLOR_CONFIG['base'] && _isHexColor(COLOR_CONFIG['base']))
                     ? COLOR_CONFIG['base'] : baseInput.value;
                 _applicaTonalitaDaBase(val);
+                _syncHslSliders(val);
                 showToast('Tonalità coordinate generate dal colore di base!', 'success');
             });
         }
+
+        // Inizializza gli slider HSL con il colore base corrente
+        _syncHslSliders(baseVal);
+    }
+
+    // --- Slider HSL (Tonalità / Saturazione / Luminosità) ---
+    var hueSlider = document.getElementById('colori-hsl-hue');
+    var satSlider = document.getElementById('colori-hsl-sat');
+    var lumSlider = document.getElementById('colori-hsl-lum');
+    var hueValEl = document.getElementById('colori-hsl-hue-val');
+    var satValEl = document.getElementById('colori-hsl-sat-val');
+    var lumValEl = document.getElementById('colori-hsl-lum-val');
+    var hslPreview = document.getElementById('colori-hsl-preview');
+
+    function _onHslSliderChange() {
+        var h = parseInt(hueSlider.value, 10);
+        var s = parseInt(satSlider.value, 10);
+        var l = parseInt(lumSlider.value, 10);
+        var hex = _hslToHex(h, s, l);
+        // Aggiorna i display numerici
+        if (hueValEl) hueValEl.textContent = h + '°';
+        if (satValEl) satValEl.textContent = s + '%';
+        if (lumValEl) lumValEl.textContent = l + '%';
+        if (hslPreview) hslPreview.style.background = hex;
+        // Aggiorna i background degli slider saturazione e luminosità
+        if (satSlider) satSlider.style.background = 'linear-gradient(to right, #cccccc, ' + _hslToHex(h, 100, 50) + ')';
+        if (lumSlider) lumSlider.style.background = 'linear-gradient(to right, ' + _hslToHex(h, s, 15) + ', ' + _hslToHex(h, s, 50) + ', ' + _hslToHex(h, s, 85) + ')';
+        // Aggiorna il picker e hex del colore base
+        var basePicker = document.getElementById('colori-base-input');
+        var baseHexEl = document.getElementById('colori-base-hex');
+        var baseSwatch = document.getElementById('colori-base-swatch');
+        if (basePicker) basePicker.value = hex;
+        if (baseHexEl) baseHexEl.value = hex;
+        if (baseSwatch) baseSwatch.style.background = hex;
+        COLOR_CONFIG['base'] = hex;
+        _applicaTonalitaDaBase(hex);
+    }
+
+    if (hueSlider) hueSlider.addEventListener('input', _onHslSliderChange);
+    if (satSlider) satSlider.addEventListener('input', _onHslSliderChange);
+    if (lumSlider) lumSlider.addEventListener('input', _onHslSliderChange);
+
+    // --- Stili rapidi: 4 proposte header/sidebar/pannelli ---
+    var STYLE_PRESETS = {
+        '1': { name: 'Header colorato', headerLum: 35, headerSat: 40, sidebarLum: 88, sidebarSat: 25, panelLum: 95, panelSat: 15 },
+        '2': { name: 'Bordi e ombre',   headerLum: 88, headerSat: 20, sidebarLum: 85, sidebarSat: 15, panelLum: 93, panelSat: 10 },
+        '3': { name: 'Contrasto forte',  headerLum: 25, headerSat: 50, sidebarLum: 82, sidebarSat: 18, panelLum: 95, panelSat: 8 },
+        '4': { name: 'Tonalità piena',   headerLum: 30, headerSat: 60, sidebarLum: 82, sidebarSat: 35, panelLum: 92, panelSat: 22 }
+    };
+
+    function _aggiornaAnteprimeStili() {
+        var h = hueSlider ? parseInt(hueSlider.value, 10) : 210;
+        Object.keys(STYLE_PRESETS).forEach(function (key) {
+            var st = STYLE_PRESETS[key];
+            var prev = document.getElementById('colori-style-prev-' + key);
+            if (!prev) return;
+            var hdr = _hslToHex(h, st.headerSat, st.headerLum);
+            var sdb = _hslToHex(h, st.sidebarSat, st.sidebarLum);
+            var pnl = _hslToHex(h, st.panelSat, st.panelLum);
+            var main = _hslToHex(h, Math.max(0, st.panelSat - 5), Math.min(98, st.panelLum + 3));
+            prev.innerHTML = '' +
+                '<div class="csp-header" style="background:' + hdr + '"></div>' +
+                '<div class="csp-body">' +
+                    '<div class="csp-sidebar" style="background:' + sdb + '"></div>' +
+                    '<div class="csp-main" style="background:' + main + '"></div>' +
+                    '<div class="csp-panel" style="background:' + pnl + '"></div>' +
+                '</div>';
+        });
+    }
+
+    _aggiornaAnteprimeStili();
+
+    // Aggiorna le anteprime quando la tonalità cambia
+    if (hueSlider) {
+        hueSlider.addEventListener('input', _aggiornaAnteprimeStili);
+    }
+
+    document.querySelectorAll('.colori-style-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var key = this.dataset.style;
+            var st = STYLE_PRESETS[key];
+            if (!st || !hueSlider) return;
+            var h = parseInt(hueSlider.value, 10);
+            // Applica il preset: usa la tonalità corrente, sat/lum dello stile
+            var hex = _hslToHex(h, st.headerSat, st.headerLum);
+            // Aggiorna picker e hex
+            var basePicker = document.getElementById('colori-base-input');
+            var baseHexEl = document.getElementById('colori-base-hex');
+            var baseSwatch = document.getElementById('colori-base-swatch');
+            if (basePicker) basePicker.value = hex;
+            if (baseHexEl) baseHexEl.value = hex;
+            if (baseSwatch) baseSwatch.style.background = hex;
+            COLOR_CONFIG['base'] = hex;
+            _applicaTonalitaDaBase(hex);
+            _syncHslSliders(hex);
+            // Evidenzia il bottone attivo
+            document.querySelectorAll('.colori-style-btn').forEach(function (b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            showToast('Stile "' + st.name + '" applicato!', 'success');
+        });
+    });
+
+    // --- Palette colori: griglia di quadratini con tutte le tonalità ---
+    var paletteGrid = document.getElementById('colori-palette-grid');
+    if (paletteGrid) {
+        // Genera 24 quadratini da 0° a 360° (ogni 15°)
+        var hueSteps = 24;
+        var html = '';
+        for (var i = 0; i < hueSteps; i++) {
+            var h = Math.round((360 / hueSteps) * i);
+            var swatch = _hslToHex(h, 70, 50);
+            html += '<button type="button" class="colori-palette-swatch" data-hue="' + h + '" ' +
+                'style="background:' + swatch + '" ' +
+                'title="Tonalità ' + h + '°"></button>';
+        }
+        paletteGrid.innerHTML = html;
+
+        paletteGrid.querySelectorAll('.colori-palette-swatch').forEach(function (sw) {
+            sw.addEventListener('click', function () {
+                var hue = parseInt(this.dataset.hue, 10);
+                if (!isFinite(hue) || !hueSlider) return;
+                hueSlider.value = hue;
+                var s = parseInt(satSlider.value, 10);
+                var l = parseInt(lumSlider.value, 10);
+                var hex = _hslToHex(hue, s, l);
+                var basePicker = document.getElementById('colori-base-input');
+                var baseHexEl = document.getElementById('colori-base-hex');
+                var baseSwatch2 = document.getElementById('colori-base-swatch');
+                if (basePicker) basePicker.value = hex;
+                if (baseHexEl) baseHexEl.value = hex;
+                if (baseSwatch2) baseSwatch2.style.background = hex;
+                COLOR_CONFIG['base'] = hex;
+                _applicaTonalitaDaBase(hex);
+                _syncHslSliders(hex);
+                _aggiornaAnteprimeStili();
+                // Evidenzia il swatch attivo
+                paletteGrid.querySelectorAll('.colori-palette-swatch').forEach(function (s) { s.classList.remove('active'); });
+                this.classList.add('active');
+                showToast('Tonalità ' + hue + '° applicata!', 'success');
+            });
+        });
     }
 
     // --- Liste Aree e Slider ---
@@ -2185,6 +2455,7 @@ function _resetIconConfig() {
     var baseSwatch = document.getElementById('colori-base-swatch');
     if (baseSwatch) baseSwatch.style.background = COLOR_BASE_DEFAULT;
     _applyColorConfig();
+    _syncHslSliders(COLOR_BASE_DEFAULT);
 
     // Tab Header: ripristina le altezze di default e applica subito
     HEADER_CONFIG = {};

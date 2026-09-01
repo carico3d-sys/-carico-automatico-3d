@@ -35,6 +35,7 @@ const STATE = {
     oggettiMesh: [],
     containerMesh: null,
     grigliaMesh: null,
+    axesMesh: null,
     animating: true,
     tooltip: null,
     raycaster: null,
@@ -267,9 +268,18 @@ function initLights(scene) {
 function initBackground(scene) {
     // Griglia di riferimento sul piano di terra (Y=0)
     // Dimensione 3000 cm (30m) con divisioni ogni 100 cm (1m)
+    // Nascosta di default — toggle in Impostazioni > Output > Mostra griglia
     const grid = new THREE.GridHelper(3000, 30, 0xcccccc, 0xe0e0e0);
     grid.position.y = 0;
+    grid.visible = false;
     scene.add(grid);
     STATE.grigliaMesh = grid;
+
+    // Assi di riferimento (X rosso, Y verde, Z blu) — nascosti di default
+    var axes = new THREE.AxesHelper(200);
+    axes.position.set(0, 0, 0);
+    axes.visible = false;
+    scene.add(axes);
+    STATE.axesMesh = axes;
 }
 

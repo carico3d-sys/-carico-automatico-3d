@@ -113,17 +113,17 @@
     align-items: center;
     gap: 8px;
     padding: 5px 12px;
-    background: rgba(26,26,46,0.75);
-    backdrop-filter: blur(8px);
+    background: var(--color-header);
     flex-shrink: 0;
     z-index: 10;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid var(--color-panel-border);
     order: 99;
 }
 
 .vp-slider-icon {
     font-size: 15px;
     flex-shrink: 0;
+    color: #555;
     opacity: 0.7;
     transition: opacity 0.2s;
 }
@@ -167,7 +167,7 @@
 .vp-slider-count {
     font-size: 10px;
     font-weight: 600;
-    color: rgba(255,255,255,0.55);
+    color: #888;
     white-space: nowrap;
     min-width: 48px;
     text-align: right;
@@ -185,18 +185,18 @@
     padding: 0;
     border: none;
     background: transparent;
-    color: rgba(255,255,255,0.6);
+    color: #888;
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.15s ease;
 }
 .vp-slider-lock:hover {
-    color: #fff;
-    background: rgba(255,255,255,0.12);
+    color: #333;
+    background: rgba(0,0,0,0.06);
 }
 .vp-slider-lock.locked {
     color: #f39c12;
-    background: rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.05);
 }
 
 /* Container 3D */
@@ -407,7 +407,7 @@
     position: relative;
     width: var(--panel-w);
     min-width: var(--panel-w);
-    background: var(--color-white);
+    background: var(--color-sidebar-bg);
     border-left: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
@@ -423,7 +423,7 @@
     min-height: var(--header-panel-destro-h, 45px);
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
-    background: #fafafa;
+    background: var(--color-panel-bg);
 }
 
 .panel-header h3 {
