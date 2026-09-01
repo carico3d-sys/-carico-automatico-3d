@@ -46,6 +46,10 @@ ops/logs/
 *.swo
 *~
 
+# === AI tools ===
+.kilo/
+.superdesign/
+
 # === OS ===
 Thumbs.db
 .DS_Store
