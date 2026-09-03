@@ -11,6 +11,7 @@ Copre:
 import copy
 import hashlib
 import hmac
+import io
 import json
 import random
 import tempfile
@@ -23,6 +24,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
+from PIL import Image
 from rest_framework.test import APIClient
 
 from caricamento.client_ip import get_client_ip
@@ -41,11 +43,51 @@ from caricamento.models import (
     OggettoDaCaricare,
     OggettoPosizionato,
     PianoDiCarico,
+    SezioneCarico,
     StatoPiano,
     UserProfile,
     VincoloOggetto,
     VincoloTraOggetti,
 )
+
+
+class TestCatalogoInizialeNuovoUtente(TestCase):
+    """Ogni nuovo utente riceve una copia privata del catalogo iniziale."""
+
+    def test_crea_catalogo_e_piano_ottimizzato_per_nuovo_utente(self):
+        user = User.objects.create_user(username="starter-user")
+
+        self.assertTrue(UserProfile.objects.filter(user=user).exists())
+        self.assertEqual(Oggetto.objects.filter(owner=user).count(), 14)
+        self.assertEqual(VincoloOggetto.objects.filter(oggetto__owner=user).count(), 14)
+        self.assertEqual(Contenitore.objects.filter(owner=user).count(), 3)
+        self.assertEqual(SezioneCarico.objects.filter(contenitore__owner=user).count(), 4)
+        self.assertEqual(VincoloTraOggetti.objects.filter(oggetto_a__owner=user).count(), 171)
+
+        piano = PianoDiCarico.objects.get(owner=user)
+        self.assertEqual(piano.nome, "Carico 03/09/2026 16:06")
+        self.assertEqual(piano.stato, StatoPiano.COMPLETATO)
+        self.assertEqual(piano.oggetti_da_caricare.count(), 6)
+        self.assertEqual(piano.oggetti_posizionati.count(), 78)
+
+    def test_due_utenti_ricevono_copie_indipendenti(self):
+        primo = User.objects.create_user(username="starter-user-one")
+        secondo = User.objects.create_user(username="starter-user-two")
+
+        primo_oggetto = Oggetto.objects.get(owner=primo, codice="PLT-001")
+        secondo_oggetto = Oggetto.objects.get(owner=secondo, codice="PLT-001")
+        self.assertNotEqual(primo_oggetto.pk, secondo_oggetto.pk)
+
+        primo_oggetto.descrizione = "Modificato dal primo utente"
+        primo_oggetto.save(update_fields=["descrizione"])
+        secondo_oggetto.refresh_from_db()
+        self.assertNotEqual(primo_oggetto.descrizione, secondo_oggetto.descrizione)
+        self.assertEqual(secondo_oggetto.descrizione, "EPAL EUR 1 - European standard, logistics")
+
+        self.assertEqual(PianoDiCarico.objects.filter(owner=primo).count(), 1)
+        self.assertEqual(PianoDiCarico.objects.filter(owner=secondo).count(), 1)
+
+
 
 from caricamento.engine.tre_d.packer_3d_v2 import (
     Obj,
@@ -3256,9 +3298,11 @@ class TestSecurityHardening(TestCase):
         )
         self.client.force_login(staff)
 
+        png_buffer = io.BytesIO()
+        Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(png_buffer, format="PNG")
         png = SimpleUploadedFile(
             "ok.png",
-            b"\x89PNG\r\n\x1a\n" + b"payload",
+            png_buffer.getvalue(),
             content_type="image/png",
         )
         with tempfile.TemporaryDirectory() as tmp, patch(

@@ -71,7 +71,6 @@ class Contenitore(models.Model):
 
     nome = models.CharField(
         max_length=128,
-        unique=True,
         help_text=_("Nome identificativo del contenitore (es. 'Camion A-123')."),
     )
     tipo_mezzo = models.CharField(
@@ -119,6 +118,12 @@ class Contenitore(models.Model):
         verbose_name = _("Contenitore")
         verbose_name_plural = _("Contenitori")
         ordering = ["nome"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "nome"],
+                name="unique_contenitore_per_owner",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.nome} ({self.get_tipo_mezzo_display()})"
@@ -188,7 +193,6 @@ class Oggetto(models.Model):
 
     codice = models.CharField(
         max_length=64,
-        unique=True,
         help_text=_("Codice univoco dell'oggetto (es. SKU, barcode, part number)."),
     )
     descrizione = models.TextField(
@@ -234,6 +238,12 @@ class Oggetto(models.Model):
         verbose_name = _("Oggetto")
         verbose_name_plural = _("Oggetti")
         ordering = ["codice"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "codice"],
+                name="unique_oggetto_per_owner",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.codice} - {self.descrizione[:50]}"
@@ -1095,6 +1105,13 @@ def _crea_profilo_utente(sender, instance, created, **kwargs):
         profile.trial_start = timezone.now()
         profile.trial_end = timezone.now() + timedelta(days=imp.giorni_prova)
         profile.save(update_fields=["trial_start", "trial_end"])
+
+    # Ogni nuovo utente riceve una copia privata del catalogo iniziale e del
+    # piano già ottimizzato. Il loader è idempotente a livello di creazione:
+    # viene chiamato soltanto per User appena creati.
+    if was_created:
+        from .starter_data import crea_dati_iniziali
+        crea_dati_iniziali(instance)
 
 
 models.signals.post_save.connect(
