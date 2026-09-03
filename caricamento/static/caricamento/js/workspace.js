@@ -55,6 +55,15 @@ function inizializza() {
             e.preventDefault();
             var tabName = this.dataset.tab;
             switchSidebarTab(tabName);
+            // Sincronizza l'header: il tab sidebar seleziona la categoria header corrispondente
+            var _tabToHeaderCat = { documenti: 'documenti', anagrafica: 'anagrafica', manuale: 'goto-manuale', automatica: 'goto-automatica' };
+            var headerCat = _tabToHeaderCat[tabName];
+            if (headerCat) {
+                // Aggiorna solo lo stato visivo (active/underline) dei pulsanti header
+                DOM.headerCatBtns.forEach(function (btn) {
+                    btn.classList.toggle('active', btn.dataset.cat === headerCat);
+                });
+            }
         });
     });
 
@@ -63,6 +72,12 @@ function inizializza() {
         btn.addEventListener('click', function (e) {
             e.preventDefault();
             var cat = this.dataset.cat;
+            if (cat === 'help') {
+                if (typeof apriModaleHelp === 'function') apriModaleHelp();
+                return;
+            }
+            // Il dropdown lingua usa il proprio gestore delegato.
+            if (cat === 'lingua') return;
             _attivaHeaderCategory(cat);
         });
     });

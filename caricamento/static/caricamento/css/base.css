@@ -124,33 +124,63 @@ body {
     gap: 12px;
 }
 
-/* Selettore lingua: combo inline tra Icone e username */
-.header-lang-select {
-    appearance: none;
-    -webkit-appearance: none;
-    padding: 3px 20px 3px 8px;
-    background: rgba(0,0,0,0.04) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(0,0,0,0.4)'/%3E%3C/svg%3E") no-repeat right 6px center;
+/* Selettore lingua: stesso layout verticale dei pulsanti categoria */
+.header-lang-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.header-lang-btn {
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+#header-lang-label {
+    font-size: 9px;
+    letter-spacing: 0.3px;
+}
+
+.header-lang-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
     border: 1px solid rgba(0,0,0,0.12);
     border-radius: var(--radius-sm);
-    color: #555;
-    font: 600 11px inherit;
-    cursor: pointer;
-    line-height: 1;
-    margin-left: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 140px;
+    padding: 4px 0;
 }
 
-.header-lang-select:hover {
-    background-color: rgba(0,0,0,0.08);
+.header-lang-menu.open {
+    display: block;
 }
 
-.header-lang-select:focus {
-    outline: 1px solid var(--color-accent, #447e9b);
-    outline-offset: -1px;
-}
-
-.header-lang-select option {
-    background: #fff;
+.header-lang-option {
+    display: block;
+    width: 100%;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    text-align: left;
+    font: 13px inherit;
     color: #333;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.header-lang-option:hover {
+    background: rgba(0,0,0,0.06);
+}
+
+.header-lang-option.active {
+    background: rgba(68,126,155,0.1);
+    color: var(--color-accent, #447e9b);
+    font-weight: 600;
 }
 
 .header-btn {

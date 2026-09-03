@@ -6,6 +6,13 @@
  * Depends on: workspace_core.js
  */
 
+/** Helper: lookup traduzione per le impostazioni. */
+function _tImp(key, fallback) {
+    var lingua = (window.CARICO3D_LANGUAGE === 'en') ? 'en' : 'it';
+    var d = window.DIZIONARIO && window.DIZIONARIO[lingua];
+    return (d && d[key]) || fallback || key;
+}
+
 function getImpostazioniDefault() {
     return {
         strategia_ottimizzazione: {
@@ -25,8 +32,9 @@ function getImpostazioniDefault() {
         manuale: {
             strategia_piazzamento: 'muro',
             massima_sporgenza_pct: 100,
-            snap_step_cm: 10
-        }
+            snap_step_cm: 10,
+        },
+        panel_widths: {}
     };
 }
 
@@ -133,6 +141,12 @@ function _applicaImpostazioniManuali() {
     if (typeof STATE !== 'undefined') STATE.snapStepCm = snapStep;
     var snapSelect = document.getElementById('manuale-snap-step');
     if (snapSelect) snapSelect.value = String(snapStep);
+
+    // Applica larghezze pannelli lista dal server
+    var pw = IMPOSTAZIONI.panel_widths || {};
+    Object.keys(pw).forEach(function (view) {
+        if (typeof _applicaPanelWidth === 'function') _applicaPanelWidth(view, pw[view]);
+    });
 }
 
 function _impostazioniPayloadPulito(source) {
@@ -158,9 +172,9 @@ function _salvaImpostazioniLocale() {
 
 // Elenco sezioni per la navigazione laterale
 var SEZIONI_IMPOSTAZIONI = [
-    { id: 'strategia', icon: '<i class="bi bi-bullseye settings-strategia-icon"></i>', label: 'Strategia di Ottimizzazione' },
-    { id: 'output', icon: '<i class="bi bi-bar-chart settings-output-icon"></i>', label: 'Output' },
-    { id: 'manuale', icon: '<i class="bi bi-hand-index-thumb settings-manuale-icon"></i>', label: 'Parametri Modalità Manuale' },
+    { id: 'strategia', icon: '<i class="bi bi-bullseye settings-strategia-icon"></i>', label: function () { return _tImp('settings.strategia.titolo', 'Strategia di Ottimizzazione'); } },
+    { id: 'output', icon: '<i class="bi bi-bar-chart settings-output-icon"></i>', label: function () { return _tImp('settings.output.titolo', 'Output'); } },
+    { id: 'manuale', icon: '<i class="bi bi-hand-index-thumb settings-manuale-icon"></i>', label: function () { return _tImp('settings.manuale.titolo', 'Parametri Modalità Manuale'); } },
 ];
 
 // Carica prima localStorage per un avvio immediato, poi sincronizza dal server.
@@ -223,7 +237,7 @@ function caricaImpostazioni() {
 // Salva impostazioni (localStorage + API)
 async function salvaImpostazioni() {
     _impostazioniDirty = true;
-    setStatus('busy', 'Salvataggio impostazioni...');
+    setStatus('busy', _tImp('settings.salvataggio-status', 'Salvataggio impostazioni...'));
     try {
         // Salva in locale
         _salvaImpostazioniLocale();
@@ -237,32 +251,32 @@ async function salvaImpostazioni() {
             });
             if (!resp.ok) {
                 console.warn('Salvataggio server fallito (HTTP ' + resp.status + '). Solo locale.');
-                showToast('⚠️ Impostazioni salvate solo in questo browser.', 'warning');
+                showToast(_tImp('settings.salvataggio-solo-locale', '⚠️ Impostazioni salvate solo in questo browser.'), 'warning');
             } else {
                 _impostazioniDirty = false;
             }
         } catch (e) {
             console.warn('Salvataggio server non disponibile. Salvato solo localmente.');
-            showToast('⚠️ Impostazioni salvate solo in questo browser.', 'warning');
+            showToast(_tImp('settings.salvataggio-solo-locale', '⚠️ Impostazioni salvate solo in questo browser.'), 'warning');
         }
 
-        showToast('✅ Impostazioni salvate con successo!', 'success');
-        setStatus('idle', 'Impostazioni salvate');
+        showToast(_tImp('settings.salvataggio-ok', '✅ Impostazioni salvate con successo!'), 'success');
+        setStatus('idle', _tImp('settings.salvataggio-idle', 'Impostazioni salvate'));
     } catch (err) {
-        showToast('❌ Errore salvataggio impostazioni: ' + err.message, 'error');
-        setStatus('error', 'Errore salvataggio');
+        showToast(_tImp('settings.salvataggio-errore', '❌ Errore salvataggio impostazioni: ') + err.message, 'error');
+        setStatus('error', _tImp('settings.salvataggio-errore-status', 'Errore salvataggio'));
     }
 }
 
 // Ripristina valori di default
 function ripristinaImpostazioniDefault() {
-    if (!confirm('Ripristinare tutte le impostazioni ai valori predefiniti?')) return;
+    if (!confirm(_tImp('settings.ripristina-confirm', 'Ripristinare tutte le impostazioni ai valori predefiniti?'))) return;
     IMPOSTAZIONI = getImpostazioniDefault();
     _impostazioniDirty = true;
     _salvaImpostazioniLocale();
     _applicaImpostazioniManuali();
     renderImpostazioniForm(WS.impostazioniSezione);
-    showToast('🔄 Impostazioni ripristinate ai valori predefiniti.', 'info');
+    showToast(_tImp('settings.ripristina-ok', '🔄 Impostazioni ripristinate ai valori predefiniti.'), 'info');
     // Persisti anche il ripristino sul profilo, senza perdere il fallback locale.
     salvaImpostazioni();
 }
@@ -273,15 +287,23 @@ function ripristinaImpostazioniDefault() {
 
 function renderImpostazioniPanel() {
     if (typeof _panelViewPronto === 'function' && !_panelViewPronto('impostazioni')) return;
-    DOM.pvListTitle.innerHTML = '<i class="bi bi-gear settings-impostazioni-icon"></i> Impostazioni';
+    DOM.pvListTitle.innerHTML = '<i class="bi bi-gear settings-impostazioni-icon"></i> ' + _tImp('settings.titolo', 'Impostazioni');
     DOM.pvListCount.textContent = SEZIONI_IMPOSTAZIONI.length;
+    // Rimuovi checkbox残留 (select-all, archiviati) da viste precedenti
+    var listHeader = document.querySelector('#panel-view-list .pv-list-header');
+    if (listHeader) {
+        var oldSelAll = listHeader.querySelector('.pv-list-select-all');
+        if (oldSelAll) oldSelAll.remove();
+        var oldArchCheck = listHeader.querySelector('.pv-list-archiviati');
+        if (oldArchCheck) oldArchCheck.remove();
+    }
 
     // Lista sezioni a sinistra
     var listHtml = '';
     SEZIONI_IMPOSTAZIONI.forEach(function (s) {
         listHtml += '<div class="pv-list-item" data-sezione="' + s.id + '">' +
             '<div class="pv-list-item-info">' +
-                '<strong>' + s.icon + ' ' + s.label + '</strong>' +
+                '<strong>' + s.icon + ' ' + (typeof s.label === 'function' ? s.label() : s.label) + '</strong>' +
                 '<span>' + getDescrizioneSezione(s.id) + '</span>' +
             '</div>' +
         '</div>';
@@ -305,33 +327,37 @@ function renderImpostazioniPanel() {
     var defaultItem = DOM.pvListBody.querySelector('[data-sezione="' + sezioneIniziale + '"]');
     if (defaultItem) defaultItem.classList.add('selected');
     renderImpostazioniForm(sezioneIniziale);
+
+    // Notifica il resizer che il pannello è pronto
+    document.dispatchEvent(new CustomEvent('carico3d:panel-rendered'));
 }
 
 function getDescrizioneSezione(id) {
     var descrizioni = {
-        strategia: 'Ordinamento, algoritmo, compattazione, distribuzione pesi',
-        output: 'Etichette, rotazione, grafico pesi',
-        manuale: 'Strategia piazzamento, sporgenza massima',
+        strategia: function () { return _tImp('settings.strategia.desc-breve', 'Ordinamento, algoritmo, compattazione, distribuzione pesi'); },
+        output: function () { return _tImp('settings.output.desc-breve', 'Etichette, rotazione, grafico pesi'); },
+        manuale: function () { return _tImp('settings.manuale.desc-breve', 'Strategia piazzamento, sporgenza massima'); },
     };
-    return descrizioni[id] || '';
+    var fn = descrizioni[id];
+    return fn ? fn() : '';
 }
 
 function renderImpostazioniForm(sezione) {
     if (typeof _panelViewPronto === 'function' && !_panelViewPronto('form impostazioni')) return;
     if (!sezione) {
-        DOM.pvFormTitle.innerHTML = '<i class="bi bi-gear settings-impostazioni-icon"></i> Seleziona una sezione';
-        DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Seleziona una sezione dalla lista a sinistra per configurare le impostazioni.</p>';
+        DOM.pvFormTitle.innerHTML = '<i class="bi bi-gear settings-impostazioni-icon"></i> ' + _tImp('settings.seleziona-sezione', 'Seleziona una sezione');
+        DOM.pvFormBody.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">' + _tImp('settings.seleziona-sezione-desc', 'Seleziona una sezione dalla lista a sinistra per configurare le impostazioni.') + '</p>';
         return;
     }
 
     var sezioneData = SEZIONI_IMPOSTAZIONI.find(function (s) { return s.id === sezione; });
-    DOM.pvFormTitle.innerHTML = sezioneData ? sezioneData.icon + ' ' + sezioneData.label : '<i class="bi bi-gear settings-impostazioni-icon"></i> Impostazioni';
+    DOM.pvFormTitle.innerHTML = sezioneData ? sezioneData.icon + ' ' + (typeof sezioneData.label === 'function' ? sezioneData.label() : sezioneData.label) : '<i class="bi bi-gear settings-impostazioni-icon"></i> ' + _tImp('settings.titolo', 'Impostazioni');
 
     // Barra azioni: viene renderizzata in fondo al form (sotto le card)
     var actionsBar =
         '<div class="settings-actions-bar">' +
-            '<button class="btn btn-success" id="btn-save-impostazioni"><i class="bi bi-save"></i> Salva impostazioni</button>' +
-            '<button class="btn btn-sm" id="btn-reset-impostazioni" style="color:#888;"><i class="bi bi-arrow-counterclockwise settings-reset-icon"></i> Ripristina default</button>' +
+            '<button class="btn btn-success" id="btn-save-impostazioni"><i class="bi bi-save"></i> ' + _tImp('settings.salva', 'Salva') + '</button>' +
+            '<button class="btn btn-sm" id="btn-reset-impostazioni" style="color:#888;"><i class="bi bi-arrow-counterclockwise settings-reset-icon"></i> ' + _tImp('settings.ripristina', 'Ripristina default') + '</button>' +
         '</div>';
 
     var cardsHtml = '';
@@ -367,21 +393,21 @@ function renderCardStrategia() {
 
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
-            '<h4 class="settings-card-title"><i class="bi bi-bullseye settings-strategia-icon"></i> Strategia di Ottimizzazione</h4>' +
-            '<p class="settings-card-desc">Configura come l\'algoritmo di 3D packing lavora per ottimizzare il carico.</p>' +
+            '<h4 class="settings-card-title"><i class="bi bi-bullseye settings-strategia-icon"></i> ' + _tImp('settings.strategia.titolo', 'Strategia di Ottimizzazione') + '</h4>' +
+            '<p class="settings-card-desc">' + _tImp('settings.strategia.desc', "Configura come l'algoritmo di 3D packing lavora per ottimizzare il carico.") + '</p>' +
         '</div>' +
         '<div class="settings-card-body">' +
             '<div class="field-group" style="background:#f0f4f8;padding:12px;border-radius:var(--radius-sm);border:1px solid #d0d8e0;">' +
-                '<label class="field-label">Algoritmo</label>' +
+                '<label class="field-label">' + _tImp('settings.strategia.algoritmo', 'Algoritmo') + '</label>' +
                 '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">' +
                     '<div style="flex:1;">' +
-                        '<p style="margin:4px 0 0;font-weight:600;color:#2c3e50;"><i class="bi bi-tools settings-algoritmo-icon"></i> Algoritmo 3D Semplificato</p>' +
-                        '<span class="field-hint" style="margin-top:2px;">Skyline + stacking + backtracking con distribuzione pesi automatica sulle sezioni.</span>' +
+                        '<p style="margin:4px 0 0;font-weight:600;color:#2c3e50;"><i class="bi bi-tools settings-algoritmo-icon"></i> ' + _tImp('settings.strategia.algoritmo-3d', 'Algoritmo 3D Semplificato') + '</p>' +
+                        '<span class="field-hint" style="margin-top:2px;">' + _tImp('settings.strategia.algoritmo-3d-hint', 'Skyline + stacking + backtracking con distribuzione pesi automatica sulle sezioni.') + '</span>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:2px;">' +
-                        '<label for="imp-ordinamento-casuale" style="font-size:12px;color:#666;white-space:nowrap;font-weight:500;cursor:pointer;">🎲 Casuale</label>' +
+                        '<label for="imp-ordinamento-casuale" style="font-size:12px;color:#666;white-space:nowrap;font-weight:500;cursor:pointer;">' + _tImp('settings.strategia.casuale', '🎲 Casuale') + '</label>' +
                         '<label style="position:relative;display:inline-block;width:42px;min-width:42px;height:24px;cursor:pointer;margin:0;">' +
-                            '<input type="checkbox" id="imp-ordinamento-casuale" ' + (s.ordinamento_casuale ? 'checked' : '') + ' aria-label="Ordinamento casuale Monte Carlo" style="opacity:0;width:0;height:0;position:absolute;">' +
+                            '<input type="checkbox" id="imp-ordinamento-casuale" ' + (s.ordinamento_casuale ? 'checked' : '') + ' aria-label="' + _tImp('settings.strategia.casuale-aria', 'Ordinamento casuale Monte Carlo') + '" style="opacity:0;width:0;height:0;position:absolute;">' +
                             '<span class="toggle-bg" style="position:absolute;top:0;left:0;right:0;bottom:0;background:' + (s.ordinamento_casuale ? '#27AE60' : '#ccc') + ';border-radius:24px;transition:background 0.25s;"></span>' +
                             '<span class="toggle-dot" style="position:absolute;top:2px;left:' + (s.ordinamento_casuale ? '20px' : '2px') + ';width:20px;height:20px;background:#fff;border-radius:50%;transition:left 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>' +
                         '</label>' +
@@ -392,17 +418,15 @@ function renderCardStrategia() {
             '<div class="field-group checkbox-group">' +
                 '<label class="checkbox-label">' +
                     '<input type="checkbox" id="imp-compattazione-aggressiva" ' + (s.compattazione_aggressiva ? 'checked' : '') + '> ' +
-                    '<i class="bi bi-boxes settings-compattazione-icon"></i> Compattazione aggressiva (incastro sotto sbalzi)' +
-                '</label>' +
-                '<span class="field-hint">Se attivo, l\'algoritmo può incastrare oggetti sotto lo sbalzo di oggetti impilati (massima saturazione). Se disattivato, ogni oggetto ha la sua colonna libera (consigliato per carichi multi-drop).</span>' +
+                    '<i class="bi bi-boxes settings-compattazione-icon"></i> ' + _tImp('settings.strategia.compattazione', 'Compattazione aggressiva (incastro sotto sbalzi)') + '</label>' +
+                '<span class="field-hint">' + _tImp('settings.strategia.compattazione-hint', "Se attivo, l'algoritmo può incastrare oggetti sotto lo sbalzo di oggetti impilati (massima saturazione). Se disattivato, ogni oggetto ha la sua colonna libera (consigliato per carichi multi-drop).") + '</span>' +
             '</div>' +
 
             '<div class="field-group checkbox-group">' +
                 '<label class="checkbox-label">' +
                     '<input type="checkbox" id="imp-backtracking-avanzato" ' + (s.backtracking_avanzato ? 'checked' : '') + '> ' +
-                    '<i class="bi bi-lightning-charge settings-backtracking-icon"></i> Backtracking avanzato v3 (a blocchi)' +
-                '</label>' +
-                '<span class="field-hint">Se attivo, l\'algoritmo esegue 5 iterazioni mirate di backtracking a blocchi con early termination (~0.8s). Migliora la disposizione rispetto al deterministico base. Disattivalo se preferisci la velocità massima.</span>' +
+                    '<i class="bi bi-lightning-charge settings-backtracking-icon"></i> ' + _tImp('settings.strategia.backtracking', 'Backtracking avanzato v3 (a blocchi)') + '</label>' +
+                '<span class="field-hint">' + _tImp('settings.strategia.backtracking-hint', "Se attivo, l'algoritmo esegue 5 iterazioni mirate di backtracking a blocchi con early termination (~0.8s). Migliora la disposizione rispetto al deterministico base. Disattivalo se preferisci la velocità massima.") + '</span>' +
             '</div>' +
         '</div>' +
     '</div>';
@@ -416,10 +440,10 @@ function renderCardOutput() {
     var o = IMPOSTAZIONI.output_ottimizzazione;
 
     var checkboxFields = [
-        { id: 'imp-mostra-griglia', campo: 'mostra_griglia', icon: '<i class="bi bi-grid-3x3"></i>', label: 'Mostra griglia e assi', desc: 'Mostra la griglia di riferimento e gli assi XYZ nella vista 3D.' },
-        { id: 'imp-etichette-ogg', campo: 'mostra_etichette_oggetti', icon: '<i class="bi bi-tags settings-output-etichette-icon"></i>', label: 'Mostra etichette oggetti', desc: 'Visualizza il codice di ogni oggetto direttamente sulle facce nella vista 3D.' },
-        { id: 'imp-etichetta-cont', campo: 'mostra_etichetta_contenitore', icon: '<i class="bi bi-box settings-output-contenitore-icon"></i>', label: 'Mostra etichetta contenitore', desc: 'Visualizza il nome e le dimensioni del contenitore nella vista 3D.' },
-        { id: 'imp-azzera-vuoti', campo: 'azzera_grafico_pesi_nei_vuoti', icon: '<i class="bi bi-graph-down settings-output-vuoti-icon"></i>', label: 'Azzera il grafico pesi nei vuoti', desc: 'Nel grafico distribuzione pesi per sezione, la linea scende a zero dove non ci sono sezioni cariche.' },
+        { id: 'imp-mostra-griglia', campo: 'mostra_griglia', icon: '<i class="bi bi-grid-3x3"></i>', label: _tImp('settings.output.griglia', 'Mostra griglia e assi'), desc: _tImp('settings.output.griglia-hint', 'Mostra la griglia di riferimento e gli assi XYZ nella vista 3D.') },
+        { id: 'imp-etichette-ogg', campo: 'mostra_etichette_oggetti', icon: '<i class="bi bi-tags settings-output-etichette-icon"></i>', label: _tImp('settings.output.etichette-ogg', 'Mostra etichette oggetti'), desc: _tImp('settings.output.etichette-ogg-hint', 'Visualizza il codice di ogni oggetto direttamente sulle facce nella vista 3D.') },
+        { id: 'imp-etichetta-cont', campo: 'mostra_etichetta_contenitore', icon: '<i class="bi bi-box settings-output-contenitore-icon"></i>', label: _tImp('settings.output.etichetta-cont', 'Mostra etichetta contenitore'), desc: _tImp('settings.output.etichetta-cont-hint', 'Visualizza il nome e le dimensioni del contenitore nella vista 3D.') },
+        { id: 'imp-azzera-vuoti', campo: 'azzera_grafico_pesi_nei_vuoti', icon: '<i class="bi bi-graph-down settings-output-vuoti-icon"></i>', label: _tImp('settings.output.azzera-vuoti', 'Azzera il grafico pesi nei vuoti'), desc: _tImp('settings.output.azzera-vuoti-hint', 'Nel grafico distribuzione pesi per sezione, la linea scende a zero dove non ci sono sezioni cariche.') },
     ];
 
     var rotazioneAttuale = o.modalita_rotazione || 'baricentrica';
@@ -433,28 +457,26 @@ function renderCardOutput() {
 
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
-            '<h4 class="settings-card-title"><i class="bi bi-bar-chart settings-output-icon"></i> Output dell\'Ottimizzazione</h4>' +
-            '<p class="settings-card-desc">Configura cosa viene mostrato all\'utente dopo l\'ottimizzazione.</p>' +
+            '<h4 class="settings-card-title"><i class="bi bi-bar-chart settings-output-icon"></i> ' + _tImp('settings.output.titolo', "Output dell'Ottimizzazione") + '</h4>' +
+            '<p class="settings-card-desc">' + _tImp('settings.output.desc', "Configura cosa viene mostrato all'utente dopo l'ottimizzazione.") + '</p>' +
         '</div>' +
         '<div class="settings-card-body">' +
             checkboxesHtml +
             '<div class="settings-separator"></div>' +
             '<div class="field-group">' +
-                '<label class="field-label"><i class="bi bi-arrow-repeat settings-output-rotazione-icon"></i> Modalità Rotazione Manuale</label>' +
+                '<label class="field-label"><i class="bi bi-arrow-repeat settings-output-rotazione-icon"></i> ' + _tImp('settings.output.rotazione-label', 'Modalità Rotazione Manuale') + '</label>' +
                 '<div class="radio-group" id="imp-rotazione-modalita">' +
-                    '<label class="radio-label"><input type="radio" name="rotazione-modalita" value="baricentrica" ' + (rotazioneAttuale === 'baricentrica' ? 'checked' : '') + '> Baricentrica (attuale)</label>' +
-                    '<label class="radio-label"><input type="radio" name="rotazione-modalita" value="eccentrica" ' + (rotazioneAttuale === 'eccentrica' ? 'checked' : '') + '> Eccentrica (perno su lato corto)</label>' +
+                    '<label class="radio-label"><input type="radio" name="rotazione-modalita" value="baricentrica" ' + (rotazioneAttuale === 'baricentrica' ? 'checked' : '') + '> ' + _tImp('settings.output.rotazione-baricentrica', 'Baricentrica (attuale)') + '</label>' +
+                    '<label class="radio-label"><input type="radio" name="rotazione-modalita" value="eccentrica" ' + (rotazioneAttuale === 'eccentrica' ? 'checked' : '') + '> ' + _tImp('settings.output.rotazione-eccentrica', 'Eccentrica (perno su lato corto)') + '</label>' +
                 '</div>' +
-                '<span class="field-hint"><strong>Baricentrica:</strong> Shift+click ruota attorno al centro (sempre). <strong>Eccentrica:</strong> Shift+tasto sinistro = rotazione antioraria, Shift+tasto destro = rotazione oraria, con perno sullo spigolo del lato corto. La rotazione eccentrica si applica solo alle rotazioni orizzontali (LxPxH ↔ PxLxH); i ribaltamenti che coinvolgono l\'altezza usano sempre la modalità baricentrica.</span>' +
-            '</div>' +
-
+                '<span class="field-hint">' + _tImp('settings.output.rotazione-hint', "Baricentrica: Shift+click ruota attorno al centro (sempre). Eccentrica: Shift+tasto sinistro = rotazione antioraria, Shift+tasto destro = rotazione oraria, con perno sullo spigolo del lato corto. La rotazione eccentrica si applica solo alle rotazioni orizzontali (LxPxH ↔ PxLxH); i ribaltamenti che coinvolgono l'altezza usano sempre la modalità baricentrica.") + '</span>' +            '</div>' +
         '</div>' +
     '</div>';
 }
 
 
-
 // =============================================================================
+
 // CARD: PARAMETRI MODALITÀ MANUALE
 // =============================================================================
 
@@ -469,37 +491,37 @@ function renderCardManuale() {
 
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
-            '<h4 class="settings-card-title"><i class="bi bi-hand-index-thumb settings-manuale-icon"></i> Parametri Modalità Manuale</h4>' +
-            '<p class="settings-card-desc">Configura il comportamento del piazzamento manuale con il bottone "Aggiungi alla scena".</p>' +
+            '<h4 class="settings-card-title"><i class="bi bi-hand-index-thumb settings-manuale-icon"></i> ' + _tImp('settings.manuale.titolo', 'Parametri Modalità Manuale') + '</h4>' +
+            '<p class="settings-card-desc">' + _tImp('settings.manuale.desc', 'Configura il comportamento del piazzamento manuale con il bottone "Aggiungi alla scena".') + '</p>' +
         '</div>' +
         '<div class="settings-card-body">' +
             '<div class="field-group">' +
-                '<label class="field-label"><i class="bi bi-box-arrow-in-down settings-manuale-strategia-icon"></i> Strategia di Piazzamento</label>' +
+                '<label class="field-label"><i class="bi bi-box-arrow-in-down settings-manuale-strategia-icon"></i> ' + _tImp('settings.manuale.strategia', 'Strategia di Piazzamento') + '</label>' +
                 '<select class="form-select" id="manuale-strategia-piazzamento">' +
-                    '<option value="colonne" ' + (strategia === 'colonne' ? 'selected' : '') + '>🏗️ Colonne immediate (X→Z→Y) — impila subito</option>' +
-                    '<option value="muro" ' + (strategia === 'muro' ? 'selected' : '') + '>🧱 Muro completo (Z→Y→X) — riempi fetta</option>' +
+                    '<option value="colonne" ' + (strategia === 'colonne' ? 'selected' : '') + '>' + _tImp('settings.manuale.colonne', '🏗️ Colonne immediate (X→Z→Y) — impila subito') + '</option>' +
+                    '<option value="muro" ' + (strategia === 'muro' ? 'selected' : '') + '>' + _tImp('settings.manuale.muro', '🧱 Muro completo (Z→Y→X) — riempi fetta') + '</option>' +
                 '</select>' +
-                '<span class="field-hint"><strong>Colonne:</strong> per ogni X, riempi larghezza al pavimento poi impila. Stacking dopo 2-3 oggetti.<br><strong>Muro:</strong> riempi una fetta di larghezza completa (pavimento+stack), poi avanza in lunghezza.</span>' +
+                '<span class="field-hint"><strong>' + _tImp('settings.manuale.colonne', '🏗️ Colonne immediate (X→Z→Y) — impila subito').split(' —')[0] + ':</strong> ' + _tImp('settings.manuale.colonne-hint', 'Colonne: per ogni X, riempi larghezza al pavimento poi impila. Stacking dopo 2-3 oggetti.') + '<br><strong>' + _tImp('settings.manuale.muro', '🧱 Muro completo (Z→Y→X) — riempi fetta').split(' —')[0] + ':</strong> ' + _tImp('settings.manuale.muro-hint', 'Muro: riempi una fetta di larghezza completa (pavimento+stack), poi avanza in lunghezza.') + '</span>' +
             '</div>' +
             '<div class="field-group" style="margin-top:14px;">' +
-                '<label class="field-label"><i class="bi bi-magnet settings-manuale-snap-icon"></i> Snap griglia</label>' +
+                '<label class="field-label"><i class="bi bi-magnet settings-manuale-snap-icon"></i> ' + _tImp('settings.manuale.snap', 'Snap griglia') + '</label>' +
                 '<select class="form-select" id="manuale-snap-step">' +
                     '<option value="1" ' + (snapStep === 1 ? 'selected' : '') + '>1 cm</option>' +
                     '<option value="5" ' + (snapStep === 5 ? 'selected' : '') + '>5 cm</option>' +
                     '<option value="10" ' + (snapStep === 10 ? 'selected' : '') + '>10 cm</option>' +
                     '<option value="50" ' + (snapStep === 50 ? 'selected' : '') + '>50 cm</option>' +
                 '</select>' +
-                '<span class="field-hint">Scegli l\'intervallo usato per agganciare gli oggetti alla griglia durante trascinamento e piazzamento.</span>' +
+                '<span class="field-hint">' + _tImp('settings.manuale.snap-hint', "Scegli l'intervallo usato per agganciare gli oggetti alla griglia durante trascinamento e piazzamento.") + '</span>' +
             '</div>' +
             '<div class="field-group" style="margin-top:14px;">' +
-                '<label class="field-label"><i class="bi bi-arrows-expand-vertical settings-manuale-sporgenza-icon"></i> Sporgenza Massima: <strong id="manuale-sporgenza-valore">' + sporgenza + '%</strong></label>' +
+                '<label class="field-label"><i class="bi bi-arrows-expand-vertical settings-manuale-sporgenza-icon"></i> ' + _tImp('settings.manuale.sporgenza', 'Sporgenza Massima:') + ' <strong id="manuale-sporgenza-valore">' + sporgenza + '%</strong></label>' +
                 '<input type="range" id="manuale-sporgenza" class="form-range" min="0" max="100" value="' + sporgenza + '" step="5" style="width:100%; margin-top:4px;">' +
                 '<div style="display:flex; justify-content:space-between; font-size:10px; color:#999;">' +
-                    '<span>0% (nessuno sbalzo)</span>' +
+                    '<span>' + _tImp('settings.manuale.sporgenza-0', '0% (nessuno sbalzo)') + '</span>' +
                     '<span>50%</span>' +
-                    '<span>100% (libero)</span>' +
+                    '<span>' + _tImp('settings.manuale.sporgenza-100', '100% (libero)') + '</span>' +
                 '</div>' +
-                '<span class="field-hint">Percentuale massima di sbalzo consentita in X e Z. A 30%, un oggetto sopra deve avere almeno il 70% di supporto dal singolo oggetto sotto (no "ponte" tra due oggetti).</span>' +
+                '<span class="field-hint">' + _tImp('settings.manuale.sporgenza-hint', 'Percentuale massima di sbalzo consentita in X e Z. A 30%, un oggetto sopra deve avere almeno il 70% di supporto dal singolo oggetto sotto (no "ponte" tra due oggetti).') + '</span>' +
             '</div>' +
         '</div>' +
     '</div>';
@@ -576,8 +598,7 @@ function agganciaEventiImpostazioni(sezione) {
         var sliderSporgenza = document.getElementById('manuale-sporgenza');
         var lblSporgenza = document.getElementById('manuale-sporgenza-valore');
         if (sliderSporgenza && !sliderSporgenza._listenerAttached) {
-            sliderSporgenza._listenerAttached = true;
-            sliderSporgenza.addEventListener('input', function () {
+            sliderSporgenza._listenerAttached = true;            sliderSporgenza.addEventListener('input', function () {
                 _impostazioniDirty = true;
                 IMPOSTAZIONI.manuale.massima_sporgenza_pct = parseInt(this.value) || 100;
                 if (typeof _massimaSporgenzaPct !== 'undefined') {
@@ -586,7 +607,10 @@ function agganciaEventiImpostazioni(sezione) {
                 if (lblSporgenza) lblSporgenza.textContent = IMPOSTAZIONI.manuale.massima_sporgenza_pct + '%';
             });
         }
+
+        // --- Colori e Stili rapidi ---
     }
+
 
     if (sezione === 'output') {
         // Toggle griglia e assi
@@ -638,6 +662,14 @@ function agganciaEventiImpostazioni(sezione) {
 }
 
 // =============================================================================
-// INIT
+
+// =============================================================================
+// INIT + LANGUAGE CHANGE
 // =============================================================================
 
+// Quando l'utente cambia lingua, ridisegna l'intero pannello impostazioni
+// (sezioni, card, campi, etichette) per riflettere la nuova lingua.
+document.addEventListener('carico3d:language-change', function () {
+    if (WS.viewAttiva !== 'impostazioni') return;
+    renderImpostazioniPanel();
+});

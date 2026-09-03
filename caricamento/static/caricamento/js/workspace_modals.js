@@ -20,13 +20,14 @@ function apriModaleNuovoMezzo() {
         '<div class="field-group">' +
             '<label class="field-label">Tipo Mezzo</label>' +
             '<select class="form-select" id="modal-mezzo-tipo">' +
+                '<option value="" disabled selected></option>' +
                 '<option value="bilico">Autoarticolato (Bilico)</option>' +
                 '<option value="autocarro">Autocarro</option>' +
                 '<option value="autotreno">Autotreno</option>' +
                 '<option value="furgone">Furgone</option>' +
                 '<option value="container_20">Container ISO 20\'</option>' +
                 '<option value="container_40">Container ISO 40\'</option>' +
-                '<option value="container_40_hc" selected>Container ISO 40\' High Cube</option>' +
+                '<option value="container_40_hc">Container ISO 40\' High Cube</option>' +
                 '<option value="nave">Nave</option>' +
                 '<option value="treno">Treno</option>' +
                 '<option value="altro">Altro</option>' +
@@ -122,12 +123,12 @@ function apriModaleNuovoOggetto() {
         '</div>' +
         '<div class="field-row">' +
             '<div class="field-group flex-grow"><label class="field-label">Peso (kg)</label><input type="number" class="form-input" id="modal-ogg-peso" placeholder="12.5" step="0.01" min="0.01"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Q.tà Disponibile</label><input type="number" class="form-input" id="modal-ogg-qty" value="1" min="1" step="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Q.tà Disponibile</label><input type="number" class="form-input" id="modal-ogg-qty" placeholder="1" min="1" step="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
             '<div class="field-group" style="flex:0 0 70px;">' +
                 '<label class="field-label">Colore</label>' +
-                '<input type="color" class="form-input" id="modal-ogg-colore" value="#447e9b" style="height:36px;padding:2px 4px;cursor:pointer;" disabled>' +
+                '<input type="color" class="form-input" id="modal-ogg-colore" value="#1f4c7a" style="height:36px;padding:2px 4px;cursor:pointer;" disabled>' +
             '</div>' +
             '<div class="field-group flex-grow" style="justify-content:flex-end;">' +
                 '<label class="checkbox-label" style="margin-top:18px;">' +

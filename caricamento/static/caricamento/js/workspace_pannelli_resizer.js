@@ -1,10 +1,14 @@
-/* Ridimensionamento pannelli lista/form dell'anagrafica. */
+/* Ridimensionamento pannelli lista/form dell'anagrafica.
+   Le larghezze vengono salvate sia in localStorage (fallback) sia
+   nel profilo utente (impostazioni_ottimizzatore.panel_widths) per
+   essere persistenti tra sessioni e dispositivi. */
 (function () {
     'use strict';
 
     var STORAGE_PREFIX = 'carico3d-pv-list-width-';
     var MIN_LIST_PX = 220;
     var MIN_FORM_PX = 360;
+    var SAVE_DEBOUNCE_MS = 500;
     var split;
     var list;
     var resizer;
@@ -12,6 +16,7 @@
     var dragging = false;
     var dragOriginX = 0;
     var dragOriginWidth = 0;
+    var _saveTimer = null;
 
     function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
@@ -31,12 +36,48 @@
         applyWidth(dragOriginWidth + clientX - dragOriginX);
     }
 
+    /* Salva la larghezza: localStorage immediato + server debounce */
+    function saveWidth() {
+        if (!list || !currentView) return;
+        var px = Math.round(list.getBoundingClientRect().width);
+        localStorage.setItem(STORAGE_PREFIX + currentView, String(px));
+        // Aggiorna IMPOSTAZIONI in memoria
+        if (typeof IMPOSTAZIONI !== 'undefined') {
+            if (!IMPOSTAZIONI.panel_widths) IMPOSTAZIONI.panel_widths = {};
+            IMPOSTAZIONI.panel_widths[currentView] = px;
+        }
+        // Salva sul server (debounce)
+        if (_saveTimer) clearTimeout(_saveTimer);
+        _saveTimer = setTimeout(_salvaLarghezzeServer, SAVE_DEBOUNCE_MS);
+    }
+
+    function _salvaLarghezzeServer() {
+        if (typeof IMPOSTAZIONI === 'undefined' || !IMPOSTAZIONI.panel_widths) return;
+        try {
+            var payload = { panel_widths: IMPOSTAZIONI.panel_widths };
+            fetch('/api/impostazioni_ottimizzatore/', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _getCSRF() },
+                body: JSON.stringify(payload)
+            }).catch(function () {});
+        } catch (e) { /* silent */ }
+    }
+
+    function _getCSRF() {
+        var v = '';
+        document.cookie.split(';').forEach(function (c) {
+            c = c.trim();
+            if (c.startsWith('csrftoken=')) v = c.substring(10);
+        });
+        return v;
+    }
+
     function stop() {
         if (!dragging) return;
         dragging = false;
         resizer.classList.remove('dragging');
         document.body.classList.remove('pv-resizing');
-        localStorage.setItem(STORAGE_PREFIX + currentView, String(Math.round(list.getBoundingClientRect().width)));
+        saveWidth();
     }
 
     function init() {
@@ -49,8 +90,17 @@
         resizer.dataset.ready = currentView;
 
         currentView = split.closest('#panel-view')?.dataset.view || 'default';
-        var saved = parseFloat(localStorage.getItem(STORAGE_PREFIX + currentView));
-        if (Number.isFinite(saved)) applyWidth(saved);
+        // Priorità: server (IMPOSTAZIONI) > localStorage > default
+        var saved = null;
+        if (typeof IMPOSTAZIONI !== 'undefined' && IMPOSTAZIONI.panel_widths && IMPOSTAZIONI.panel_widths[currentView]) {
+            saved = IMPOSTAZIONI.panel_widths[currentView];
+        } else {
+            saved = parseFloat(localStorage.getItem(STORAGE_PREFIX + currentView));
+        }
+        if (Number.isFinite(saved)) {
+            applyWidth(saved);
+            requestAnimationFrame(function () { applyWidth(saved); });
+        }
 
         resizer.addEventListener('pointerdown', function (e) {
             e.preventDefault();
@@ -68,13 +118,20 @@
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
             e.preventDefault();
             applyWidth(list.getBoundingClientRect().width + (e.key === 'ArrowRight' ? 20 : -20));
-            localStorage.setItem(STORAGE_PREFIX + currentView, String(Math.round(list.getBoundingClientRect().width)));
+            saveWidth();
         });
 
         window.addEventListener('resize', function () {
             if (!dragging) applyWidth(list.getBoundingClientRect().width);
         });
     }
+
+    /* Funzione globale per applicare la larghezza dal server */
+    window._applicaPanelWidth = function (view, px) {
+        if (currentView !== view || !Number.isFinite(px)) return;
+        applyWidth(px);
+        requestAnimationFrame(function () { applyWidth(px); });
+    };
 
     document.addEventListener('DOMContentLoaded', init);
     document.addEventListener('carico3d:panel-rendered', init);

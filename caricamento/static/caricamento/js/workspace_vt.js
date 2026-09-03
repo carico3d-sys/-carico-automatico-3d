@@ -320,6 +320,9 @@ function _vtEscludiTutti() {
         try {
             for (var i = 0; i < coppie.length; i++) {
                 await _vtSalvaCoppiaBatch(coppie[i].aId, coppie[i].bId, coppie[i].configurazioni);
+                if (i < coppie.length - 1) {
+                    await new Promise(function (r) { setTimeout(r, 50); });
+                }
             }
             var badge = document.getElementById('vt-count-badge');
             if (badge) badge.textContent = WS.vincoliTra.length;

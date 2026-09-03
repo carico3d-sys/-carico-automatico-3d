@@ -29,6 +29,8 @@ var ICON_CATALOG = [
     // --- Header Tools ---
     { id: 'header-export',      type: 'bootstrap', iconClass: 'bi bi-filetype-txt',      file: '', dims: [20, 20], desc: 'Header: pulsante Posizioni',               location: 'Header',  selector: '#header-export-btn > i' },
     { id: 'header-icone',       type: 'bootstrap', iconClass: 'bi bi-palette',           file: '', dims: [20, 20], desc: 'Header: pulsante Gestione Icone (admin)',   location: 'Header',  selector: '#header-icone-btn > i' },
+    { id: 'header-help',        type: 'bootstrap', iconClass: 'bi bi-question-circle',    file: '', dims: [40, 40], desc: 'Header: pulsante Guida',                    location: 'Header',  selector: '#header-help-btn > .header-cat-icon' },
+    { id: 'header-lang',        type: 'bootstrap', iconClass: 'bi bi-translate',           file: '', dims: [40, 40], desc: 'Header: selettore lingua',                 location: 'Header',  selector: '#header-lang-btn > .header-cat-icon' },
 
     // --- Header Logout ---
     { id: 'header-logout',      type: 'bootstrap', iconClass: 'bi bi-box-arrow-right',   file: '', dims: [16, 16], desc: 'Header: link Esci',                        translation_key: 'header.esci', location: 'Header',  selector: '#header-logout > i' },
@@ -152,8 +154,11 @@ var ICON_CATALOG = [
 
 var BUTTON_CATALOG = [
     // --- Maniglie laterali del viewport ---
-    { id: 'panel-toggle-left', selector: '#toggle-sidebar-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-left', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
-    { id: 'panel-toggle-right', selector: '#toggle-panel-destro-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-right', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
+    { id: 'panel-toggle-left', selector: '#toggle-sidebar-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-left', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '' },
+    { id: 'panel-toggle-right', selector: '#toggle-panel-destro-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-right', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '' },
+    // --- Header Tools (bottoni piccoli header destro) ---
+    { id: 'header-export', selector: '#header-export-btn', iconSelRelative: 'i', iconClass: 'bi bi-filetype-txt', extraClass: '', label_default: 'Posizioni', translation_key: '', location: 'Header', dims_px: [20, 20], height_default: 32, label_size: 11, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'header-icone',  selector: '#header-icone-btn',  iconSelRelative: 'i', iconClass: 'bi bi-palette',       extraClass: '', label_default: 'Icone',     translation_key: '', location: 'Header', dims_px: [20, 20], height_default: 32, label_size: 11, label_pos: 'row', color_default: '#8e44ad' },
     // --- Tab Auto (bottoni alti 52px) ---
     // Il flusso è unico: ELABORA (principale, genera l'anteprima) + SALVA
     // (conferma sul piano reale). Il vecchio "OTTIMIZZA E SALVA" è stato
@@ -191,6 +196,7 @@ var BUTTON_CATALOG = [
 
     // --- Finestre Main View: Articoli ---
     { id: 'win-art-nuovo',           selector: '#pv-ogg-nuovo',           iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Nuovo',            translation_key: 'button.window.nuovo', emoji_default: '➕', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#6c757d' },
+    { id: 'win-art-duplica',         selector: '#pv-ogg-duplica',         iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Duplica',           translation_key: 'button.window.articoli.duplica', emoji_default: '📋', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#8e44ad' },
     { id: 'win-art-salva',           selector: '#pv-ogg-save',            iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Salva',             translation_key: 'button.window.salva', emoji_default: '💾', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#447e9b' },
     { id: 'win-art-delete-ogg',      selector: '#pv-ogg-delete',          iconSelRelative: '', iconClass: '', extraClass: '',            label_default: 'Elimina oggetto',   translation_key: 'button.window.articoli.elimina', emoji_default: '🗑', location: 'Finestre: Articoli', tab: 'finestre', dims_px: [18, 18], height_default: 36, label_size: 12, label_pos: 'row', color_default: '#e74c3c' },
 
@@ -267,6 +273,10 @@ var _btnSnapshot = {};
 var _iconApplying = false;
 var _lastIconConfigLogKey = '';
 var _lastButtonConfigLogKey = '';
+// File PNG che hanno già restituito 404: evita di ricreare l'immagine
+// ad ogni passaggio del MutationObserver finché la configurazione non cambia
+// o il file non viene caricato correttamente.
+var _missingIconFiles = {};
 
 // =============================================================================
 // INIZIALIZZAZIONE
@@ -432,6 +442,9 @@ var _applyIconConfig = function _applyIconConfig() {
 
     ICON_CATALOG.forEach(function (icon) {
         var cfg = ICON_CONFIG[icon.id];
+        var missingFileKey = cfg && cfg.type === 'png' && cfg.file
+            ? icon.id + '|' + _normalizzaNomeFilePng(cfg.file) : '';
+        if (missingFileKey && _missingIconFiles[missingFileKey]) return;
         var elements = _trovaElementiIcona(icon);
         if (icon.id === 'mainview-logo') {
             var placeholderLogo = document.querySelector('#viewport-placeholder .vp-icon');
@@ -489,6 +502,23 @@ var _applyIconConfig = function _applyIconConfig() {
             img.style.pointerEvents = 'none';
             img.alt = '';
             img.dataset.iconConfigFile = cfg.file;
+            // Se il file configurato è stato cancellato o non è presente nel
+            // deploy, ripristina automaticamente l'icona Bootstrap originale.
+            // In questo modo un PNG mancante non lascia un'immagine rotta nel
+            // selettore lingua (o negli altri elementi configurabili).
+            img.onerror = function () {
+                var failedFile = this.dataset.iconConfigFile;
+                var failedKey = icon.id + '|' + _normalizzaNomeFilePng(failedFile);
+                _missingIconFiles[failedKey] = true;
+                var fallback = document.createElement('i');
+                fallback.className = icon.iconClass || oldClassName;
+                fallback.id = oldId;
+                if (oldClassName.indexOf('header-cat-icon') !== -1) {
+                    fallback.classList.add('header-cat-icon');
+                }
+                if (this.parentNode) this.parentNode.replaceChild(fallback, this);
+                console.warn('[Gestione Icone] PNG non trovato, uso Bootstrap:', failedFile);
+            };
             if (oldClassName.indexOf('header-cat-icon') !== -1) {
                 img.classList.add('header-cat-icon');
             }
@@ -559,9 +589,12 @@ var _applyButtonConfigInner = function _applyButtonConfigInner(force) {
         var labelItaliano = cfg.label || btnDef.label_default || '';
         var translationKey = btnDef.translation_key || labelItaliano;
         var dizionarioLingua = window.DIZIONARIO && window.DIZIONARIO[lingua];
-        // Se l'utente ha impostato un label custom diverso dal default,
+        // Se l'utente ha impostato un label custom diverso dal default
+        // E diverso dal valore italiano nel dizionario,
         // usalo direttamente (senza traduzione) — altrimenti traduci.
-        var labelCustomUtente = cfg.label && cfg.label !== btnDef.label_default;
+        var dizionarioItaliano = window.DIZIONARIO && window.DIZIONARIO['it'];
+        var labelDaDizionario = dizionarioItaliano && dizionarioItaliano[translationKey];
+        var labelCustomUtente = cfg.label && cfg.label !== btnDef.label_default && cfg.label !== labelDaDizionario;
         var labelVisualizzata = labelCustomUtente
             ? cfg.label
             : ((dizionarioLingua && dizionarioLingua[translationKey]) || labelItaliano);
@@ -816,9 +849,27 @@ function apriModaleIcone() {
                     '</div>' +
                 '</div>' +
             '</div>' +
-            '<div class="colori-palette" id="colori-palette">' +
-                '<span class="colori-palette-label">Tonalità rapide:</span>' +
-                '<div class="colori-palette-grid" id="colori-palette-grid"></div>' +
+            '<div class="colori-win-picker" id="colori-win-picker">' +
+                '<div class="colori-win-left">' +
+                    '<div class="colori-win-spectrum-wrap">' +
+                        '<canvas class="colori-win-spectrum" id="colori-win-spectrum" width="200" height="200"></canvas>' +
+                        '<div class="colori-win-cursor" id="colori-win-cursor"></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="colori-win-right">' +
+                    '<div class="colori-win-lum-wrap">' +
+                        '<canvas class="colori-win-lum" id="colori-win-lum" width="20" height="200"></canvas>' +
+                        '<div class="colori-win-lum-cursor" id="colori-win-lum-cursor"></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="colori-win-basic">' +
+                    '<div class="colori-win-basic-label">Colori base:</div>' +
+                    '<div class="colori-win-basic-grid" id="colori-win-basic-grid"></div>' +
+                '</div>' +
+                '<div class="colori-win-preview">' +
+                    '<div class="colori-win-preview-label">Anteprima</div>' +
+                    '<div class="colori-win-preview-swatch" id="colori-win-preview-swatch"></div>' +
+                '</div>' +
             '</div>' +
             '<div class="colori-styles" id="colori-styles">' +
                 '<div class="colori-styles-label">Stili rapidi:</div>' +
@@ -1171,7 +1222,7 @@ function _popolaTabellaIcone() {
                         '<input type="text" class="form-input icone-file-input" value="' + escapeHtml(currentFile) + '" placeholder="es. icona.png">' +
                         '<label class="icone-upload-btn" title="Carica PNG">' +
                             '<i class="bi bi-cloud-arrow-up"></i>' +
-                            '<input type="file" class="icone-file-upload" accept="image/png" style="display:none;">' +
+                            '<input type="file" class="icone-file-upload" accept="image/*" style="display:none;">' +
                         '</label>' +
                         '<button type="button" class="icone-del-btn" title="Elimina il file PNG dalla cartella img"><i class="bi bi-trash"></i></button>' +
                     '</div>' +
@@ -1409,7 +1460,7 @@ function _popolaTabellaBottoni(tbodyId, tab) {
                         '<input type="text" class="form-input bt-file-input" value="' + escapeHtml(file) + '" placeholder="es. bottone.png">' +
                         '<label class="icone-upload-btn" title="Carica PNG">' +
                             '<i class="bi bi-cloud-arrow-up"></i>' +
-                            '<input type="file" class="bt-file-upload" accept="image/png" style="display:none;">' +
+                            '<input type="file" class="bt-file-upload" accept="image/*" style="display:none;">' +
                         '</label>' +
                         '<button type="button" class="icone-del-btn" title="Elimina il file PNG dalla cartella img"><i class="bi bi-trash"></i></button>' +
                     '</div>' +
@@ -1819,6 +1870,250 @@ function _hexToHsl(hex) {
 }
 
 /**
+ * Color Picker stile Windows classico: spettro H x S + barra luminosità +
+ * griglia di colori base. L'utente seleziona un colore nello spettro,
+ * regola la luminosità e può scegliere rapidamente dai colori base.
+ */
+function _initWinColorPicker(hueSlider, satSlider, lumSlider) {
+    var spectrum = document.getElementById('colori-win-spectrum');
+    var cursor = document.getElementById('colori-win-cursor');
+    var lumCanvas = document.getElementById('colori-win-lum');
+    var lumCursor = document.getElementById('colori-win-lum-cursor');
+    var basicGrid = document.getElementById('colori-win-basic-grid');
+    var previewSwatch = document.getElementById('colori-win-preview-swatch');
+    if (!spectrum || !lumCanvas) return;
+    var ctx = spectrum.getContext('2d');
+    var lumCtx = lumCanvas.getContext('2d');
+
+    // Stato interno
+    var _whHue = 210, _whSat = 50, _whLum = 48;
+    var _whDraggingSpec = false, _whDraggingLum = false;
+
+    // --- Disegna lo spettro (H su X, S su Y) per una data tonalità ---
+    function _drawSpectrum(hue) {
+        var w = spectrum.width, h = spectrum.height;
+        var imgData = ctx.createImageData(w, h);
+        var data = imgData.data;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var s = (x / w) * 100;
+                var l = 100 - (y / h) * 80; // 100% in cima, 20% in basso
+                var hex = _hslToHex(hue, s, l);
+                var r = parseInt(hex.substr(1, 2), 16);
+                var g = parseInt(hex.substr(3, 2), 16);
+                var b = parseInt(hex.substr(5, 2), 16);
+                var idx = (y * w + x) * 4;
+                data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = 255;
+            }
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    // --- Disegna la barra luminosità ---
+    function _drawLuminosityBar() {
+        var w = lumCanvas.width, h = lumCanvas.height;
+        var imgData = lumCtx.createImageData(w, h);
+        var data = imgData.data;
+        for (var y = 0; y < h; y++) {
+            var l = 100 - (y / h) * 100;
+            var hex = _hslToHex(_whHue, _whSat, l);
+            var r = parseInt(hex.substr(1, 2), 16);
+            var g = parseInt(hex.substr(3, 2), 16);
+            var b = parseInt(hex.substr(5, 2), 16);
+            for (var x = 0; x < w; x++) {
+                var idx = (y * w + x) * 4;
+                data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = 255;
+            }
+        }
+        lumCtx.putImageData(imgData, 0, 0);
+    }
+
+    // --- Aggiorna cursore spettro ---
+    function _updateSpecCursor() {
+        if (!cursor) return;
+        var cx = (_whSat / 100) * spectrum.width;
+        var cy = ((100 - _whLum) / 100) * spectrum.height;
+        cursor.style.left = cx + 'px';
+        cursor.style.top = cy + 'px';
+    }
+
+    // --- Aggiorna cursore luminosità ---
+    function _updateLumCursor() {
+        if (!lumCursor) return;
+        var cy = ((100 - _whLum) / 100) * lumCanvas.height;
+        lumCursor.style.top = cy + 'px';
+    }
+
+    // --- Applica il colore selezionato al sistema ---
+    function _applySelectedColor(source) {
+        var hex = _hslToHex(_whHue, _whSat, _whLum);
+        var basePicker = document.getElementById('colori-base-input');
+        var baseHexEl = document.getElementById('colori-base-hex');
+        var baseSwatch2 = document.getElementById('colori-base-swatch');
+        if (basePicker) basePicker.value = hex;
+        if (baseHexEl) baseHexEl.value = hex;
+        if (baseSwatch2) baseSwatch2.style.background = hex;
+        if (previewSwatch) previewSwatch.style.background = hex;
+        COLOR_CONFIG['base'] = hex;
+        _applicaTonalitaDaBase(hex);
+        _syncHslSliders(hex);
+        _aggiornaAnteprimeStili();
+        // Sincronizza gli slider HSL
+        if (hueSlider) hueSlider.value = _whHue;
+        if (satSlider) satSlider.value = _whSat;
+        if (lumSlider) lumSlider.value = _whLum;
+    }
+
+    // --- Click / drag sullo spettro ---
+    function _onSpectrumPointer(e) {
+        var rect = spectrum.getBoundingClientRect();
+        var x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        var y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+        _whSat = Math.round((x / rect.width) * 100);
+        _whLum = Math.round(100 - (y / rect.height) * 100);
+        _drawLuminosityBar();
+        _updateSpecCursor();
+        _updateLumCursor();
+        _applySelectedColor('spec');
+    }
+
+    spectrum.addEventListener('mousedown', function (e) {
+        _whDraggingSpec = true;
+        _onSpectrumPointer(e);
+    });
+    document.addEventListener('mousemove', function (e) {
+        if (_whDraggingSpec) _onSpectrumPointer(e);
+    });
+    document.addEventListener('mouseup', function () {
+        if (_whDraggingSpec) { _whDraggingSpec = false; }
+        if (_whDraggingLum) { _whDraggingLum = false; }
+    });
+
+    // --- Click / drag sulla barra luminosità ---
+    function _onLumPointer(e) {
+        var rect = lumCanvas.getBoundingClientRect();
+        var y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+        _whLum = Math.round(100 - (y / rect.height) * 100);
+        _updateLumCursor();
+        _applySelectedColor('lum');
+    }
+
+    lumCanvas.addEventListener('mousedown', function (e) {
+        _whDraggingLum = true;
+        _onLumPointer(e);
+    });
+    document.addEventListener('mousemove', function (e) {
+        if (_whDraggingLum) _onLumPointer(e);
+    });
+
+    // --- Colori base: griglia 8x6 con 48 colori predefiniti ---
+    if (basicGrid) {
+        var basicColors = [
+            // Riga 1: rossi e rosa
+            '#800000', '#993333', '#cc3333', '#ff0000', '#ff6666', '#ff9999', '#ffc0cc', '#ffe0e0',
+            // Riga 2: arancioni e gialli
+            '#804000', '#996633', '#cc9933', '#ff9900', '#ffbb33', '#ffcc66', '#ffdd99', '#ffeecc',
+            // Riga 3: verdi
+            '#006600', '#339933', '#33cc33', '#00ff00', '#66ff66', '#99ff99', '#bbffbb', '#ddffdd',
+            // Riga 4: ciani e blu chiari
+            '#006666', '#339999', '#33cccc', '#00ffff', '#66ffff', '#99ffff', '#bbffff', '#e0ffff',
+            // Riga 5: blu e viola
+            '#000080', '#333399', '#3366cc', '#0066ff', '#3399ff', '#66bbff', '#99ddff', '#cceeff',
+            // Riga 6: viola e grigi
+            '#660066', '#993399', '#9966cc', '#cc66ff', '#dd99ff', '#808080', '#b0b0b0', '#e0e0e0'
+        ];
+        var bHtml = '';
+        basicColors.forEach(function (c) {
+            bHtml += '<button type="button" class="colori-win-basic-swatch" data-color="' + c + '" ' +
+                'style="background:' + c + '" title="' + c + '"></button>';
+        });
+        basicGrid.innerHTML = bHtml;
+
+        basicGrid.querySelectorAll('.colori-win-basic-swatch').forEach(function (sw) {
+            sw.addEventListener('click', function () {
+                var hex = this.dataset.color;
+                var hsl = _hexToHsl(hex);
+                _whHue = hsl.h; _whSat = hsl.s; _whLum = hsl.l;
+                _drawSpectrum(_whHue);
+                _drawLuminosityBar();
+                _updateSpecCursor();
+                _updateLumCursor();
+                _applySelectedColor('basic');
+            });
+        });
+    }
+
+    // --- Inizializza con il colore base corrente ---
+    var currentBase = COLOR_CONFIG['base'] || '#447e9b';
+    var initHsl = _hexToHsl(currentBase);
+    _whHue = initHsl.h; _whSat = initHsl.s; _whLum = initHsl.l;
+    _drawSpectrum(_whHue);
+    _drawLuminosityBar();
+    _updateSpecCursor();
+    _updateLumCursor();
+    if (previewSwatch) previewSwatch.style.background = currentBase;
+}
+
+/**
+ * Sincronizza il color picker Windows con i valori HSL correnti.
+ * Chiamata quando gli slider HSL cambiano.
+ */
+function _syncWinColorPicker(h, s, l) {
+    var spectrum = document.getElementById('colori-win-spectrum');
+    var cursor = document.getElementById('colori-win-cursor');
+    var lumCanvas = document.getElementById('colori-win-lum');
+    var lumCursor = document.getElementById('colori-win-lum-cursor');
+    var previewSwatch = document.getElementById('colori-win-preview-swatch');
+    if (!spectrum) return;
+    // Ridisegna lo spettro per la nuova tonalità
+    var ctx = spectrum.getContext('2d');
+    var w = spectrum.width, ht = spectrum.height;
+    var imgData = ctx.createImageData(w, ht);
+    var data = imgData.data;
+    for (var y = 0; y < ht; y++) {
+        for (var x = 0; x < w; x++) {
+            var sx = (x / w) * 100;
+            var sl = 100 - (y / ht) * 80;
+            var hex2 = _hslToHex(h, sx, sl);
+            var r = parseInt(hex2.substr(1, 2), 16);
+            var g = parseInt(hex2.substr(3, 2), 16);
+            var b = parseInt(hex2.substr(5, 2), 16);
+            var idx = (y * w + x) * 4;
+            data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = 255;
+        }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    // Aggiorna cursore spettro
+    if (cursor) {
+        cursor.style.left = (s / 100 * w) + 'px';
+        cursor.style.top = ((100 - l) / 100 * ht) + 'px';
+    }
+    // Ridisegna barra luminosità
+    if (lumCanvas) {
+        var lumCtx = lumCanvas.getContext('2d');
+        var lw = lumCanvas.width, lh = lumCanvas.height;
+        var lumData = lumCtx.createImageData(lw, lh);
+        var ld = lumData.data;
+        for (var y2 = 0; y2 < lh; y2++) {
+            var ll = 100 - (y2 / lh) * 100;
+            var lhex = _hslToHex(h, s, ll);
+            var lr = parseInt(lhex.substr(1, 2), 16);
+            var lg = parseInt(lhex.substr(3, 2), 16);
+            var lb = parseInt(lhex.substr(5, 2), 16);
+            for (var x2 = 0; x2 < lw; x2++) {
+                var li = (y2 * lw + x2) * 4;
+                ld[li] = lr; ld[li+1] = lg; ld[li+2] = lb; ld[li+3] = 255;
+            }
+        }
+        lumCtx.putImageData(lumData, 0, 0);
+    }
+    if (lumCursor) lumCursor.style.top = ((100 - l) / 100 * 200) + 'px';
+    // Aggiorna anteprima
+    var hex = _hslToHex(h, s, l);
+    if (previewSwatch) previewSwatch.style.background = hex;
+}
+
+/**
  * Sincronizza gli slider HSL con il colore base corrente.
  * Chiamata quando il colore base cambia da picker, hex, o generazione.
  */
@@ -1917,6 +2212,8 @@ function _popolaTabellaColori() {
         if (baseSwatch) baseSwatch.style.background = hex;
         COLOR_CONFIG['base'] = hex;
         _applicaTonalitaDaBase(hex);
+        // Sincronizza il color picker Windows
+        _syncWinColorPicker(h, s, l);
     }
 
     if (hueSlider) hueSlider.addEventListener('input', _onHslSliderChange);
@@ -1983,46 +2280,8 @@ function _popolaTabellaColori() {
         });
     });
 
-    // --- Palette colori: griglia di quadratini con tutte le tonalità ---
-    var paletteGrid = document.getElementById('colori-palette-grid');
-    if (paletteGrid) {
-        // Genera 24 quadratini da 0° a 360° (ogni 15°)
-        var hueSteps = 24;
-        var html = '';
-        for (var i = 0; i < hueSteps; i++) {
-            var h = Math.round((360 / hueSteps) * i);
-            var swatch = _hslToHex(h, 70, 50);
-            html += '<button type="button" class="colori-palette-swatch" data-hue="' + h + '" ' +
-                'style="background:' + swatch + '" ' +
-                'title="Tonalità ' + h + '°"></button>';
-        }
-        paletteGrid.innerHTML = html;
-
-        paletteGrid.querySelectorAll('.colori-palette-swatch').forEach(function (sw) {
-            sw.addEventListener('click', function () {
-                var hue = parseInt(this.dataset.hue, 10);
-                if (!isFinite(hue) || !hueSlider) return;
-                hueSlider.value = hue;
-                var s = parseInt(satSlider.value, 10);
-                var l = parseInt(lumSlider.value, 10);
-                var hex = _hslToHex(hue, s, l);
-                var basePicker = document.getElementById('colori-base-input');
-                var baseHexEl = document.getElementById('colori-base-hex');
-                var baseSwatch2 = document.getElementById('colori-base-swatch');
-                if (basePicker) basePicker.value = hex;
-                if (baseHexEl) baseHexEl.value = hex;
-                if (baseSwatch2) baseSwatch2.style.background = hex;
-                COLOR_CONFIG['base'] = hex;
-                _applicaTonalitaDaBase(hex);
-                _syncHslSliders(hex);
-                _aggiornaAnteprimeStili();
-                // Evidenzia il swatch attivo
-                paletteGrid.querySelectorAll('.colori-palette-swatch').forEach(function (s) { s.classList.remove('active'); });
-                this.classList.add('active');
-                showToast('Tonalità ' + hue + '° applicata!', 'success');
-            });
-        });
-    }
+    // --- Color Picker stile Windows: spettro + luminosità + colori base ---
+    _initWinColorPicker(hueSlider, satSlider, lumSlider);
 
     // --- Liste Aree e Slider ---
     ['aree', 'slider'].forEach(function (group) {
@@ -2206,12 +2465,23 @@ async function _uploadIconFile(file, row, isButton) {
             body: formData
         });
 
+        var data;
+        try {
+            data = await resp.json();
+        } catch (parseError) {
+            data = {};
+        }
         if (!resp.ok) {
-            var err = await resp.json();
-            throw new Error(err.error || 'Upload fallito');
+            var apiError = data.error;
+            var message = apiError && typeof apiError === 'object'
+                ? apiError.message
+                : (apiError || data.detail || 'Upload fallito');
+            throw new Error(message);
         }
 
-        var data = await resp.json();
+        delete _missingIconFiles[(row.dataset.iconId || row.dataset.buttonId || '') + '|' + _normalizzaNomeFilePng(data.filename)];
+        var fileField = row.querySelector(isButton ? '.bt-file-input' : '.icone-file-input');
+        if (fileField) fileField.value = data.filename;
         showToast('File "' + data.filename + '" caricato!', 'success');
 
         if (isButton) {
@@ -2220,6 +2490,11 @@ async function _uploadIconFile(file, row, isButton) {
             _aggiornaBadgeERigaIcona(row, row.querySelector('.icone-toggle-input').checked, data.filename);
         }
     } catch (e) {
+        // Non lasciare nella tabella un nome che il server non ha salvato:
+        // altrimenti il successivo salvataggio della configurazione fallisce
+        // con "File PNG non trovati".
+        var failedField = row && row.querySelector(isButton ? '.bt-file-input' : '.icone-file-input');
+        if (failedField && failedField.value === file.name) failedField.value = '';
         showToast('Errore upload: ' + e.message, 'error');
     }
 }
@@ -2238,7 +2513,13 @@ async function _cancellaFileIcona(filename, row, tipo) {
             body: JSON.stringify({ filename: _normalizzaNomeFilePng(filename) })
         });
         var data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+        if (!resp.ok) {
+            var apiError = data.error;
+            var message = apiError && typeof apiError === 'object'
+                ? apiError.message
+                : (apiError || data.detail || 'HTTP ' + resp.status);
+            throw new Error(message);
+        }
 
         showToast(data.message || 'File eliminato.', 'success');
 
@@ -2268,13 +2549,18 @@ function _raccogliConfigDallaTabella() {
     document.querySelectorAll('#icone-table-body .icone-row').forEach(function (row) {
         var iconId = row.dataset.iconId;
         var isPng = row.querySelector('.icone-toggle-input').checked;
-        var file = _normalizzaNomeFilePng(row.querySelector('.icone-file-input').value);
+        // Un file appartiene alla configurazione solo quando il toggle PNG
+        // è attivo. Se si torna a Bootstrap, non lasciare il vecchio nome
+        // nel payload: il server non deve validare un PNG disattivato.
+        var file = isPng
+            ? _normalizzaNomeFilePng(row.querySelector('.icone-file-input').value)
+            : '';
         var w = parseInt(row.querySelector('.icone-dim-w').value) || 40;
         var h = parseInt(row.querySelector('.icone-dim-h').value) || 40;
 
-        if (isPng || file) {
+        if (isPng && file) {
             config[iconId] = {
-                type: isPng ? 'png' : 'bootstrap',
+                type: 'png',
                 file: file,
                 dims: [w, h]
             };
@@ -2292,7 +2578,9 @@ function _raccogliConfigBottoniDallaTabella() {
         if (!btnDef) return;
 
         var isPng = row.querySelector('.bt-toggle-input').checked;
-        var file = _normalizzaNomeFilePng(row.querySelector('.bt-file-input').value);
+        var file = isPng
+            ? _normalizzaNomeFilePng(row.querySelector('.bt-file-input').value)
+            : '';
         var w = parseInt(row.querySelector('.bt-dim-w').value) || 0;
         var h = parseInt(row.querySelector('.bt-dim-h').value) || 0;
         var label = row.querySelector('.bt-label-input').value.trim();
@@ -2309,7 +2597,7 @@ function _raccogliConfigBottoniDallaTabella() {
 
         // Salva la voce solo se c'è almeno una personalizzazione
         var defaultDims = (btnDef.dims_px || [24, 24]);
-        var personalizzato = isPng || file || label || labelSize ||
+        var personalizzato = isPng || label || labelSize ||
             (pos !== (btnDef.label_pos || 'row')) ||
             (color.toLowerCase() !== defaultColor) ||
             (btnW && btnW !== 100) || (btnH && btnH !== defaultH) ||
@@ -2318,7 +2606,7 @@ function _raccogliConfigBottoniDallaTabella() {
         if (personalizzato) {
             config[btnId] = {
                 type: isPng ? 'png' : 'bootstrap',
-                file: file,
+                file: isPng ? file : '',
                 dims_px: [w || defaultDims[0], h || defaultDims[1]],
                 label: label,
                 label_size: labelSize,

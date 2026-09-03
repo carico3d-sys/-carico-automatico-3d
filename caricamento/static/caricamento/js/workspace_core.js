@@ -816,7 +816,7 @@ function _toggleVistaToolbar() {
 function _setHeaderCaricoLabel(text) {
     if (DOM.headerCaricoLabel) {
         DOM.headerCaricoLabel.textContent = text || 'Nessun carico';
-        DOM.headerCaricoLabel.style.color = text ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)';
+        DOM.headerCaricoLabel.style.color = text ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.45)';
     }
 }
 

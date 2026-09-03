@@ -56,37 +56,6 @@ function renderMezziPanel() {
         if (oldSelAll) oldSelAll.remove();
         var oldArchCheck = listHeader.querySelector('.pv-list-archiviati');
         if (oldArchCheck) oldArchCheck.remove();
-        // Checkbox "Archiviati" — creato via DOM per evitare autofill browser
-        var archLabel = document.createElement('label');
-        archLabel.className = 'pv-list-select-all pv-list-archiviati';
-        archLabel.title = (window.DIZIONARIO && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it'] && window.DIZIONARIO[window.CARICO3D_LANGUAGE || 'it']['vehicles.mostra-archiviati']) || 'Mostra/Nascondi mezzi archiviati';
-        archLabel.style.marginLeft = 'auto';
-        var archCheck = document.createElement('input');
-        archCheck.type = 'checkbox';
-        archCheck.id = 'pv-show-archiviati';
-        archCheck.checked = _mezziMostraArchiviati;
-        archLabel.appendChild(archCheck);
-        archLabel.appendChild(document.createTextNode(' '));
-        var archivedText = document.createElement('span');
-        archivedText.className = 'language-label';
-        archivedText.dataset.translationKey = 'vehicles.archiviati';
-        archivedText.dataset.italiano = 'Archiviati';
-        archivedText.textContent = 'Archiviati';
-        archLabel.appendChild(archivedText);
-        listHeader.appendChild(archLabel);
-
-        // Difesa da autofill browser: se il browser ha auto-compilato, ripristina
-        if (archCheck.checked !== _mezziMostraArchiviati) {
-            archCheck.checked = _mezziMostraArchiviati;
-        }
-        archCheck.addEventListener('change', function () {
-            _mezziMostraArchiviati = this.checked;
-            DOM.pvListCount.textContent = WS.contenitori.filter(function (c) {
-                return !!c.archiviato === _mezziMostraArchiviati;
-            }).length;
-            DOM.pvListBody.innerHTML = _buildMezziListHtml();
-            _wireMezziListClickHandlers();
-        });
     }
 
     DOM.pvListBody.innerHTML = _buildMezziListHtml();
@@ -112,26 +81,27 @@ function renderMezziForm(mezzoId) {
     var tipoLabelsIt = ['Autoarticolato','Autocarro','Autotreno','Furgone','Container 20\'','Container 40\'','Container 40\' HC','Nave','Treno','Altro'];
     var tipoLabelsEn = ['Semi-trailer','Truck','Road train','Van','20\' Container','40\' Container','40\' HC Container','Ship','Train','Other'];
     var tipoLabels = window.CARICO3D_LANGUAGE === 'en' ? tipoLabelsEn : tipoLabelsIt;
-    var tipoHtml = tipoOptions.map(function (v, i) {
-        return '<option value="' + v + '" ' + (m && m.tipo === v ? 'selected' : (v === 'container_40_hc' && !m ? 'selected' : '')) + '>' + tipoLabels[i] + '</option>';
-    }).join('');
+    var tipoHtml = (!m ? '<option value="" disabled selected></option>' : '') +
+        tipoOptions.map(function (v, i) {
+            return '<option value="' + v + '" ' + (m && m.tipo === v ? 'selected' : '') + '>' + tipoLabels[i] + '</option>';
+        }).join('');
 
     var formHtml =
         '<div class="field-group">' +
             '<label class="field-label"><span class="language-label" data-translation-key="vehicles.nome" data-italiano="Nome / Modello">Nome / Modello</span></label>' +
-            '<input type="text" class="form-input" id="pv-mezzo-nome" value="' + (m ? escapeHtml(m.nome) : '') + '" placeholder="Es. Camion Bilico 13.6m">' +
+            '<input type="text" class="form-input" id="pv-mezzo-nome" value="' + (m ? escapeHtml(m.nome) : '') + '">' +
         '</div>' +
         '<div class="field-group">' +
             '<label class="field-label language-label" data-translation-key="vehicles.tipo" data-italiano="Tipo Mezzo">Tipo Mezzo</label>' +
             '<select class="form-select" id="pv-mezzo-tipo">' + tipoHtml + '</select>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.lunghezza-label" data-italiano="L">L</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.larghezza-label" data-italiano="W">W</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" placeholder="Larghezza in cm" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.altezza-label" data-italiano="H">H</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" placeholder="Altezza in cm" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.lunghezza-label" data-italiano="L">L</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.larghezza-label" data-italiano="W">W</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.altezza-label" data-italiano="H">H</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group" style="flex:0 0 180px;"><label class="field-label"><span class="language-label" data-translation-key="vehicles.portata" data-italiano="Portata (kg)">Portata (kg)</span></label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" placeholder="Portata in kg" data-translation-key="vehicles.portata-placeholder" data-italiano="Portata in kg" step="0.1" min="1"></div>' +
+            '<div class="field-group" style="flex:0 0 180px;"><label class="field-label"><span class="language-label" data-translation-key="vehicles.portata" data-italiano="Portata (kg)">Portata (kg)</span></label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" data-translation-key="vehicles.portata-placeholder" data-italiano="Portata in kg" step="0.1" min="1"></div>' +
             '<div class="field-group flex-grow" style="flex-direction:row;align-items:flex-end;justify-content:flex-end;gap:12px;"><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-mezzo-archiviato"' + (m && m.archiviato ? ' checked' : '') + '> <span class="language-label" data-translation-key="vehicles.archivia" data-italiano="Archivia">Archivia</span></label></div>' +
         '</div>' +
         _renderSezioniTable(m ? m.sezioni || [] : [], m ? m.lunghezza_mm : null) +

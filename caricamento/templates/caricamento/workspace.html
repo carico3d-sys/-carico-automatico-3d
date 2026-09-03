@@ -30,11 +30,11 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
 
     <!-- Custom CSS — modulare (5 file, carico in ordine) -->
-    <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=28">
+    <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=29">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=11">
     <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=5">
-    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=25">
-    <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=26">
+    <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=6">
 
     <!-- Palette flottante Vista — file isolato -->
     <link rel="stylesheet" href="{% static 'caricamento/css/floating_palette.css' %}?v=21">
@@ -280,8 +280,11 @@
     <script src="{% static 'caricamento/js/workspace_core.js' %}?v=24" defer></script>
     <script src="{% static 'caricamento/js/workspace_pannelli_toggle.js' %}?v=20" defer></script>
 
+    <!-- 1a. Help Modal (dipende da workspace_core.js) -->
+    <script src="{% static 'caricamento/js/workspace_help.js' %}?v=1" defer></script>
+
     <!-- 1b. Gestione Icone Admin (dipende da workspace_core.js) -->
-    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=65" defer></script>
+    <script src="{% static 'caricamento/js/workspace_icone.js' %}?v=66" defer></script>
 
     <!-- 2. Gestione File (Salva/Carica/Esporta/Importa) -->
     <script src="{% static 'caricamento/js/gestione_file.js' %}?v=11" defer></script>
@@ -332,9 +335,9 @@
     <script src="{% static 'caricamento/js/workspace_abbonamento.js' %}?v=2" defer></script>
 
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
-    <script src="{% static 'caricamento/js/workspace.js' %}?v=35" defer></script>
+    <script src="{% static 'caricamento/js/workspace.js' %}?v=36" defer></script>
     <script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=22"></script>
-    <script src="{% static 'caricamento/js/selettore_lingua.js' %}?v=30"></script>
+    <script src="{% static 'caricamento/js/selettore_lingua.js' %}?v=31"></script>
 
     <script>
         window.WORKSPACE_CONFIG = {
@@ -422,6 +425,20 @@
                 <i class="bi bi-gear header-cat-icon"></i>
                 <span class="header-cat-label">Sistema</span>
             </button>
+            <button id="header-help-btn" class="header-cat-btn" data-cat="help" title="Guida rapida">
+                <i class="bi bi-question-circle header-cat-icon"></i>
+                <span class="header-cat-label">Guida</span>
+            </button>
+            <div id="header-lang-dropdown" class="header-lang-dropdown" data-server-lingua="{{ lingua }}">
+                <button id="header-lang-btn" class="header-cat-btn header-lang-btn" data-cat="lingua" title="Lingua" aria-haspopup="true" aria-expanded="false">
+                    <i class="bi bi-translate header-cat-icon"></i>
+                    <span id="header-lang-label" class="header-cat-label">Lingua</span>
+                </button>
+                <div id="header-lang-menu" class="header-lang-menu">
+                    <button class="header-lang-option {% if lingua == 'it' %}active{% endif %}" data-lang="it">🇮🇹 Italiano</button>
+                    <button class="header-lang-option {% if lingua == 'en' %}active{% endif %}" data-lang="en">🇬🇧 English</button>
+                </div>
+            </div>
 
         </nav>
         <div id="header-tools">
@@ -429,10 +446,6 @@
             {% if request.user.is_staff %}
             <button id="header-icone-btn" class="header-btn" title="Gestione Icone"><i class="bi bi-palette"></i> Icone</button>
             {% endif %}
-            <select id="header-lang-select" class="header-lang-select" aria-label="Lingua" data-server-lingua="{{ lingua }}">
-                <option value="it" {% if lingua == 'it' %}selected{% endif %}>it</option>
-                <option value="en" {% if lingua == 'en' %}selected{% endif %}>en</option>
-            </select>
             <span id="header-user">{{ request.user.username }}</span>
             <a href="/logout/" id="header-logout" title="Esci"><i class="bi bi-box-arrow-right"></i> <span class="language-label" data-italiano="Esci">Esci</span></a>
             <a href="/logout-completo/" id="header-logout-full" title="Logout completo (cambia account Google)"><i class="bi bi-door-open"></i> <span class="language-label" data-italiano="Logout">Logout</span></a>
@@ -546,7 +559,7 @@
                                 <button id="manuale-btn-rimuovi" class="btn btn-danger btn-sm" disabled><span class="manuale-emoji">🗑️</span> Rimuovi</button>
                             </div>
                             <div class="manuale-add-cell">
-                                <button id="manuale-btn-aggiungi" class="btn btn-primary btn-sm"><span class="manuale-emoji">➕</span> Aggiungi</button>
+                                <button id="manuale-btn-aggiungi" class="btn btn-primary btn-sm" data-tooltip="Piazza l'oggetto selezionato nella scena 3D"><span class="manuale-emoji">➕</span> Aggiungi</button>
                             </div>
                         </div>
                         <!-- Riga Distribuzione Pesi + Salva (50% + 50%) -->
@@ -582,11 +595,11 @@
                         <p class="sidebar-auto-desc language-label" data-translation-key="auto.descrizione" data-italiano="Seleziona un mezzo, aggiungi oggetti nel pannello di destra e avvia l'ottimizzazione 3D automatica.">
                             Seleziona un mezzo, aggiungi oggetti nel pannello di destra e avvia l'ottimizzazione 3D automatica.
                         </p>
-                        <button class="btn btn-primary btn-block btn-lg auto-action-primary" id="btn-elabora-auto" disabled>
+                        <button class="btn btn-primary btn-block btn-lg auto-action-primary" id="btn-elabora-auto" disabled data-tooltip="Lancia l'ottimizzazione automatica del carico">
                             <i class="bi bi-play-fill"></i><span class="language-label">Elabora</span>
                         </button>
                         <div class="auto-action-secondary">
-                            <button class="btn auto-action-save" id="btn-salva-auto" disabled>
+                            <button class="btn auto-action-save" id="btn-salva-auto" disabled data-tooltip="Salva il risultato dell'ottimizzazione">
                                 <i class="bi bi-save"></i> SALVA
                             </button>
                         </div>

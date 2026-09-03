@@ -117,6 +117,8 @@ html.icons-not-ready i {
 .header-cat-btn[data-cat="toggle-vista"] .bi { color: #4caf50; }
 .header-cat-btn[data-cat="report"] .bi { color: #b07cd8; }
 .header-cat-btn[data-cat="sistema"] .bi { color: #b0b8c0; }
+.header-cat-btn[data-cat="help"] .bi { color: #f0a040; }
+.header-cat-btn[data-cat="lingua"] .bi { color: #4da6d9; }
 
 /* Bottone attivo: colore più intenso */
 .header-cat-btn.active[data-cat="documenti"] .bi { color: #ffb950; }
@@ -126,6 +128,8 @@ html.icons-not-ready i {
 .header-cat-btn.active[data-cat="toggle-vista"] .bi { color: #5ec962; }
 .header-cat-btn.active[data-cat="report"] .bi { color: #c490e8; }
 .header-cat-btn.active[data-cat="sistema"] .bi { color: #c4ccd2; }
+.header-cat-btn.active[data-cat="help"] .bi { color: #ffb950; }
+.header-cat-btn.active[data-cat="lingua"] .bi { color: #5db8e8; }
 
 /* --- SIDEBAR TAB: colori --- */
 .sidebar-tab[data-tab="documenti"] .sidebar-tab-icon { color: #447e9b; }

@@ -24,14 +24,36 @@ function _ricaricaDOMPanelView() {
     DOM.pvListTitle = document.getElementById('pv-list-title');
     DOM.pvListCount = document.getElementById('pv-list-count');
     DOM.pvListBody = document.getElementById('pv-list-body');
-    DOM.pvFormTitle = document.getElementById('pv-form-title');
-    DOM.pvFormBody = document.getElementById('pv-form-body');
+    // pv-form-title / pv-form-body possono essere sostituiti da viste
+    // specializzate (es. oggetti usa pv-oggetti-form-title/body).
+    // Sovrascrivi solo se l'elemento standard esiste ancora nel DOM;
+    // altrimenti mantieni il riferimento custom già attivo.
+    var stdTitle = document.getElementById('pv-form-title');
+    var stdBody = document.getElementById('pv-form-body');
+    if (stdTitle) DOM.pvFormTitle = stdTitle;
+    else if (DOM.pvFormTitle && !DOM.pvFormTitle.isConnected) {
+        DOM.pvFormTitle = document.getElementById('pv-oggetti-form-title') || stdTitle;
+    }
+    if (stdBody) DOM.pvFormBody = stdBody;
+    else if (DOM.pvFormBody && !DOM.pvFormBody.isConnected) {
+        DOM.pvFormBody = document.getElementById('pv-oggetti-form-body') || stdBody;
+    }
     return DOM;
 }
 
 function _panelViewPronto(contesto) {
     _ricaricaDOMPanelView();
     var richiesti = ['pvListTitle', 'pvListCount', 'pvListBody', 'pvFormTitle', 'pvFormBody'];
+    // Quando il pannello oggetti ha ricostruito il form con ID custom,
+    // accetta anche pv-oggetti-form-title/body come alternativa.
+    if (contesto === 'oggetti') {
+        if (!DOM.pvFormTitle || !DOM.pvFormTitle.isConnected) {
+            DOM.pvFormTitle = document.getElementById('pv-oggetti-form-title');
+        }
+        if (!DOM.pvFormBody || !DOM.pvFormBody.isConnected) {
+            DOM.pvFormBody = document.getElementById('pv-oggetti-form-body');
+        }
+    }
     var mancanti = richiesti.filter(function (nome) { return !DOM[nome] || !DOM[nome].isConnected; });
     if (mancanti.length === 0) return true;
 

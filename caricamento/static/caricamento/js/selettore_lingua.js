@@ -3,8 +3,8 @@
     'use strict';
 
     // Prefer server-side value over localStorage
-    var langSelect = document.getElementById('header-lang-select');
-    var serverLingua = langSelect && langSelect.getAttribute('data-server-lingua');
+    var langDropdown = document.getElementById('header-lang-dropdown');
+    var serverLingua = langDropdown && langDropdown.getAttribute('data-server-lingua');
     var linguaSalvata = serverLingua || window.localStorage.getItem('carico3d-language') || 'en';
     var linguaCorrente = 'it';
 
@@ -26,7 +26,9 @@
                 'goto-automatica': 'auto',
                 'toggle-vista': 'vista',
                 report: 'report',
-                sistema: 'sistema'
+                sistema: 'sistema',
+                help: 'help',
+                lingua: 'lingua'
             }[cat] || cat);
             label.textContent = traduci(key, label.dataset.italiano || label.textContent, lingua);
         });
@@ -116,8 +118,13 @@
         window.applicaTraduzioni = function (root) {
             aggiornaElementiTraducibili(root || document, linguaCorrente);
         };
-        var langSelect = document.getElementById('header-lang-select');
-        if (langSelect) langSelect.value = linguaCorrente;
+        var langLabel = document.getElementById('header-lang-label');
+        if (langLabel) {
+            langLabel.textContent = traduci('header.lingua', langLabel.dataset.italiano || 'Lingua', linguaCorrente);
+        }
+        document.querySelectorAll('.header-lang-option').forEach(function (opt) {
+            opt.classList.toggle('active', opt.dataset.lang === linguaCorrente);
+        });
         document.documentElement.lang = linguaCorrente;
         window.CARICO3D_LANGUAGE = linguaCorrente;
         window.localStorage.setItem('carico3d-language', linguaCorrente);
@@ -185,9 +192,35 @@
         aggiornaPannelloDestro(linguaCorrente);
     });
 
-    document.addEventListener('change', function (event) {
-        var sel = event.target.closest('#header-lang-select');
-        if (sel) aggiornaLingua(sel.value);
+    // Toggle dropdown on button click
+    document.addEventListener('click', function (event) {
+        var btn = event.target.closest('#header-lang-btn');
+        var menu = document.getElementById('header-lang-menu');
+        if (btn && menu) {
+            menu.classList.toggle('open');
+            btn.setAttribute('aria-expanded', menu.classList.contains('open') ? 'true' : 'false');
+            event.stopPropagation();
+            return;
+        }
+        // Close menu when clicking outside
+        if (menu && menu.classList.contains('open')) {
+            menu.classList.remove('open');
+            var langBtn = document.getElementById('header-lang-btn');
+            if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // Language option selected
+    document.addEventListener('click', function (event) {
+        var opt = event.target.closest('.header-lang-option');
+        if (opt) {
+            var lang = opt.dataset.lang;
+            if (lang) aggiornaLingua(lang);
+            var menu = document.getElementById('header-lang-menu');
+            if (menu) menu.classList.remove('open');
+            var langBtn = document.getElementById('header-lang-btn');
+            if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
+        }
     });
 
     document.addEventListener('carico3d:icon-config-ready', function () {

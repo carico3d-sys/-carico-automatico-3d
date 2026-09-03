@@ -36,3 +36,4 @@ gunicorn==23.0.0
 
 # Fingerprinting browser (opzionale, per demo abuse prevention)
 # fingerprintjs è caricato via CDN nel frontend
+Pillow>=10.0

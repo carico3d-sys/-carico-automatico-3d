@@ -8,6 +8,7 @@ Fornisce endpoint REST per:
 """
 
 import hashlib
+import io
 import json
 import logging
 import os
@@ -19,6 +20,8 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import unquote
+
+from PIL import Image
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -2441,7 +2444,8 @@ def api_icone_file_delete(request):
 @login_required
 def api_icone_upload(request):
     """
-    POST /api/icone-upload/  → Carica un file PNG nella cartella img (solo admin)
+    POST /api/icone-upload/  → Carica un file immagine nella cartella img (solo admin).
+    Accetta PNG, JPG, JPEG, WebP, GIF, BMP e li converte automaticamente in PNG.
 
     Body: multipart/form-data con campo 'file'.
     """
@@ -2455,33 +2459,66 @@ def api_icone_upload(request):
     if not uploaded_file:
         return _json_api_error(request, "Nessun file fornito.", 400, "missing_file")
 
-    # Verifica estensione
+    # Verifica estensione: accetta formati comuni
+    ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.ico', '.tiff'}
     filename = uploaded_file.name.lower()
-    if not filename.endswith(".png"):
-        return _json_api_error(request, "Solo file PNG accettati.", 400, "invalid_file_type")
+    ext = os.path.splitext(filename)[1]
+    if ext not in ALLOWED_EXTENSIONS:
+        return _json_api_error(
+            request,
+            f"Formato non supportato: {ext}. Accettati: PNG, JPG, WebP, GIF, BMP.",
+            400, "invalid_file_type"
+        )
 
-    # Verifica il contenuto reale: magic bytes PNG. L'estensione da sola non
-    # basta: un file non-PNG rinominato .png verrebbe comunque servito da nginx.
-    if uploaded_file.read(8) != PNG_SIGNATURE:
-        return _json_api_error(request, "Il file non è un PNG valido.", 400, "invalid_file_type")
-    uploaded_file.seek(0)
+    # Per i PNG controlla subito la firma binaria, così un file rinominato
+    # (es. un .exe con estensione .png) restituisce un errore chiaro prima
+    # del tentativo di conversione Pillow.
+    if ext == ".png":
+        try:
+            signature = uploaded_file.read(len(PNG_SIGNATURE))
+            uploaded_file.seek(0)
+        except (AttributeError, IOError):
+            signature = b""
+        if signature != PNG_SIGNATURE:
+            return _json_api_error(
+                request,
+                "Il file PNG non contiene una firma PNG valida.",
+                400,
+                "invalid_file_type",
+            )
 
-    # Sanitizza il nome file con la stessa regola usata dalla configurazione
-    safe_name = _normalizza_nome_file_icona(uploaded_file.name)
+    # Limite dimensione: 2 MB (prima della conversione)
+    if uploaded_file.size > 2 * 1024 * 1024:
+        return _json_api_error(request, "File troppo grande. Max 2 MB.", 400, "file_too_large")
 
-    # Limite dimensione: 500 KB
-    if uploaded_file.size > 500 * 1024:
-        return _json_api_error(request, "File troppo grande. Max 500 KB.", 400, "file_too_large")
+    # Converti in PNG usando Pillow se non è già PNG
+    try:
+        img = Image.open(uploaded_file)
+        # Converti in RGBA per supportare trasparenza
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        # Salva come PNG in memoria
+        png_buffer = io.BytesIO()
+        img.save(png_buffer, format='PNG', optimize=True)
+        png_data = png_buffer.getvalue()
+        # Limite PNG finale: 500 KB
+        if len(png_data) > 500 * 1024:
+            return _json_api_error(request, "File troppo grande dopo conversione. Max 500 KB.", 400, "file_too_large")
+    except Exception as e:
+        return _json_api_error(request, f"Errore conversione immagine: {e}", 400, "conversion_error")
+
+    # Sanitizza il nome file e forza estensione .png
+    base_name = _normalizza_nome_file_icona(uploaded_file.name)
+    safe_name = os.path.splitext(base_name)[0] + '.png'
 
     # Crea la directory se non esiste
     os.makedirs(ICON_UPLOAD_DIR, exist_ok=True)
 
     dest_path = os.path.join(ICON_UPLOAD_DIR, safe_name)
-    with open(dest_path, "wb+") as dest:
-        for chunk in uploaded_file.chunks():
-            dest.write(chunk)
+    with open(dest_path, "wb") as dest:
+        dest.write(png_data)
 
-    logger.info("Icon PNG uploaded: %s by %s", safe_name, request.user.username)
+    logger.info("Icon uploaded: %s (from %s) by %s", safe_name, uploaded_file.name, request.user.username)
     return JsonResponse({"success": True, "filename": safe_name})
 
 

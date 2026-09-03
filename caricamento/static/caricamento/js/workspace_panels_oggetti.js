@@ -76,7 +76,9 @@ function _toggleSelezioneMultipla(oggettoId, ctrlKey, shiftKey) {
 // Helper: costruisce l'HTML della lista oggetti (usato da renderOggettiPanel e _aggiornaListaOggettiESeleziona)
 function _buildOggettiListHtml() {
     var listHtml = '';
-    WS.oggettiDisponibili.forEach(function (o) {
+    WS.oggettiDisponibili.slice().sort(function (a, b) {
+        return (a.codice || '').localeCompare(b.codice || '');
+    }).forEach(function (o) {
         // Filtro esclusivo: default mostra solo attivi, con checkbox mostra solo archiviati
         if (!!o.archiviato !== _oggettiMostraArchiviati) return;
         var coloreDisplay = (typeof coloreOggetto === 'function') ? coloreOggetto(o) : (o.colore || '#447e9b');
@@ -199,25 +201,6 @@ function renderOggettiPanel() {
         var selectAllHtml = '<label class="pv-list-select-all" title="Seleziona/Deseleziona tutti">' +
             '<input type="checkbox" id="pv-select-all" autocomplete="off"> <span class="language-label" data-translation-key="objects.seleziona" data-italiano="seleziona">seleziona</span></label>';
         listHeader.insertAdjacentHTML('afterbegin', selectAllHtml);
-
-        // Checkbox "Archiviati" — creato via DOM per evitare autofill browser
-        var archLabel = document.createElement('label');
-        archLabel.className = 'pv-list-select-all pv-list-archiviati';
-        archLabel.title = 'Mostra/Nascondi oggetti archiviati';
-        archLabel.style.marginLeft = 'auto';
-        var archCheck = document.createElement('input');
-        archCheck.type = 'checkbox';
-        archCheck.id = 'pv-show-archiviati-oggetti';
-        archCheck.checked = _oggettiMostraArchiviati;
-        archLabel.appendChild(archCheck);
-        archLabel.appendChild(document.createTextNode(' '));
-        var archiviatiLabel = document.createElement('span');
-        archiviatiLabel.className = 'language-label';
-        archiviatiLabel.dataset.translationKey = 'objects.archiviati';
-        archiviatiLabel.dataset.italiano = 'Archiviati';
-        archiviatiLabel.textContent = 'Archiviati';
-        archLabel.appendChild(archiviatiLabel);
-        listHeader.appendChild(archLabel);
         
         // Evento select-all
         var selAll = document.getElementById('pv-select-all');
@@ -239,19 +222,6 @@ function renderOggettiPanel() {
                 }
             });
         }
-        // Difesa da autofill browser: se il browser ha auto-compilato, ripristina
-        if (archCheck.checked !== _oggettiMostraArchiviati) {
-            archCheck.checked = _oggettiMostraArchiviati;
-        }
-        archCheck.addEventListener('change', function () {
-            _pulisciSelezioneMultipla();
-            _oggettiMostraArchiviati = this.checked;
-            DOM.pvListCount.textContent = WS.oggettiDisponibili.filter(function (o) {
-                return !!o.archiviato === _oggettiMostraArchiviati;
-            }).length;
-            DOM.pvListBody.innerHTML = _buildOggettiListHtml();
-            _wireOggettiListClickHandlers();
-        });
     }
     
     // ---- NESSUNA TOOLBAR BATCH PER GLI ARTICOLI ----
@@ -352,17 +322,17 @@ function renderOggettiForm(oggettoId) {
 
     var formHtml =
         '<div class="field-row">' +
-            '<div class="field-group" style="flex:0 0 130px;"><label class="field-label language-label" data-translation-key="objects.codice" data-italiano="Codice">Codice</label><input type="text" class="form-input" id="pv-ogg-codice" value="' + (o ? escapeHtml(o.codice) : '') + '" placeholder="Es. CART-102"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.descrizione" data-italiano="Descrizione">Descrizione</label><input type="text" class="form-input" id="pv-ogg-desc" value="' + (o ? escapeHtml(o.descrizione || '') : '') + '" placeholder="Scatole cartone"></div>' +
+            '<div class="field-group" style="flex:0 0 130px;"><label class="field-label language-label" data-translation-key="objects.codice" data-italiano="Codice">Codice</label><input type="text" class="form-input" id="pv-ogg-codice" value="' + (o ? escapeHtml(o.codice) : '') + '"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.descrizione" data-italiano="Descrizione">Descrizione</label><input type="text" class="form-input" id="pv-ogg-desc" value="' + (o ? escapeHtml(o.descrizione || '') : '') + '"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.lunghezza" data-italiano="L (cm)">L (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-lungh" value="' + (o ? formatCm(o.lunghezza_mm) : '') + '" placeholder="Lunghezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.larghezza" data-italiano="W (cm)">W (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-larg" value="' + (o ? formatCm(o.larghezza_mm) : '') + '" placeholder="Larghezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.altezza" data-italiano="H (cm)">H (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-alt" value="' + (o ? formatCm(o.altezza_mm) : '') + '" placeholder="Altezza in cm" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.lunghezza" data-italiano="L (cm)">L (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-lungh" value="' + (o ? formatCm(o.lunghezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.larghezza" data-italiano="W (cm)">W (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-larg" value="' + (o ? formatCm(o.larghezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.altezza" data-italiano="H (cm)">H (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-alt" value="' + (o ? formatCm(o.altezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.peso" data-italiano="Peso (kg)">Peso (kg)</label><input type="number" class="form-input" id="pv-ogg-peso" value="' + (o ? o.peso_kg : '') + '" placeholder="Peso in kg" step="0.01" min="0.01"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.quantita" data-italiano="Q.tà Disp.">Q.tà Disp.</label><input type="number" class="form-input" id="pv-ogg-qty" value="' + (o ? (o.quantita || 1) : 1) + '" min="1" step="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.peso" data-italiano="Peso (kg)">Peso (kg)</label><input type="number" class="form-input" id="pv-ogg-peso" value="' + (o ? o.peso_kg : '') + '" step="0.01" min="0.01"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.quantita" data-italiano="Q.tà Disp.">Q.tà Disp.</label><input type="number" class="form-input" id="pv-ogg-qty" value="' + (o ? (o.quantita || 1) : '') + '" min="1" step="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
             '<div class="field-group" style="flex:0 0 70px;"><label class="field-label language-label" data-translation-key="objects.colore" data-italiano="Colore">Colore</label><input type="color" class="form-input" id="pv-ogg-colore" value="' + coloreVal + '" style="height:36px;padding:2px 4px;cursor:pointer;"' + (!isEdit && !hasColor ? ' disabled' : '') + '></div>' +
@@ -379,6 +349,7 @@ function renderOggettiForm(oggettoId) {
             actionsEl.innerHTML = lockMsg +
                 '<div class="field-row" style="gap:8px;padding:4px 0;">' +
                     '<button class="btn" id="pv-ogg-nuovo">➕ Nuovo</button>' +
+                    '<button class="btn" id="pv-ogg-duplica">📋 Duplica</button>' +
                     '<button class="btn btn-primary" style="flex:1;" id="pv-ogg-save">💾 Aggiorna</button>' +
                     '<button class="btn btn-danger" id="pv-ogg-delete">🗑 Elimina</button>' +
                 '</div>';
@@ -576,6 +547,92 @@ function renderOggettiForm(oggettoId) {
                 setStatus('idle', 'Eliminati');
             } catch (err) {
                 showToast('❌ Errore eliminazione: ' + err.message, 'error');
+                setStatus('error', 'Errore');
+            }
+        });
+    }
+
+    // --- Duplica oggetto ---
+    var duplicaBtn = document.getElementById('pv-ogg-duplica');
+    if (duplicaBtn) {
+        duplicaBtn.addEventListener('click', async function () {
+            if (!isEdit || !o) return;
+            try {
+                setStatus('busy', 'Duplicazione...');
+                var baseCodice = o.codice;
+                var existingCodes = WS.oggettiDisponibili.map(function (x) { return x.codice; });
+                var newCodice = baseCodice + '(2)';
+                var counter = 3;
+                while (existingCodes.indexOf(newCodice) !== -1) {
+                    newCodice = baseCodice + '(' + counter + ')';
+                    counter++;
+                }
+                var resp = await fetch('/api/oggetti/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                    body: JSON.stringify({
+                        codice: newCodice,
+                        descrizione: o.descrizione || '',
+                        lunghezza_cm: o.lunghezza_mm / 10,
+                        larghezza_cm: o.larghezza_mm / 10,
+                        altezza_cm: o.altezza_mm / 10,
+                        peso_kg: parseFloat(o.peso_kg) || 0,
+                        quantita_disponibile: parseInt(o.quantita) || 1,
+                        colore: o.colore || '',
+                    }),
+                });
+                if (!resp.ok) {
+                    var errBody = await resp.text();
+                    throw new Error('HTTP ' + resp.status + ' - ' + errBody);
+                }
+                var data = await resp.json();
+                var newId = Number(data.id);
+                WS.oggettiDisponibili.push({
+                    id: newId, codice: data.codice, descrizione: data.descrizione,
+                    lunghezza_mm: data.lunghezza_mm, larghezza_mm: data.larghezza_mm,
+                    altezza_mm: data.altezza_mm, peso_kg: data.peso_kg,
+                    quantita: data.quantita_disponibile, colore: data.colore || '',
+                    archiviato: false,
+                });
+                if (WS.oggettiCatalog) {
+                    WS.oggettiCatalog.push({
+                        id: newId, codice: data.codice, descrizione: data.descrizione,
+                        lunghezza_mm: data.lunghezza_mm, larghezza_mm: data.larghezza_mm,
+                        altezza_mm: data.altezza_mm, peso_kg: data.peso_kg,
+                        quantita: data.quantita_disponibile, colore: data.colore || '',
+                        archiviato: false,
+                    });
+                }
+                // Copia vincoli dal sorgente
+                var srcVinc = WS.vincoli.find(function (v) { return v.oggetto_id == o.id; });
+                if (srcVinc) {
+                    await fetch('/api/oggetti/' + newId + '/vincoli/', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                        body: JSON.stringify({
+                            rotazione_su_x: srcVinc.rotazione_su_x,
+                            rotazione_su_y: srcVinc.rotazione_su_y,
+                            rotazione_su_z: srcVinc.rotazione_su_z,
+                            sovrapponibile: srcVinc.sovrapponibile,
+                            peso_massimo_tetto_kg: srcVinc.peso_massimo_tetto_kg || 0,
+                            solo_su_piano: srcVinc.solo_su_piano,
+                        }),
+                    });
+                    WS.vincoli.push(Object.assign({ oggetto_id: newId }, {
+                        rotazione_su_x: srcVinc.rotazione_su_x,
+                        rotazione_su_y: srcVinc.rotazione_su_y,
+                        rotazione_su_z: srcVinc.rotazione_su_z,
+                        sovrapponibile: srcVinc.sovrapponibile,
+                        peso_massimo_tetto_kg: srcVinc.peso_massimo_tetto_kg || 0,
+                        solo_su_piano: srcVinc.solo_su_piano,
+                    }));
+                }
+                aggiornaSelectOggetti();
+                _aggiornaListaOggettiESeleziona(newId);
+                showToast('Oggetto duplicato: ' + newCodice, 'success');
+                setStatus('idle', 'Duplicato');
+            } catch (err) {
+                showToast('Errore duplicazione: ' + err.message, 'error');
                 setStatus('error', 'Errore');
             }
         });

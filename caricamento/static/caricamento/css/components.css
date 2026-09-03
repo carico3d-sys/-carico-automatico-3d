@@ -1,5 +1,23 @@
 /* components.css — impostazioni, D-Pad, modali, toast, flyout, header categories */
 /* =============================================================================
+   SETTINGS ICONS — colori per le icone Bootstrap nelle sezioni impostazioni
+   ============================================================================= */
+.settings-impostazioni-icon { color: #6c757d; }
+.settings-strategia-icon { color: #e74c3c; }
+.settings-output-icon { color: #3498db; }
+.settings-manuale-icon { color: #9b59b6; }
+.settings-algoritmo-icon { color: #f39c12; }
+.settings-compattazione-icon { color: #27ae60; }
+.settings-backtracking-icon { color: #f1c40f; }
+.settings-distribuzione-icon { color: #e67e22; }
+.settings-output-etichette-icon { color: #3498db; }
+.settings-output-contenitore-icon { color: #3498db; }
+.settings-output-vuoti-icon { color: #3498db; }
+.settings-output-rotazione-icon { color: #3498db; }
+.settings-manuale-strategia-icon { color: #9b59b6; }
+.settings-manuale-snap-icon { color: #9b59b6; }
+.settings-reset-icon { color: #6c757d; }
+/* =============================================================================
    MINI-VIEWPORT 3D VINCOLI TRA OGGETTI
    ============================================================================= */
 
@@ -1033,6 +1051,122 @@
 }
 .settings-checkbox-row:last-child {
     border-bottom: none;
+}
+
+/* =============================================================================
+   HELP MODAL
+   ============================================================================= */
+
+.help-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 8px;
+}
+
+.help-tab {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f8f9fa;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    transition: all 0.15s ease;
+}
+
+.help-tab:hover {
+    background: #e8ecf0;
+    color: #333;
+}
+
+.help-tab.active {
+    background: var(--color-accent, #447e9b);
+    color: #fff;
+    border-color: var(--color-accent, #447e9b);
+}
+
+.help-panels {
+    min-height: 200px;
+}
+
+.help-panel {
+    display: none;
+}
+
+.help-panel.active {
+    display: block;
+}
+
+.help-panel h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 12px;
+}
+
+.help-panel ol {
+    padding-left: 20px;
+    margin: 0 0 12px;
+}
+
+.help-panel ol li {
+    font-size: 13px;
+    color: #444;
+    line-height: 1.6;
+    margin-bottom: 6px;
+}
+
+.help-tip {
+    background: #f0f7ff;
+    border: 1px solid #b3d4fc;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #1a5276;
+    margin-top: 12px;
+}
+
+#header-help-btn {
+    color: var(--color-accent, #447e9b);
+    font-weight: 600;
+}
+
+/* Tooltip */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 10000;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #333;
+    z-index: 10000;
+    pointer-events: none;
 }
 
 /* =============================================================================

@@ -337,7 +337,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "user": "60/minute",        # 60 richieste API al minuto per utente
+        "user": "200/minute",       # 200 richieste API al minuto per utente
         "panel": "200/minute",       # operazioni pannello (DELETE + N POST righe)
         "ottimizza": "10/minute",    # max 10 ottimizzazioni al minuto (6s ciascuna ≈ saturazione 100%)
     },
