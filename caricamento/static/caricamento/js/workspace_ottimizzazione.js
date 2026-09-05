@@ -450,7 +450,7 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
         html += '<div class="sezione-item">' +
             '<div class="sezione-item-header">' +
                 '<span class="sezione-item-name">' + escapeHtml(s.nome) + '</span>' +
-                '<span class="sezione-item-values">' + carico.toFixed(1) + ' / ' + limite.toFixed(1) + ' kg (' + percentualeReale.toFixed(1) + '%)</span>' +
+                '<span class="sezione-item-values">' + carico.toFixed(1) + ' / ' + limite.toFixed(1) + ' ' + unitaPeso() + ' (' + percentualeReale.toFixed(1) + '%)</span>' +
             '</div>' +
             '<div class="sezione-bar-bg"><div class="' + classe + '" style="width:' + percentualeBarra.toFixed(1) + '%"></div></div>' +
             '<div class="sezione-range">X: ' + s.inizio_x_mm + '–' + s.fine_x_mm + ' mm</div>' +
@@ -533,7 +533,7 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
             data: {
                 datasets: [
                     {
-                        label: 'Peso attuale (kg)',
+                        label: 'Peso attuale (' + unitaPeso() + ')',
                         data: chartDataAttuale,
                         borderColor: '#447e9b',
                         backgroundColor: 'rgba(68, 126, 155, 0.15)',
@@ -544,7 +544,7 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
                         pointHoverRadius: 6
                     },
                     {
-                        label: 'Limite (kg)',
+                        label: 'Limite (' + unitaPeso() + ')',
                         data: chartDataLimite,
                         borderColor: '#dc3545',
                         borderDash: [6, 4],
@@ -581,7 +581,7 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
                                 return 'Posizione X: ' + d.x.toFixed(2) + ' m';
                             },
                             label: function (ctx) {
-                                return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + ' kg';
+                                return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + ' ' + unitaPeso();
                             }
                         }
                     }
@@ -593,7 +593,7 @@ function renderizzaDistribuzionePesi(sezioni, oggetti) {
                         ticks: { font: { size: 10 } }
                     },
                     y: {
-                        title: { display: true, text: 'Peso (kg)' },
+                        title: { display: true, text: 'Peso (' + unitaPeso() + ')' },
                         beginAtZero: true,
                         ticks: { font: { size: 10 } }
                     }

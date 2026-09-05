@@ -367,11 +367,15 @@ class StrategiaOttimizzazioneSerializer(serializers.Serializer):
 
 class ImpostazioniOutputSerializer(serializers.Serializer):
     """Campi consentiti per le preferenze di output del workspace."""
+    mostra_griglia = serializers.BooleanField(required=False)
     azzera_grafico_pesi_nei_vuoti = serializers.BooleanField(required=False)
     mostra_etichette_oggetti = serializers.BooleanField(required=False)
     mostra_etichetta_contenitore = serializers.BooleanField(required=False)
     modalita_rotazione = serializers.ChoiceField(
         choices=["baricentrica", "eccentrica"], required=False
+    )
+    unita_misura = serializers.ChoiceField(
+        choices=["metrico", "imperiale"], required=False
     )
 
 

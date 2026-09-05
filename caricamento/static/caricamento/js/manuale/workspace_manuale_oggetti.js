@@ -312,8 +312,8 @@ function _aggiornaInfoOggettoManuale(group) {
 
     infoEl.style.display = 'block';
     codEl.textContent = (ud._orientamento ? ud._orientamento + ' ' : '') + (ud.codice || 'Oggetto');
-    posEl.innerHTML = 'Pos: <strong>' + apiX + ', ' + apiY + ', ' + apiZ + '</strong> cm' +
-        ' | Snap: <strong>' + STATE.snapStepCm + ' cm</strong>';
+    posEl.innerHTML = 'Pos: <strong>' + apiX + ', ' + apiY + ', ' + apiZ + '</strong> ' + unitaDimensione() +
+        ' | Snap: <strong>' + STATE.snapStepCm + ' ' + unitaDimensione() + '</strong>';
 }
 
 // =============================================================================
@@ -395,8 +395,8 @@ function _creaMeshSingolo(dimCm, tjsPos, codice, colore, descrizione, pesoKg) {
     mesh.userData = {
         codice: codice,
         descrizione: descrizione || '-',
-        dimensione: dimCm.x.toFixed(1) + ' × ' + dimCm.z.toFixed(1) + ' × ' + dimCm.y.toFixed(1) + ' cm',
-        posizione: apiX + ', ' + apiY + ', ' + apiZ + ' cm',
+        dimensione: dimCm.x.toFixed(1) + ' × ' + dimCm.z.toFixed(1) + ' × ' + dimCm.y.toFixed(1) + ' ' + unitaDimensione(),
+        posizione: apiX + ', ' + apiY + ', ' + apiZ + ' ' + unitaDimensione(),
         peso: pesoKg || 0,
         pesoSopra: 0,
         rotazione: 'LxPxH',

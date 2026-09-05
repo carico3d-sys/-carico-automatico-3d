@@ -31,8 +31,8 @@
 
     <!-- Custom CSS — modulare (5 file, carico in ordine) -->
     <link rel="stylesheet" href="{% static 'caricamento/css/base.css' %}?v=29">
-    <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=11">
-    <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'caricamento/css/panels.css' %}?v=13">
+    <link rel="stylesheet" href="{% static 'caricamento/css/panels_vincoli.css' %}?v=6">
     <link rel="stylesheet" href="{% static 'caricamento/css/components.css' %}?v=26">
     <link rel="stylesheet" href="{% static 'caricamento/css/icons.css' %}?v=6">
 
@@ -256,7 +256,7 @@
     <!-- Three.js visualizzatore: core + rendering + orchestratore -->
     <script src="{% static 'caricamento/js/visualizzatore_3d_core.js' %}?v=1" defer></script>
     <script src="{% static 'caricamento/js/visualizzatore_3d_rendering.js' %}?v=2" defer></script>
-    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=9" defer></script>
+    <script src="{% static 'caricamento/js/visualizzatore_3d.js' %}?v=10" defer></script>
 
     <!-- Multi Viewport 2×2 (4 viste: Fronte | Lato | Pianta | 3D) -->
     <script src="{% static 'caricamento/js/multi_viewport_3d.js' %}?v=2" defer></script>
@@ -277,7 +277,7 @@
     <!-- ===== Workspace Modules (load order matters!) ===== -->
 
     <!-- 1. Core: state, DOM, utilities, status/toast/modal helpers, sidebar nav -->
-    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=24" defer></script>
+    <script src="{% static 'caricamento/js/workspace_core.js' %}?v=25" defer></script>
     <script src="{% static 'caricamento/js/workspace_pannelli_toggle.js' %}?v=20" defer></script>
 
     <!-- 1a. Help Modal (dipende da workspace_core.js) -->
@@ -311,6 +311,9 @@
     <!-- 7b. Panel Oggetti + Vincoli (lista, form, batch, anteprima 3D) -->
     <script src="{% static 'caricamento/js/workspace_panels_oggetti.js' %}?v=16" defer></script>
 
+    <!-- 7c. Import/export Excel anagrafica oggetti -->
+    <script src="{% static 'caricamento/js/workspace_oggetti_excel.js' %}?v=2" defer></script>
+
     <!-- 8. Soluzioni alternative generate dal Simulated Annealing -->
     <script src="{% static 'caricamento/js/workspace_alternative.js' %}?v=8" defer></script>
 
@@ -319,24 +322,24 @@
     <script src="{% static 'caricamento/js/workspace_spaziatura.js' %}?v=1" defer></script>
 
     <!-- 9b. Report stampabile -->
-    <script src="{% static 'caricamento/js/workspace_report.js' %}?v=3" defer></script>
+    <script src="{% static 'caricamento/js/workspace_report.js' %}?v=5" defer></script>
 
     <!-- 9c. Report Quadranti 2×2 -->
-    <script src="{% static 'caricamento/js/workspace_report_quadranti.js' %}?v=1" defer></script>
+    <script src="{% static 'caricamento/js/workspace_report_quadranti.js' %}?v=3" defer></script>
 
 
     <!-- 9. Modali: nuovo mezzo, nuovo oggetto, vincoli, piani -->
     <script src="{% static 'caricamento/js/workspace_modals.js' %}?v=4" defer></script>
 
     <!-- 10. Impostazioni: strategia, performance, output -->
-    <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=3" defer></script>
+    <script src="{% static 'caricamento/js/workspace_impostazioni.js' %}?v=4" defer></script>
 
     <!-- 10b. Abbonamento / Pagamenti (Fungies.io) -->
     <script src="{% static 'caricamento/js/workspace_abbonamento.js' %}?v=2" defer></script>
 
     <!-- 11. Init & Bootstrap (MUST be last — calls inizializza()) -->
     <script src="{% static 'caricamento/js/workspace.js' %}?v=36" defer></script>
-    <script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=22"></script>
+    <script src="{% static 'caricamento/js/dizionario_ita_en.js' %}?v=23"></script>
     <script src="{% static 'caricamento/js/selettore_lingua.js' %}?v=31"></script>
 
     <script>
@@ -780,8 +783,18 @@
                 <div id="panel-view-split">
                     <div id="panel-view-list">
                         <div class="pv-list-header">
-                            <h3 id="pv-list-title">Lista</h3>
-                            <span class="badge" id="pv-list-count">0</span>
+                            <div id="pv-oggetti-excel-actions" class="pv-oggetti-excel-actions" aria-label="Importazione ed esportazione oggetti">
+                                <button type="button" id="btn-oggetti-export-excel" class="btn btn-primary btn-sm" title="Esporta gli oggetti selezionati in Excel" aria-label="Esporta gli oggetti selezionati in Excel">
+                                    <span aria-hidden="true">📤</span>
+                                </button>
+                                <button type="button" id="btn-oggetti-import-excel" class="btn btn-secondary btn-sm" title="Importa oggetti da Excel" aria-label="Importa oggetti da Excel">
+                                    <span aria-hidden="true">📥</span>
+                                </button>
+                            </div>
+                            <div class="pv-list-summary">
+                                <h3 id="pv-list-title">Lista</h3>
+                                <span class="badge" id="pv-list-count">0</span>
+                            </div>
                         </div>
                         <div class="pv-list-body" id="pv-list-body"></div>
                         <!-- Paginazione piani (visibile solo quando view=piani) -->

@@ -23,7 +23,7 @@ function _buildMezziListHtml() {
         listHtml += '<div class="pv-list-item" data-mezzo-id="' + c.id + '">' +
             '<div class="pv-list-item-info">' +
                 '<strong>' + escapeHtml(c.nome) + '</strong>' +
-                '<span>' + (c.tipo_display || c.tipo || '') + ' · ' + formatCm(c.lunghezza_mm) + '×' + formatCm(c.larghezza_mm) + '×' + formatCm(c.altezza_mm) + ' cm · ' + volM3.toFixed(2) + ' m³ · ' + parseFloat(c.carico_massimo_kg).toFixed(0) + ' kg' + archBadge + '</span>' +
+                '<span>' + (c.tipo_display || c.tipo || '') + ' · ' + formatCm(c.lunghezza_mm) + '×' + formatCm(c.larghezza_mm) + '×' + formatCm(c.altezza_mm) + ' ' + unitaDimensione() + ' · ' + formatVolume(volM3) + ' · ' + parseFloat(c.carico_massimo_kg).toFixed(0) + ' ' + unitaPeso() + archBadge + '</span>' +
             '</div>' +
         '</div>';
     });
@@ -96,12 +96,12 @@ function renderMezziForm(mezzoId) {
             '<select class="form-select" id="pv-mezzo-tipo">' + tipoHtml + '</select>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.lunghezza-label" data-italiano="L">L</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.larghezza-label" data-italiano="W">W</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.altezza-label" data-italiano="H">H</span> (cm)</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.lunghezza-label" data-italiano="L">L</span> (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="pv-mezzo-lungh" value="' + (m ? formatCm(m.lunghezza_mm) : '') + '" data-translation-key="vehicles.lunghezza" data-italiano="Lunghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.larghezza-label" data-italiano="W">W</span> (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="pv-mezzo-larg" value="' + (m ? formatCm(m.larghezza_mm) : '') + '" data-translation-key="vehicles.larghezza" data-italiano="Larghezza in cm" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label"><span class="language-label" data-translation-key="vehicles.altezza-label" data-italiano="H">H</span> (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="pv-mezzo-alt" value="' + (m ? formatCm(m.altezza_mm) : '') + '" data-translation-key="vehicles.altezza" data-italiano="Altezza in cm" step="0.1" min="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group" style="flex:0 0 180px;"><label class="field-label"><span class="language-label" data-translation-key="vehicles.portata" data-italiano="Portata (kg)">Portata (kg)</span></label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" data-translation-key="vehicles.portata-placeholder" data-italiano="Portata in kg" step="0.1" min="1"></div>' +
+            '<div class="field-group" style="flex:0 0 180px;"><label class="field-label"><span class="language-label" data-translation-key="vehicles.portata" data-italiano="Portata (kg)">Portata (' + unitaPeso() + ')</span></label><input type="number" class="form-input" id="pv-mezzo-peso" value="' + (m ? parseFloat(m.carico_massimo_kg).toFixed(1) : '') + '" data-translation-key="vehicles.portata-placeholder" data-italiano="Portata in kg" step="0.1" min="1"></div>' +
             '<div class="field-group flex-grow" style="flex-direction:row;align-items:flex-end;justify-content:flex-end;gap:12px;"><label class="checkbox-label" style="margin-top:0;"><input type="checkbox" id="pv-mezzo-archiviato"' + (m && m.archiviato ? ' checked' : '') + '> <span class="language-label" data-translation-key="vehicles.archivia" data-italiano="Archivia">Archivia</span></label></div>' +
         '</div>' +
         _renderSezioniTable(m ? m.sezioni || [] : [], m ? m.lunghezza_mm : null) +

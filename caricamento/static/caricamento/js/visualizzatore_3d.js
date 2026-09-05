@@ -226,9 +226,9 @@ function setupInteraction(container) {
 
             aggiungiRigaTooltip('Dimensione:', data.dimensione);
             aggiungiRigaTooltip('Posizione:', data.posizione);
-            aggiungiRigaTooltip('Peso:', (data.peso == null ? '' : data.peso) + ' kg');
+            aggiungiRigaTooltip('Peso:', (data.peso == null ? '' : data.peso) + ' ' + unitaPeso());
             if (data.pesoSopra > 0) {
-                aggiungiRigaTooltip('Peso sopra:', data.pesoSopra + ' kg');
+                aggiungiRigaTooltip('Peso sopra:', data.pesoSopra + ' ' + unitaPeso());
             }
             aggiungiRigaTooltip('Rotazione:', data.rotazione);
             tooltip.appendChild(tooltipHeader);
@@ -368,7 +368,7 @@ function aggiornaMetriche(dati) {
     const metricaOgg = el('metrica-oggetti');
     const metricaVol = el('metrica-volume');
 
-    if (metricaPeso) metricaPeso.textContent = m.peso_totale_kg.toFixed(1) + ' kg';
+    if (metricaPeso) metricaPeso.textContent = m.peso_totale_kg.toFixed(1) + ' ' + unitaPeso();
     if (metricaSat) metricaSat.textContent = m.saturazione.toFixed(1) + '%';
     if (metricaOgg) metricaOgg.textContent = m.oggetti_posizionati;
     if (metricaVol) metricaVol.textContent =
@@ -413,16 +413,19 @@ function handleResize() {
 // =============================================================================
 
 function resetView() {
-    if (!STATE.dati) return;
+    if (!STATE.dati || !STATE.controls || !STATE.camera) return;
     const c = STATE.dati.contenitore.dimensioni_cm;
-    const dist = Math.max(c.x, c.z, c.y) * 1.8;
     // Centro del container in coordinate Three.js:
-    // X = c.x/2 (lunghezza), Y = c.z/2 (altezza/2), Z = c.y/2 (larghezza/2)
-    STATE.controls.target.set(c.x / 2, c.z / 2, c.y / 2);
+    // X = c.x/2 (lunghezza), Y = c.z/2 (altezza), Z = c.y/2 (larghezza).
+    // La posizione e' relativa al centro: cosi' il reset mantiene una
+    // prospettiva diagonale anche per contenitori molto lunghi.
+    const target = STATE.controls.target;
+    target.set(c.x / 2, c.z / 2, c.y / 2);
+    const dist = Math.max(c.x, c.y, c.z) * 1.2;
     STATE.camera.position.set(
-        c.x * 0.6,
-        c.z * 0.8,
-        Math.max(c.x, c.y, c.z) * 1.2
+        target.x + dist * 0.7,
+        target.y + dist * 0.5,
+        target.z + dist * 0.7
     );
     STATE.controls.update();
 }

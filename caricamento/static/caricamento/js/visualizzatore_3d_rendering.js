@@ -240,8 +240,8 @@ function buildOggetti(oggetti) {
         mesh.userData = {
             codice: oggetto.codice,
             descrizione: oggetto.descrizione || '-',
-            dimensione: `${dim.x.toFixed(1)} × ${dim.y.toFixed(1)} × ${dim.z.toFixed(1)} cm`,
-            posizione: `${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)} cm`,
+            dimensione: `${dim.x.toFixed(1)} × ${dim.y.toFixed(1)} × ${dim.z.toFixed(1)} ${unitaDimensione()}`,
+            posizione: `${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)} ${unitaDimensione()}`,
             peso: oggetto.peso_kg,
             pesoSopra: oggetto.peso_sopra_kg,
             rotazione: oggetto.rotazione,

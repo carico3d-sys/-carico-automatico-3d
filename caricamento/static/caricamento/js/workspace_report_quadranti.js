@@ -13,27 +13,46 @@
 
 function generaReportQuadranti() {
     if (!STATE.scene || !STATE.renderer || !WS.activePianoId) {
-        showToast('Nessun carico 3D attivo da reportizzare.', 'warning');
+        showToast(_traduciReport('report.nessun-carico', 'Nessun carico 3D attivo da reportizzare.', _linguaReportCorrente()), 'warning');
         return;
     }
 
-    var dati = _raccogliDatiQuadranti();
-
-    var fronte = _catturaVista3D('front', 0.56);
-    var retro  = _catturaVista3D('rear', 0.56);
-    var pianta = _catturaVista3D('top', 0.56);
-    var iso    = _catturaVista3D('isometrica-fronte', 0.96);
-
-    var html = _buildQuadrantiHtml(dati, fronte, retro, pianta, iso);
-
+    // Apri la finestra durante il click dell'utente. La cattura delle quattro
+    // viste 3D richiede tempo e, se precede window.open(), il browser blocca il popup.
     var w = window.open('', '_blank', 'width=1100,height=800');
+    var lingua = _linguaReportCorrente();
     if (!w) {
-        showToast('Popup bloccato.', 'warning');
+        showToast(_traduciReport('report.popup-bloccato', 'Popup bloccato. Consenti i popup per questo sito.', lingua), 'warning');
         return;
     }
-    w.document.write(html);
+    w.document.write('<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Generazione report...</title></head><body>Generazione report...</body></html>');
     w.document.close();
-    showToast('🧊 Report Quadranti generato!', 'success');
+
+    try {
+        var dati = _raccogliDatiQuadranti();
+        // Fronte A viene ribaltato orizzontalmente per avere la stessa
+        // direzione testa-coda del Retro A, mostrando i due lati lunghi
+        // del camion con l'asse X orientato nello stesso verso.
+        var fronte = _catturaVista3D('front', 0.56, true);
+        var retro  = _catturaVista3D('rear', 0.56, false);
+        var pianta = _catturaVista3D('top', 0.56);
+        var iso    = _catturaVista3D('isometrica-fronte', 0.96);
+        var html = _buildQuadrantiHtml(dati, fronte, retro, pianta, iso, lingua);
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        _registraReportAperto(w, function (nuovaLingua) {
+            w.document.open();
+            w.document.write(_buildQuadrantiHtml(dati, fronte, retro, pianta, iso, nuovaLingua));
+            w.document.close();
+        });
+    } catch (error) {
+        w.document.body.innerHTML = '<p>Errore nella generazione del report.</p>';
+        console.error('Errore generazione report quadranti:', error);
+        showToast(_traduciReport('report.quadranti-errore', 'Errore nella generazione del report quadranti.', lingua), 'error');
+        return;
+    }
+    showToast(_traduciReport('report.quadranti-generato', '🧊 Report Quadranti generato!', lingua), 'success');
 }
 
 function _raccogliDatiQuadranti() {
@@ -79,22 +98,30 @@ function _raccogliDatiQuadranti() {
             var u = g.userData;
             if (u && u._tjsDimCm) { var f = g.position.x + u._tjsDimCm.x / 2; if (f > maxX) maxX = f; }
         });
-        mtLineari = (maxX / 100).toFixed(1) + ' / ' + (mezzo.lunghezza_mm / 1000).toFixed(1) + ' m';
+        var _isImp = getUnitaMisura() === 'imperiale';
+        var _occM = maxX / 100;
+        var _totM = mezzo.lunghezza_mm / 1000;
+        var _u = unitaLineari();
+        mtLineari = (_isImp ? (_occM * 3.28084).toFixed(1) : _occM.toFixed(1)) + ' / ' + (_isImp ? (_totM * 3.28084).toFixed(1) : _totM.toFixed(1)) + ' ' + _u;
     }
 
     return {
         pianoNome: piano ? piano.nome : ('Piano #' + WS.activePianoId),
         pianoStato: piano ? (piano.stato_display || piano.stato || 'Completato') : 'Completato',
         mezzoNome: mezzo ? mezzo.nome : 'N/D',
-        mezzoDims: mezzo ? (mezzo.lunghezza_mm/10).toFixed(0) + '×' + (mezzo.larghezza_mm/10).toFixed(0) + '×' + (mezzo.altezza_mm/10).toFixed(0) + ' cm' : 'N/D',
-        data: new Date().toLocaleDateString('it-IT'),
+        mezzoDims: mezzo ? (mezzo.lunghezza_mm/10).toFixed(0) + '×' + (mezzo.larghezza_mm/10).toFixed(0) + '×' + (mezzo.altezza_mm/10).toFixed(0) + ' ' + unitaDimensione() : 'N/D',
+        data: new Date(),
         totPezzi: totPezzi, totPeso: totPeso, pesoTotale: totPeso,
         saturazione: saturazione, volumeM3: volumeM3, mtLineari: mtLineari,
         oggetti: Object.values(conteggio).sort(function (a, b) { return a.codice.localeCompare(b.codice); }),
     };
 }
 
-function _buildQuadrantiHtml(dati, fronte, retro, pianta, iso) {
+function _buildQuadrantiHtmlBase(dati, fronte, retro, pianta, iso, lingua) {
+    lingua = lingua === 'en' ? 'en' : 'it';
+    var t = function (key, fallback) { return _traduciReport(key, fallback, lingua); };
+    var data = _formattaDataReport(dati.data, lingua);
+    var stato = _traduciStatoReport(dati.pianoStato, lingua);
     var righeTabella = '';
     dati.oggetti.forEach(function (o) {
         var dims = o.dimCm;
@@ -111,10 +138,10 @@ function _buildQuadrantiHtml(dati, fronte, retro, pianta, iso) {
     });
 
     return '<!DOCTYPE html>\n' +
-    '<html lang="it">\n' +
+    '<html lang="' + lingua + '">\n' +
     '<head>\n' +
     '<meta charset="UTF-8">\n' +
-    '<title>Quadranti: ' + escapeHtml(dati.pianoNome) + '</title>\n' +
+    '<title>' + escapeHtml(t('report.quadranti-titolo', 'Report Quadranti')) + ': ' + escapeHtml(dati.pianoNome) + '</title>\n' +
     '<style>\n' +
     '  * { margin:0; padding:0; box-sizing:border-box; }\n' +
     '  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #1a1a2e; padding: 20px 24px; font-size: 11px; max-width: 1100px; margin: 0 auto; }\n' +
@@ -156,32 +183,36 @@ function _buildQuadrantiHtml(dati, fronte, retro, pianta, iso) {
     '<div class="report-header">\n' +
     '  <div class="report-header-left">\n' +
     '    <h1>🧊 ' + escapeHtml(dati.pianoNome) + '</h1>\n' +
-    '    <div class="subtitle">Veicolo: ' + escapeHtml(dati.mezzoNome) + ' &nbsp;|&nbsp; ' + dati.mezzoDims + '</div>\n' +
+    '    <div class="subtitle">' + escapeHtml(t('report.veicolo', 'Veicolo')) + ': ' + escapeHtml(dati.mezzoNome) + ' &nbsp;|&nbsp; ' + dati.mezzoDims + '</div>\n' +
     '  </div>\n' +
     '  <div class="report-header-right">\n' +
-    '    <div>Data: <strong>' + dati.data + '</strong></div>\n' +
-    '    <div style="margin-top:4px;"><span class="report-badge report-badge-green">' + escapeHtml(dati.pianoStato) + '</span></div>\n' +
-    '    <button class="report-print-btn" onclick="window.print()">🖨️ Stampa / Salva PDF</button>\n' +
+    '    <div>' + escapeHtml(t('report.data', 'Data')) + ': <strong>' + data + '</strong></div>\n' +
+    '    <div style="margin-top:4px;"><span class="report-badge report-badge-green">' + escapeHtml(stato) + '</span></div>\n' +
+    '    <button class="report-print-btn" onclick="window.print()">🖨️ ' + escapeHtml(t('report.stampa', 'Stampa / Salva PDF')) + '</button>\n' +
     '  </div>\n' +
     '</div>\n' +
     '<div class="report-metrics">\n' +
-    '  <div class="report-metric"><div class="label">Saturazione</div><div class="value">' + dati.saturazione.toFixed(1) + '%</div></div>\n' +
-    '  <div class="report-metric"><div class="label">Pezzi totali</div><div class="value">' + dati.totPezzi + '</div><div class="sub">' + dati.oggetti.length + ' codici</div></div>\n' +
-    '  <div class="report-metric"><div class="label">Peso totale</div><div class="value">' + dati.totPeso.toFixed(0) + ' kg</div><div class="sub">Max: ' + (dati.pesoTotale || '—') + ' kg</div></div>\n' +
-    '  <div class="report-metric"><div class="label">Metri lineari</div><div class="value" style="font-size:15px;">' + dati.mtLineari + '</div></div>\n' +
-    '  <div class="report-metric"><div class="label">Volume occupato</div><div class="value" style="font-size:15px;">' + dati.volumeM3.toFixed(1) + ' m³</div></div>\n' +
+    '  <div class="report-metric"><div class="label">' + escapeHtml(t('report.saturazione', 'Saturazione')) + '</div><div class="value">' + dati.saturazione.toFixed(1) + '%</div></div>\n' +
+    '  <div class="report-metric"><div class="label">' + escapeHtml(t('report.pezzi-totali', 'Pezzi totali')) + '</div><div class="value">' + dati.totPezzi + '</div><div class="sub">' + dati.oggetti.length + ' ' + escapeHtml(t('report.codici', 'codici')) + '</div></div>\n' +
+    '  <div class="report-metric"><div class="label">' + escapeHtml(t('report.peso-totale', 'Peso totale')) + '</div><div class="value">' + dati.totPeso.toFixed(0) + ' ' + unitaPeso() + '</div><div class="sub">' + escapeHtml(t('report.max', 'Max')) + ': ' + (dati.pesoTotale || '—') + ' ' + unitaPeso() + '</div></div>\n' +
+    '  <div class="report-metric"><div class="label">' + escapeHtml(t('report.metri-lineari', 'Metri lineari')) + '</div><div class="value" style="font-size:15px;">' + dati.mtLineari + '</div></div>\n' +
+    '  <div class="report-metric"><div class="label">' + escapeHtml(t('report.volume-occupato', 'Volume occupato')) + '</div><div class="value" style="font-size:15px;">' + formatVolume(dati.volumeM3) + '</div></div>\n' +
     '</div>\n' +
     '<div class="report-grid">\n' +
-    '  <div class="report-grid-item"><img src="' + fronte + '" alt="Fronte"><div class="report-grid-caption">🔍 Fronte A</div></div>\n' +
-    '  <div class="report-grid-item"><img src="' + retro + '" alt="Retro"><div class="report-grid-caption">🔍 Retro A</div></div>\n' +
-    '  <div class="report-grid-item"><img src="' + pianta + '" alt="Pianta"><div class="report-grid-caption">📐 Pianta</div></div>\n' +
-    '  <div class="report-grid-item"><img src="' + iso + '" alt="Isometrica"><div class="report-grid-caption">🧊 3D Isometrica</div></div>\n' +
+    '  <div class="report-grid-item"><img src="' + fronte + '" alt="' + escapeHtml(t('report.fronte-a', 'Fronte A')) + '"><div class="report-grid-caption">🔍 ' + escapeHtml(t('report.fronte-a', 'Fronte A')) + '</div></div>\n' +
+    '  <div class="report-grid-item"><img src="' + retro + '" alt="' + escapeHtml(t('report.retro-a', 'Retro A')) + '"><div class="report-grid-caption">🔍 ' + escapeHtml(t('report.retro-a', 'Retro A')) + '</div></div>\n' +
+    '  <div class="report-grid-item"><img src="' + pianta + '" alt="' + escapeHtml(t('report.pianta', 'Pianta')) + '"><div class="report-grid-caption">📐 ' + escapeHtml(t('report.pianta', 'Pianta')) + '</div></div>\n' +
+    '  <div class="report-grid-item"><img src="' + iso + '" alt="' + escapeHtml(t('report.isometrica-3d', '3D Isometrica')) + '"><div class="report-grid-caption">🧊 ' + escapeHtml(t('report.isometrica-3d', '3D Isometrica')) + '</div></div>\n' +
     '</div>\n' +
     '<table class="report-table">\n' +
-    '  <thead><tr><th>Codice</th><th>Dimensioni (cm)</th><th style="text-align:center;">Qtà</th><th style="text-align:right;">Peso tot (kg)</th></tr></thead>\n' +
+    '  <thead><tr><th>' + escapeHtml(t('report.codice', 'Codice')) + '</th><th>' + escapeHtml(t('report.dimensioni', 'Dimensioni')) + ' (' + unitaDimensione() + ')' + '</th><th style="text-align:center;">' + escapeHtml(t('report.quantita', 'Qtà')) + '</th><th style="text-align:right;">' + escapeHtml(t('report.peso-tot', 'Peso tot')) + ' (' + unitaPeso() + ')' + '</th></tr></thead>\n' +
     '  <tbody>' + righeTabella + '</tbody>\n' +
     '</table>\n' +
-    '<div class="report-footer">Report Quadranti generato il ' + dati.data + ' — Carico 3D</div>\n' +
+    '<div class="report-footer">' + escapeHtml(t('report.quadranti-generato-il', 'Report Quadranti generato il')) + ' ' + data + ' — Carico 3D</div>\n' +
     '</body>\n' +
     '</html>';
+}
+
+function _buildQuadrantiHtml(dati, fronte, retro, pianta, iso, lingua) {
+    return _buildQuadrantiHtmlBase(dati, fronte, retro, pianta, iso, lingua || _linguaReportCorrente());
 }

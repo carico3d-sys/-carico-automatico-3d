@@ -524,7 +524,7 @@
       "label": "",
       "label_size": 12,
       "label_pos": "row",
-      "color": "#6c757d",
+      "color": "#f5f5f5",
       "width_pct": 1,
       "height_px": 44
     },
@@ -538,7 +538,7 @@
       "label": "",
       "label_size": 12,
       "label_pos": "row",
-      "color": "#6c757d",
+      "color": "#f5f5f5",
       "width_pct": 1,
       "height_px": 44
     },
@@ -567,34 +567,6 @@
       "label_size": 11,
       "label_pos": "row",
       "color": "#8e44ad",
-      "width_pct": 100,
-      "height_px": 32
-    },
-    "header-help": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        20,
-        20
-      ],
-      "label": "",
-      "label_size": 11,
-      "label_pos": "row",
-      "color": "#447e9b",
-      "width_pct": 100,
-      "height_px": 32
-    },
-    "header-lang": {
-      "type": "bootstrap",
-      "file": "",
-      "dims_px": [
-        20,
-        20
-      ],
-      "label": "",
-      "label_size": 11,
-      "label_pos": "row",
-      "color": "#34495e",
       "width_pct": 100,
       "height_px": 32
     },

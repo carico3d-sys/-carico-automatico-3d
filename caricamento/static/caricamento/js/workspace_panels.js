@@ -559,9 +559,12 @@ function _creaVisualizzazioneVincolo(tipo, distanzaCm, dimA, dimB, posA, posB) {
             // Linea rossa tratteggiata con distanza
             _aggiungiLinea(group, cxA + dimA.w / 2, cyA, czA, cxB - dimB.w / 2, cyB, czB, 0xdd0000, true);
             if (distanzaCm) {
-                _aggiungiEtichettaDistanza(group, (cxA + cxB) / 2, Math.max(cyA, cyB) + Math.max(dimA.h, dimB.h) / 2 + 8, 0, distanzaCm + ' cm', '#dd0000');
+                _aggiungiEtichettaDistanza(group, (cxA + cxB) / 2, Math.max(cyA, cyB) + Math.max(dimA.h, dimB.h) / 2 + 8, 0,distanzaCm + ' ' + unitaDimensione(), '#dd0000');
             }
             break;
+
+
+
 
         case 'prima':
             // Freccia A → B
@@ -587,7 +590,7 @@ function _creaVisualizzazioneVincolo(tipo, distanzaCm, dimA, dimB, posA, posB) {
             // Linea tratteggiata rossa
             _aggiungiLinea(group, cxA + dimA.w / 2, cyA, czA, cxB - dimB.w / 2, cyB, czB, 0xdd0000, true);
             if (distanzaCm) {
-                _aggiungiEtichettaDistanza(group, (cxA + cxB) / 2, Math.max(cyA, cyB) + Math.max(dimA.h, dimB.h) / 2 + 8, 0, distanzaCm + ' cm min', '#dd0000');
+                _aggiungiEtichettaDistanza(group, (cxA + cxB) / 2, Math.max(cyA, cyB) + Math.max(dimA.h, dimB.h) / 2 + 8, 0, distanzaCm + ' ' + unitaDimensione() + ' min', '#dd0000');
             }
             break;
     }
@@ -1023,7 +1026,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
             assiHtml += '<div class="pd-asse-row">' +
                 '<div class="pd-asse-label">' + escapeHtml(s.nome || (inizioM + '-' + fineM + 'm')) + '</div>' +
                 '<div class="pd-asse-bar-wrap"><div class="pd-asse-bar-fill ' + cls + '" style="width:' + pct + '%"></div></div>' +
-                '<div class="pd-asse-val">' + carico.toFixed(0) + '/' + limite.toFixed(0) + ' kg</div>' +
+                '<div class="pd-asse-val">' + carico.toFixed(0) + '/' + limite.toFixed(0) + ' ' + unitaPeso() + '</div>' +
             '</div>';
         });
     } else {
@@ -1037,14 +1040,17 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
         if (fine > maxXmm) maxXmm = fine;
     });
     var lunghezzaContMm = dimsCont.x;
-    var pianaleOccM = lunghezzaContMm > 0 ? (maxXmm / 1000).toFixed(1) : 0;
-    var pianaleTotM = (lunghezzaContMm / 1000).toFixed(1);
+    var _pIsImp = getUnitaMisura() === 'imperiale';
+    var _pU = unitaLineari();
+    var _pConv = _pIsImp ? 3.28084 : 1;
+    var pianaleOccM = lunghezzaContMm > 0 ? ((maxXmm / 1000) * _pConv).toFixed(1) : '0';
+    var pianaleTotM = ((lunghezzaContMm / 1000) * _pConv).toFixed(1);
     var pianalePct = lunghezzaContMm > 0 ? Math.min(100, Math.round((maxXmm / lunghezzaContMm) * 100)) : 0;
-    var pianaleLiberoM = Math.max(0, (lunghezzaContMm - maxXmm) / 1000).toFixed(1);
+    var pianaleLiberoM = (Math.max(0, (lunghezzaContMm - maxXmm) / 1000) * _pConv).toFixed(1);
     var pianaleHtml =
         '<div class="pd-pianale-row">' +
             '<div class="pd-pianale-bar-wrap"><div class="pd-pianale-bar-fill" style="width:' + pianalePct + '%"></div></div>' +
-            '<div class="pd-pianale-val"><span class="language-label" data-translation-key="plan.occupato" data-italiano="Occupato">Occupato</span> ' + pianaleOccM + 'm / ' + pianaleTotM + 'm (' + pianalePct + '%) · <span class="language-label" data-translation-key="plan.libero" data-italiano="Libero">Libero</span> ' + pianaleLiberoM + 'm</div>' +
+            '<div class="pd-pianale-val"><span class="language-label" data-translation-key="plan.occupato" data-italiano="Occupato">Occupato</span> ' + pianaleOccM + _pU + ' / ' + pianaleTotM + _pU + ' (' + pianalePct + '%) · <span class="language-label" data-translation-key="plan.libero" data-italiano="Libero">Libero</span> ' + pianaleLiberoM + _pU + '</div>' +
         '</div>';
 
     // --- Date del piano ---
@@ -1080,7 +1086,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
                     '<span class="stato-badge ' + statoClass + '">' + escapeHtml(statoVisualizzato) + '</span>' +
                 '</div>' +
                 '<div style="font-size:11px;color:#666;margin-bottom:1px;"><span class="language-label" data-translation-key="plan.mezzo" data-italiano="Mezzo:">Mezzo:</span> <strong>' + escapeHtml(p.container || contenitore.nome || '-') + '</strong></div>' +
-                '<div style="font-size:11px;color:#666;margin-bottom:1px;">' + formatCm(dimsCont.x) + '×' + formatCm(dimsCont.y) + '×' + formatCm(dimsCont.z) + ' cm · ' + volumeM3.toFixed(1) + ' m³</div>' +
+                '<div style="font-size:11px;color:#666;margin-bottom:1px;">' + formatCm(dimsCont.x) + '×' + formatCm(dimsCont.y) + '×' + formatCm(dimsCont.z) + ' ' + unitaDimensione() + ' · ' + formatVolume(volumeM3) + '</div>' +
                 datePianoHtml +
                 '<!-- PESO PER ASSE -->' +
                 '<div class="pd-info-section">' +
@@ -1097,7 +1103,7 @@ function _renderPianiDettaglioContent(pianoId, p, pianoFull, distribuzione, stat
                 '<div class="field-label language-label" data-translation-key="plan.riepilogo" data-italiano="📦 Riepilogo Carico">📦 Riepilogo Carico</div>' +
                 '<div class="pd-riep-list">' + riepilogoHtml + '</div>' +
                 '<div class="pd-riep-totali">' +
-                    '<span>🏋️ ' + pesoTot.toFixed(0) + ' kg</span>' +
+                    '<span>🏋️ ' + pesoTot.toFixed(0) + ' ' + unitaPeso() + '</span>' +
                     '<span>📐 ' + saturazione.toFixed(0) + '%</span>' +
                     '<span>📦 ' + oggetti.length + ' pz</span>' +
                 '</div>' +

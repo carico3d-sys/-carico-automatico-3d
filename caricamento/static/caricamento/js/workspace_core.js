@@ -192,6 +192,84 @@ function formatCm(mm) { return (mm / 10).toFixed(1); }
 function pluralize(n, sing, plur) { return n === 1 ? sing : (plur || sing + 'i'); }
 function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+// ── Conversione unità di misura ─────────────────────────────────────────────
+/** Restituisce la preferenza unità attuale ('metrico' | 'imperiale'). */
+function getUnitaMisura() {
+    try {
+        var imp = (typeof IMPOSTAZIONI !== 'undefined' && IMPOSTAZIONI.output_ottimizzazione)
+            ? IMPOSTAZIONI.output_ottimizzazione.unita_misura : 'metrico';
+        return imp === 'imperiale' ? 'imperiale' : 'metrico';
+    } catch (e) { return 'metrico'; }
+}
+
+/** Millimetri → stringa display con unità (cm o in). */
+function formatDimensione(mm) {
+    if (getUnitaMisura() === 'imperiale') {
+        return (mm / 25.4).toFixed(2) + ' in';
+    }
+    return (mm / 10).toFixed(1) + ' cm';
+}
+
+/** Millimetri → valore numerico display (cm o in). */
+function mmToDisplay(mm) {
+    if (getUnitaMisura() === 'imperiale') {
+        return (mm / 25.4).toFixed(2);
+    }
+    return (mm / 10).toFixed(1);
+}
+
+/** Etichetta unità per le dimensioni (cm o in). */
+function unitaDimensione() {
+    return getUnitaMisura() === 'imperiale' ? 'in' : 'cm';
+}
+
+/** Etichetta unità per il peso (kg o lb). */
+function unitaPeso() {
+    return getUnitaMisura() === 'imperiale' ? 'lb' : 'kg';
+}
+
+/** Etichetta unità per il volume (m³ o ft³). */
+function unitaVolume() {
+    return getUnitaMisura() === 'imperiale' ? 'ft³' : 'm³';
+}
+
+/** Etichetta unità per i metri lineari (m o ft). */
+function unitaLineari() {
+    return getUnitaMisura() === 'imperiale' ? 'ft' : 'm';
+}
+
+/** Metri → stringa display con unità (m o ft). */
+function formatMetri(m) {
+    if (getUnitaMisura() === 'imperiale') {
+        return (m * 3.28084).toFixed(1) + ' ft';
+    }
+    return m.toFixed(1) + ' m';
+}
+
+/** Metri cubi → stringa display con unità (m³ o ft³). */
+function formatVolume(m3) {
+    if (getUnitaMisura() === 'imperiale') {
+        return (m3 * 35.3147).toFixed(1) + ' ft³';
+    }
+    return m3.toFixed(1) + ' m³';
+}
+
+/** Chilogrammi → stringa display con unità (kg o lb). */
+function formatPeso(kg) {
+    if (getUnitaMisura() === 'imperiale') {
+        return (kg * 2.20462).toFixed(2) + ' lb';
+    }
+    return kg + ' kg';
+}
+
+/** Chilogrammi → valore numerico display (kg o lb). */
+function kgToDisplay(kg) {
+    if (getUnitaMisura() === 'imperiale') {
+        return (kg * 2.20462).toFixed(2);
+    }
+    return kg;
+}
+
 function getCSRFToken() {
     const m = document.cookie.match(new RegExp('(^| )csrftoken=([^;]+)'));
     return m ? m[2] : '';
@@ -830,22 +908,25 @@ function _aggiornaSidebarRiepilogo(totPezzi, totPeso, totRighe) {
     if (!DOM.sidebarStatPezzi) return;
 
     DOM.sidebarStatPezzi.textContent = totPezzi || 0;
-    DOM.sidebarStatPeso.textContent = (totPeso || 0).toFixed(1) + ' kg';
+    DOM.sidebarStatPeso.textContent = (totPeso || 0).toFixed(1) + ' ' + unitaPeso();
     DOM.sidebarStatRighe.textContent = totRighe || 0;
 
     // Metri lineari: totale mezzo + occupato (se disponibile da scena 3D)
-    var lineariText = '— m';
+    var u = unitaLineari();
+    var isImperial = getUnitaMisura() === 'imperiale';
+    var lineariText = '— ' + u;
     if (WS.activeMezzoId) {
         var mezzo = WS.contenitori.find(function (c) { return c.id == WS.activeMezzoId; });
         if (mezzo) {
-            var totM = (mezzo.lunghezza_mm / 1000).toFixed(1);
-            // Prova a calcolare l'occupato dalla scena 3D (oggetti posizionati)
+            var totM = mezzo.lunghezza_mm / 1000;
+            var totDisplay = isImperial ? (totM * 3.28084).toFixed(1) : totM.toFixed(1);
             var maxXmm = _calcolaMaxXOccupato();
             if (maxXmm > 0) {
-                var occM = (maxXmm / 1000).toFixed(1);
-                lineariText = occM + ' / ' + totM + ' m';
+                var occM = maxXmm / 1000;
+                var occDisplay = isImperial ? (occM * 3.28084).toFixed(1) : occM.toFixed(1);
+                lineariText = occDisplay + ' / ' + totDisplay + ' ' + u;
             } else {
-                lineariText = '— / ' + totM + ' m';
+                lineariText = '— / ' + totDisplay + ' ' + u;
             }
         }
     }

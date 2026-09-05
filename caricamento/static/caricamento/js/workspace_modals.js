@@ -34,12 +34,12 @@ function apriModaleNuovoMezzo() {
             '</select>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">Lunghezza (cm)</label><input type="number" class="form-input" id="modal-mezzo-lungh" placeholder="1360" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Larghezza (cm)</label><input type="number" class="form-input" id="modal-mezzo-larg" placeholder="248" step="0.1" min="1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Altezza (cm)</label><input type="number" class="form-input" id="modal-mezzo-alt" placeholder="270" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Lunghezza (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="modal-mezzo-lungh" placeholder="1360" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Larghezza (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="modal-mezzo-larg" placeholder="248" step="0.1" min="1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Altezza (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="modal-mezzo-alt" placeholder="270" step="0.1" min="1"></div>' +
         '</div>' +
         '<div class="field-group">' +
-            '<label class="field-label">Portata Massima (kg)</label>' +
+            '<label class="field-label">Portata Massima (' + unitaPeso() + ')</label>' +
             '<input type="number" class="form-input" id="modal-mezzo-peso" placeholder="24000" step="0.1" min="1">' +
         '</div>' +
         '<div class="field-group">' +
@@ -117,12 +117,12 @@ function apriModaleNuovoOggetto() {
             '<div class="field-group flex-grow"><label class="field-label">Descrizione</label><input type="text" class="form-input" id="modal-ogg-desc" placeholder="Scatole cartone medie"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">Lunghezza (cm)</label><input type="number" class="form-input" id="modal-ogg-lungh" placeholder="40" step="0.1" min="0.1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Larghezza (cm)</label><input type="number" class="form-input" id="modal-ogg-larg" placeholder="30" step="0.1" min="0.1"></div>' +
-            '<div class="field-group flex-grow"><label class="field-label">Altezza (cm)</label><input type="number" class="form-input" id="modal-ogg-alt" placeholder="25" step="0.1" min="0.1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Lunghezza (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="modal-ogg-lungh" placeholder="40" step="0.1" min="0.1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Larghezza (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="modal-ogg-larg" placeholder="30" step="0.1" min="0.1"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Altezza (' + unitaDimensione() + ')</label><input type="number" class="form-input" id="modal-ogg-alt" placeholder="25" step="0.1" min="0.1"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label">Peso (kg)</label><input type="number" class="form-input" id="modal-ogg-peso" placeholder="12.5" step="0.01" min="0.01"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label">Peso (' + unitaPeso() + ')</label><input type="number" class="form-input" id="modal-ogg-peso" placeholder="12.5" step="0.01" min="0.01"></div>' +
             '<div class="field-group flex-grow"><label class="field-label">Q.tà Disponibile</label><input type="number" class="form-input" id="modal-ogg-qty" placeholder="1" min="1" step="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
@@ -230,7 +230,7 @@ function apriModaleVincoli() {
         '<div class="field-group">' +
             '<label class="field-label">Impilabilità</label>' +
             '<label class="checkbox-label"><input type="checkbox" id="vinc-sovrapp" checked> Può sostenere altri oggetti</label>' +
-            '<label class="field-label" style="margin-top:8px;">Peso max sul tetto (kg)</label>' +
+            '<label class="field-label" style="margin-top:8px;">Peso max sul tetto (' + unitaPeso() + ')</label>' +
             '<input type="number" class="form-input" id="vinc-peso-max" value="0" min="0" step="0.5">' +
         '</div>' +
         '<div class="field-group">' +

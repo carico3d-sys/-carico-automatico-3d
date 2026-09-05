@@ -227,7 +227,7 @@ function aggiungiAlCarico(oggettoId, qtyIniziale, skipInvalida, qtyOriginale, ri
         '<div class="panel-item-color" style="background:' + coloreBar + ';"></div>' +
         '<div class="panel-item-info">' +
             '<strong>' + escapeHtml(oggetto.codice) + '</strong>' +
-            '<span>' + formatCm(oggetto.lunghezza_mm) + '×' + formatCm(oggetto.larghezza_mm) + '×' + formatCm(oggetto.altezza_mm) + ' cm</span>' +
+            '<span>' + formatCm(oggetto.lunghezza_mm) + '×' + formatCm(oggetto.larghezza_mm) + '×' + formatCm(oggetto.altezza_mm) + ' ' + unitaDimensione() + '</span>' +
         '</div>' +
         '<div class="panel-item-qty">' +
             '<input type="number" class="panel-qty-input" value="' + qtyIniziale + '" min="' + (qtyOriginale ? '0' : '1') + '" step="1">' +
@@ -919,7 +919,7 @@ function ricostruisciItemPanel(itemDiv, oggetto, qty) {
         '<div class="panel-item-color" style="background:' + coloreBar + ';"></div>' +
         '<div class="panel-item-info">' +
             '<strong>' + escapeHtml(oggetto.codice) + '</strong>' +
-            '<span>' + formatCm(oggetto.lunghezza_mm) + '×' + formatCm(oggetto.larghezza_mm) + '×' + formatCm(oggetto.altezza_mm) + ' cm</span>' +
+            '<span>' + formatCm(oggetto.lunghezza_mm) + '×' + formatCm(oggetto.larghezza_mm) + '×' + formatCm(oggetto.altezza_mm) + ' ' + unitaDimensione() + '</span>' +
         '</div>' +
         '<div class="panel-item-qty">' +
             '<input type="number" class="panel-qty-input" value="' + qty + '" min="0" step="1">' +

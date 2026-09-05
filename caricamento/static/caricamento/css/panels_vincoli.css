@@ -961,7 +961,65 @@ body.pv-resizing * {
     font-size: 14px;
     font-weight: 700;
     color: var(--color-sidebar-active);
+    margin: 0;
 }
+
+.pv-list-summary {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    min-width: 0;
+}
+
+.pv-oggetti-excel-actions {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    margin: 0 0 0 10px;
+}
+
+#panel-view[data-view="oggetti"] .pv-oggetti-excel-actions {
+    display: flex;
+}
+
+.pv-oggetti-excel-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 24px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.pv-oggetti-excel-actions .btn:hover,
+.pv-oggetti-excel-actions .btn:focus,
+.pv-oggetti-excel-actions .btn:active {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: scale(1.12);
+}
+
+.pv-oggetti-excel-actions .btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.pv-oggetti-excel-actions .btn:disabled {
+    background: transparent;
+    opacity: 0.45;
+}
+
 
 /* Altezza header lista per-vista: il data-view su #panel-view permette di
    differenziare le finestre che condividono lo stesso .pv-list-header. */

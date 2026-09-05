@@ -17,6 +17,7 @@ import random
 import tempfile
 from datetime import timedelta
 from decimal import Decimal
+import unittest
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
@@ -28,7 +29,11 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from caricamento.client_ip import get_client_ip
-from caricamento.views import _check_demo_abuse, _save_demo_fingerprints
+from caricamento.views import (
+    _check_demo_abuse,
+    _crea_excel_oggetti,
+    _save_demo_fingerprints,
+)
 
 from caricamento.engine.common import (
     COLORI_PACCHI,
@@ -201,6 +206,115 @@ class TestOggettoColoriAnagrafica(TestCase):
         response = self.client.post("/api/oggetti/", self._payload("ANAG-COLOR"), format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["colore"], COLORI_PACCHI[0])
+
+
+
+
+try:
+    import openpyxl  # noqa: F401
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+
+
+@unittest.skipUnless(OPENPYXL_AVAILABLE, "openpyxl non installato")
+class TestOggettiExcel(TestCase):
+    """Verifica il formato Excel dell'anagrafica oggetti."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="excel-owner")
+
+    def crea_oggetto(self, codice):
+        return Oggetto.objects.create(
+            owner=self.user,
+            codice=codice,
+            descrizione="Oggetto Excel",
+            lunghezza_mm=100,
+            larghezza_mm=200,
+            altezza_mm=300,
+            peso_kg=Decimal("2.50"),
+            quantita_disponibile=2,
+        )
+
+    def test_export_crea_tre_fogli_e_filtra_i_vincoli(self):
+        from openpyxl import load_workbook
+
+        primo = self.crea_oggetto("EXCEL-A")
+        secondo = self.crea_oggetto("EXCEL-B")
+        esterno = self.crea_oggetto("EXCEL-C")
+        VincoloTraOggetti.objects.create(
+            oggetto_a=primo,
+            oggetto_b=secondo,
+            tipo_relazione="sopra",
+        )
+        VincoloTraOggetti.objects.create(
+            oggetto_a=primo,
+            oggetto_b=esterno,
+            tipo_relazione="sopra",
+        )
+
+        output = _crea_excel_oggetti(
+            [primo, secondo],
+            VincoloTraOggetti.objects.filter(
+                oggetto_a_id__in=[primo.id, secondo.id],
+                oggetto_b_id__in=[primo.id, secondo.id],
+            ).select_related("oggetto_a", "oggetto_b"),
+        )
+        workbook = load_workbook(output, read_only=True, data_only=True)
+
+        self.assertEqual(workbook.sheetnames, ["Oggetti", "Rotazioni", "Vincoli"])
+        self.assertEqual(workbook["Oggetti"].max_row, 3)
+        self.assertEqual(workbook["Rotazioni"].max_row, 3)
+        self.assertEqual(
+            tuple(cell.value for cell in workbook["Vincoli"][2]),
+            ("EXCEL-A", "EXCEL-B", "sopra", True, None, None),
+        )
+
+    def test_import_add_crea_oggetti_rotazioni_e_vincoli(self):
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        objects_sheet = workbook.active
+        objects_sheet.title = "Oggetti"
+        objects_sheet.append([
+            "Codice", "Descrizione", "Lunghezza_mm", "Larghezza_mm", "Altezza_mm",
+            "Peso_kg", "Quantita_disponibile", "Colore", "Archiviato",
+        ])
+        objects_sheet.append(["IMPORT-A", "Importato", 100, 200, 300, 2.5, 1, "#123456", False])
+        rotations_sheet = workbook.create_sheet("Rotazioni")
+        rotations_sheet.append([
+            "Codice", "Rotazione_consentita", "Rotazione_su_X", "Rotazione_su_Y",
+            "Rotazione_su_Z", "Sovrapponibile", "Peso_massimo_tetto_kg", "Fragile",
+            "Merce_pericolosa", "Solo_su_piano", "Aggancio_forche", "Note",
+        ])
+        rotations_sheet.append(["IMPORT-A", True, False, True, True, False, 10, True, False, True, False, "nota"])
+        constraints_sheet = workbook.create_sheet("Vincoli")
+        constraints_sheet.append([
+            "Oggetto_A", "Oggetto_B", "Tipo_relazione", "Attivo",
+            "Dettagli_posizionamento", "Note",
+        ])
+
+        stream = io.BytesIO()
+        workbook.save(stream)
+        upload = SimpleUploadedFile(
+            "oggetti.xlsx",
+            stream.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response = APIClient()
+        response.force_authenticate(user=self.user)
+        result = response.post(
+            "/api/oggetti/import-excel/",
+            {"file": upload, "modalita": "add"},
+            format="multipart",
+        )
+
+        self.assertEqual(result.status_code, 200)
+        obj = Oggetto.objects.get(owner=self.user, codice="IMPORT-A")
+        self.assertEqual(obj.lunghezza_mm, 100)
+        self.assertTrue(obj.vincoli.fragile)
+        self.assertFalse(obj.vincoli.sovrapponibile)
+
 
 
 class TestStrategyFactory(TestCase):

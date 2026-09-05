@@ -98,7 +98,7 @@ function mostraSoluzioniAlternative(soluzioni) {
         var nonPos = sol.oggetti_non_posizionati || [];
         var sub = oggetti.length + ' pz' +
             (nonPos.length ? ' · ' + nonPos.length + ' non pos.' : '') +
-            ' · L ' + _xMaxCm(sol).toFixed(0) + ' cm' +
+            ' · L ' + _xMaxCm(sol).toFixed(0) + ' ' + unitaDimensione() +
             ' · Sat ' + ((sol.saturazione || 0) - 0).toFixed(1) + '%';
 
         html += '<div class="soluzione-alt-item' +

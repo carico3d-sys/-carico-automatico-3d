@@ -28,7 +28,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.signing import BadSignature, Signer
 from django.db.models.deletion import ProtectedError
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -69,6 +69,7 @@ from .models import (
     StatoPiano,
     VincoloOggetto,
     VincoloTraOggetti,
+    TipoRelazione,
 )
 from .serializers import (
     AvviaOttimizzazioneSerializer,
@@ -971,10 +972,400 @@ class ContenitoreViewSet(viewsets.ModelViewSet):
 
 
 # ===========================================================================
-# ViewSet: Oggetto
+# Excel: esportazione/importazione anagrafica oggetti
 # ===========================================================================
 
-class OggettoViewSet(viewsets.ModelViewSet):
+_EXCEL_OGGETTI_SHEET = "Oggetti"
+_EXCEL_ROTazioni_SHEET = "Rotazioni"
+_EXCEL_VINCOLI_SHEET = "Vincoli"
+
+
+def _excel_valore_cella(value):
+    return "" if value is None else str(value).strip()
+
+
+def _excel_bool(value, default=False):
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "vero", "sì", "si", "yes", "y"}:
+        return True
+    if normalized in {"0", "false", "falso", "no", "n"}:
+        return False
+    raise ValueError("valore booleano non valido")
+
+
+def _excel_int(value, field, row, minimum=0):
+    try:
+        number = Decimal(str(value).replace(",", "."))
+    except (TypeError, ValueError, ArithmeticError):
+        raise ValueError(f"{field} non è un numero intero")
+    if number != number.to_integral_value():
+        raise ValueError(f"{field} non è un numero intero")
+    number = int(number)
+    if number < minimum:
+        raise ValueError(f"{field} deve essere almeno {minimum}")
+    return number
+
+
+def _excel_decimal(value, field, row, minimum=None):
+    try:
+        number = Decimal(str(value).replace(",", "."))
+    except (TypeError, ValueError, ArithmeticError):
+        raise ValueError(f"{field} non è un numero valido")
+    if minimum is not None and number < minimum:
+        raise ValueError(f"{field} deve essere almeno {minimum}")
+    return number
+
+
+def _excel_json(value, field):
+    text = _excel_valore_cella(value)
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        raise ValueError(f"{field} non contiene JSON valido")
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{field} deve contenere un oggetto JSON")
+    return parsed
+
+
+def _excel_workbook_headers(sheet, expected):
+    headers = [_excel_valore_cella(cell.value) for cell in sheet[1]]
+    if headers != expected:
+        raise ValueError(
+            f"Il foglio '{sheet.title}' deve avere le colonne: {', '.join(expected)}"
+        )
+
+
+def _excel_rows(sheet, expected):
+    _excel_workbook_headers(sheet, expected)
+    rows = []
+    for row_number, values in enumerate(sheet.iter_rows(min_row=2, values_only=True), 2):
+        if not any(value not in (None, "") for value in values):
+            continue
+        if len(values) < len(expected):
+            values = tuple(values) + (None,) * (len(expected) - len(values))
+        rows.append((row_number, dict(zip(expected, values))))
+    return rows
+
+
+def _excel_headers_and_widths(sheet):
+    from openpyxl.styles import Font
+
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+    sheet.freeze_panes = "A2"
+    for column in sheet.columns:
+        values = [len(str(cell.value or "")) for cell in column]
+        sheet.column_dimensions[column[0].column_letter].width = min(max(max(values, default=10) + 2, 12), 45)
+
+
+def _crea_excel_oggetti(oggetti, vincoli_tra):
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+    except ImportError as exc:
+        raise RuntimeError(
+            "La libreria openpyxl non è installata sul server. "
+            "Installa le dipendenze del progetto e riprova."
+        ) from exc
+
+    wb = Workbook()
+    ws_oggetti = wb.active
+    ws_oggetti.title = _EXCEL_OGGETTI_SHEET
+    headers_oggetti = [
+        "Codice", "Descrizione", "Lunghezza_mm", "Larghezza_mm", "Altezza_mm",
+        "Peso_kg", "Quantita_disponibile", "Colore", "Archiviato",
+    ]
+    ws_oggetti.append(headers_oggetti)
+    for oggetto in oggetti:
+        ws_oggetti.append([
+            oggetto.codice, oggetto.descrizione, oggetto.lunghezza_mm,
+            oggetto.larghezza_mm, oggetto.altezza_mm, float(oggetto.peso_kg),
+            oggetto.quantita_disponibile, oggetto.colore or "", oggetto.archiviato,
+        ])
+
+    ws_rotazioni = wb.create_sheet(_EXCEL_ROTazioni_SHEET)
+    headers_rotazioni = [
+        "Codice", "Rotazione_consentita", "Rotazione_su_X", "Rotazione_su_Y",
+        "Rotazione_su_Z", "Sovrapponibile", "Peso_massimo_tetto_kg", "Fragile",
+        "Merce_pericolosa", "Solo_su_piano", "Aggancio_forche", "Note",
+    ]
+    ws_rotazioni.append(headers_rotazioni)
+    for oggetto in oggetti:
+        try:
+            vincolo = oggetto.vincoli
+        except VincoloOggetto.DoesNotExist:
+            vincolo = VincoloOggetto(oggetto=oggetto)
+        ws_rotazioni.append([
+            oggetto.codice, vincolo.rotazione_consentita, vincolo.rotazione_su_x,
+            vincolo.rotazione_su_y, vincolo.rotazione_su_z, vincolo.sovrapponibile,
+            float(vincolo.peso_massimo_tetto_kg), vincolo.fragile,
+            vincolo.merce_pericolosa, vincolo.solo_su_piano, vincolo.aggancio_forche,
+            vincolo.note or "",
+        ])
+
+    ws_vincoli = wb.create_sheet(_EXCEL_VINCOLI_SHEET)
+    headers_vincoli = [
+        "Oggetto_A", "Oggetto_B", "Tipo_relazione", "Attivo",
+        "Dettagli_posizionamento", "Note",
+    ]
+    ws_vincoli.append(headers_vincoli)
+    for vincolo in vincoli_tra:
+        dettagli = (
+            json.dumps(vincolo.dettagli_posizionamento, ensure_ascii=False)
+            if vincolo.dettagli_posizionamento is not None else ""
+        )
+        ws_vincoli.append([
+            vincolo.oggetto_a.codice, vincolo.oggetto_b.codice,
+            vincolo.tipo_relazione, vincolo.attivo, dettagli, vincolo.note or "",
+        ])
+
+    for sheet in wb.worksheets:
+        _excel_headers_and_widths(sheet)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+def _leggi_excel_oggetti(uploaded_file, user, mode):
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise RuntimeError(
+            "La libreria openpyxl non è installata sul server. "
+            "Installa le dipendenze del progetto e riprova."
+        ) from exc
+
+    try:
+        workbook = load_workbook(uploaded_file, read_only=True, data_only=True)
+    except Exception as exc:
+        raise ValueError(f"File Excel non leggibile: {exc}")
+
+    required_sheets = {_EXCEL_OGGETTI_SHEET, _EXCEL_ROTazioni_SHEET, _EXCEL_VINCOLI_SHEET}
+    if set(workbook.sheetnames) != required_sheets:
+        raise ValueError("Il file deve contenere esattamente i fogli Oggetti, Rotazioni e Vincoli")
+
+    object_headers = [
+        "Codice", "Descrizione", "Lunghezza_mm", "Larghezza_mm", "Altezza_mm",
+        "Peso_kg", "Quantita_disponibile", "Colore", "Archiviato",
+    ]
+    rotation_headers = [
+        "Codice", "Rotazione_consentita", "Rotazione_su_X", "Rotazione_su_Y",
+        "Rotazione_su_Z", "Sovrapponibile", "Peso_massimo_tetto_kg", "Fragile",
+        "Merce_pericolosa", "Solo_su_piano", "Aggancio_forche", "Note",
+    ]
+    constraint_headers = [
+        "Oggetto_A", "Oggetto_B", "Tipo_relazione", "Attivo",
+        "Dettagli_posizionamento", "Note",
+    ]
+
+    errors = []
+    objects = []
+    object_codes = set()
+    for row_number, row in _excel_rows(workbook[_EXCEL_OGGETTI_SHEET], object_headers):
+        try:
+            code = _excel_valore_cella(row["Codice"])
+            if not code:
+                raise ValueError("Codice obbligatorio")
+            if code in object_codes:
+                raise ValueError(f"Codice duplicato nel file: {code}")
+            object_codes.add(code)
+            objects.append({
+                "codice": code,
+                "descrizione": _excel_valore_cella(row["Descrizione"]),
+                "lunghezza_mm": _excel_int(row["Lunghezza_mm"], "Lunghezza_mm", row_number, 1),
+                "larghezza_mm": _excel_int(row["Larghezza_mm"], "Larghezza_mm", row_number, 1),
+                "altezza_mm": _excel_int(row["Altezza_mm"], "Altezza_mm", row_number, 1),
+                "peso_kg": _excel_decimal(row["Peso_kg"], "Peso_kg", row_number, Decimal("0.01")),
+                "quantita_disponibile": _excel_int(row["Quantita_disponibile"], "Quantita_disponibile", row_number, 1),
+                "colore": _excel_valore_cella(row["Colore"]),
+                "archiviato": _excel_bool(row["Archiviato"]),
+            })
+        except ValueError as exc:
+            errors.append(f"Oggetti riga {row_number}: {exc}")
+
+    rotations = {}
+    for row_number, row in _excel_rows(workbook[_EXCEL_ROTazioni_SHEET], rotation_headers):
+        try:
+            code = _excel_valore_cella(row["Codice"])
+            if not code:
+                raise ValueError("Codice obbligatorio")
+            if code not in object_codes:
+                raise ValueError(f"codice non presente nel foglio Oggetti: {code}")
+            if code in rotations:
+                raise ValueError(f"Codice duplicato nel file: {code}")
+            rotations[code] = {
+                "rotazione_consentita": _excel_bool(row["Rotazione_consentita"], True),
+                "rotazione_su_x": _excel_bool(row["Rotazione_su_X"], True),
+                "rotazione_su_y": _excel_bool(row["Rotazione_su_Y"], True),
+                "rotazione_su_z": _excel_bool(row["Rotazione_su_Z"], True),
+                "sovrapponibile": _excel_bool(row["Sovrapponibile"], True),
+                "peso_massimo_tetto_kg": _excel_decimal(row["Peso_massimo_tetto_kg"] or 0, "Peso_massimo_tetto_kg", row_number, Decimal("0")),
+                "fragile": _excel_bool(row["Fragile"]),
+                "merce_pericolosa": _excel_bool(row["Merce_pericolosa"]),
+                "solo_su_piano": _excel_bool(row["Solo_su_piano"]),
+                "aggancio_forche": _excel_bool(row["Aggancio_forche"]),
+                "note": _excel_valore_cella(row["Note"]),
+            }
+        except ValueError as exc:
+            errors.append(f"Rotazioni riga {row_number}: {exc}")
+
+    constraints = []
+    valid_relation_types = {choice[0] for choice in TipoRelazione.choices}
+    for row_number, row in _excel_rows(workbook[_EXCEL_VINCOLI_SHEET], constraint_headers):
+        try:
+            code_a = _excel_valore_cella(row["Oggetto_A"])
+            code_b = _excel_valore_cella(row["Oggetto_B"])
+            relation = _excel_valore_cella(row["Tipo_relazione"])
+            if code_a not in object_codes or code_b not in object_codes:
+                raise ValueError("entrambi i codici devono essere presenti nel foglio Oggetti")
+            if relation not in valid_relation_types:
+                raise ValueError(f"Tipo_relazione non valido: {relation}")
+            constraints.append({
+                "oggetto_a": code_a,
+                "oggetto_b": code_b,
+                "tipo_relazione": relation,
+                "attivo": _excel_bool(row["Attivo"], True),
+                "dettagli_posizionamento": _excel_json(row["Dettagli_posizionamento"], "Dettagli_posizionamento"),
+                "note": _excel_valore_cella(row["Note"]),
+            })
+        except ValueError as exc:
+            errors.append(f"Vincoli riga {row_number}: {exc}")
+
+    existing = set(Oggetto.objects.filter(owner=user, codice__in=object_codes).values_list("codice", flat=True))
+    if mode == "add":
+        for code in sorted(existing):
+            errors.append(f"Oggetti: il codice esiste già e non può essere aggiunto: {code}")
+
+    existing_pairs = set(
+        VincoloTraOggetti.objects.filter(
+            oggetto_a__owner=user, oggetto_b__owner=user,
+            oggetto_a__codice__in=object_codes, oggetto_b__codice__in=object_codes,
+        ).values_list("oggetto_a__codice", "oggetto_b__codice", "tipo_relazione")
+    )
+    if mode == "add":
+        for constraint in constraints:
+            pair = (constraint["oggetto_a"], constraint["oggetto_b"], constraint["tipo_relazione"])
+            if pair in existing_pairs:
+                errors.append("Vincoli: relazione già esistente: " + " / ".join(pair))
+
+    if errors:
+        raise ValueError("Importazione non eseguita:\n" + "\n".join(errors[:30]))
+    return objects, rotations, constraints
+
+
+class OggettiExcelMixin:
+    """Funzioni condivise dalle azioni Excel del ViewSet Oggetto."""
+
+    @action(detail=False, methods=["get"], url_path="export-excel")
+    def export_excel(self, request):
+        ids_text = request.query_params.get("ids", "")
+        try:
+            ids = {int(value) for value in ids_text.split(",") if value.strip()}
+        except ValueError:
+            return Response({"errore": "Selezione oggetti non valida."}, status=status.HTTP_400_BAD_REQUEST)
+        if not ids:
+            return Response({"errore": "Seleziona almeno un oggetto."}, status=status.HTTP_400_BAD_REQUEST)
+        oggetti = list(Oggetto.objects.filter(owner=request.user, id__in=ids).prefetch_related("vincoli").order_by("codice"))
+        if len(oggetti) != len(ids):
+            return Response({"errore": "Uno o più oggetti selezionati non appartengono all'utente."}, status=status.HTTP_400_BAD_REQUEST)
+        selected_ids = {obj.id for obj in oggetti}
+        vincoli = VincoloTraOggetti.objects.filter(
+            oggetto_a_id__in=selected_ids, oggetto_b_id__in=selected_ids,
+        ).select_related("oggetto_a", "oggetto_b").order_by("oggetto_a__codice", "oggetto_b__codice")
+        try:
+            output = _crea_excel_oggetti(oggetti, vincoli)
+        except RuntimeError as exc:
+            return Response({"errore": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        response = HttpResponse(
+            output.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = 'attachment; filename="oggetti_loadplanner3d.xlsx"'
+        return response
+
+    @action(detail=False, methods=["post"], url_path="import-excel")
+    def import_excel(self, request):
+        uploaded_file = request.FILES.get("file")
+        mode = request.data.get("modalita", "add")
+        if not uploaded_file:
+            return Response({"errore": "Seleziona un file Excel .xlsx."}, status=status.HTTP_400_BAD_REQUEST)
+        if mode not in {"add", "update", "restore"}:
+            return Response({"errore": "Modalità di importazione non valida."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            objects, rotations, constraints = _leggi_excel_oggetti(uploaded_file, request.user, mode)
+        except RuntimeError as exc:
+            return Response({"errore": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except ValueError as exc:
+            return Response({"errore": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        created_objects = updated_objects = 0
+        created_constraints = updated_constraints = 0
+        with transaction.atomic():
+            object_map = {}
+            for data in objects:
+                obj, created = Oggetto.objects.get_or_create(
+                    owner=request.user, codice=data["codice"], defaults=data,
+                )
+                if created:
+                    created_objects += 1
+                else:
+                    if mode in {"update", "restore"}:
+                        for field, value in data.items():
+                            setattr(obj, field, value)
+                        obj.save()
+                        updated_objects += 1
+                object_map[data["codice"]] = obj
+
+            for code, data in rotations.items():
+                vincolo, _ = VincoloOggetto.objects.get_or_create(oggetto=object_map[code])
+                for field, value in data.items():
+                    setattr(vincolo, field, value)
+                vincolo.save()
+
+            codes = set(object_map)
+            if mode == "restore":
+                VincoloTraOggetti.objects.filter(
+                    oggetto_a__owner=request.user, oggetto_b__owner=request.user,
+                    oggetto_a__codice__in=codes, oggetto_b__codice__in=codes,
+                ).delete()
+
+            for data in constraints:
+                vincolo, created = VincoloTraOggetti.objects.update_or_create(
+                    oggetto_a=object_map[data["oggetto_a"]],
+                    oggetto_b=object_map[data["oggetto_b"]],
+                    tipo_relazione=data["tipo_relazione"],
+                    defaults={
+                        "attivo": data["attivo"],
+                        "dettagli_posizionamento": data["dettagli_posizionamento"],
+                        "note": data["note"],
+                    },
+                )
+                if created:
+                    created_constraints += 1
+                else:
+                    updated_constraints += 1
+
+        return Response({
+            "successo": True,
+            "modalita": mode,
+            "oggetti_aggiunti": created_objects,
+            "oggetti_aggiornati": updated_objects,
+            "vincoli_aggiunti": created_constraints,
+            "vincoli_aggiornati": updated_constraints,
+            "vincoli_importati": len(constraints),
+        })
+
+
+class OggettoViewSet(OggettiExcelMixin, viewsets.ModelViewSet):
     """
     API endpoint per la gestione degli oggetti/pacchi da caricare.
     Richiede autenticazione."""

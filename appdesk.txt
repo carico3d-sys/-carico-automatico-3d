@@ -1,0 +1,515 @@
+================================================================================
+  CARICO 3D - LINEE GUIDA APP DESKTOP E LICENZE
+================================================================================
+
+Scopo del documento
+-------------------
+
+Questo documento definisce l'architettura della futura applicazione desktop
+commerciale di Carico 3D e il collegamento con Cloudflare Worker e Fungies.io.
+
+La webapp Django attuale resta un prodotto separato, eseguito sul VPS con
+PostgreSQL e Docker. L'app desktop non richiede al cliente PostgreSQL, Docker,
+Python o configurazioni tecniche manuali.
+
+
+1. ARCHITETTURA GENERALE
+-------------------------
+
+WEBAPP ATTUALE / VPS
+
+  Browser
+      |
+      v HTTPS
+      |
+  nginx -> Django/Python -> PostgreSQL
+                       |
+                       +-> webhook Fungies.io
+
+
+APP DESKTOP / PC CLIENTE
+
+  App desktop
+      |
+      +-- interfaccia JavaScript
+      +-- backend Python incluso nell'installer
+      +-- database locale SQLite
+      +-- motore di ottimizzazione 3D
+      +-- dati locali: oggetti, vincoli, mezzi e piani
+      |
+      +-- HTTPS solo per login, attivazione e verifica licenza
+              |
+              v
+      Cloudflare Worker -> Cloudflare D1
+              ^
+              |
+      webhook firmati Fungies.io
+
+
+2. APP DESKTOP
+--------------
+
+L'app desktop deve essere distribuita come un normale programma installabile.
+L'utente deve poter fare:
+
+  download installer
+      -> installazione
+      -> avvio
+      -> login o attivazione
+      -> verifica trial/licenza
+      -> apertura workspace
+
+L'utente non deve installare o amministrare:
+
+  - PostgreSQL
+  - Docker
+  - Python
+  - Django
+  - un web server
+  - un database separato
+
+
+2.1 Componenti locali
+
+L'applicazione contiene:
+
+  - interfaccia JavaScript del workspace;
+  - backend Python necessario al workspace;
+  - motore di ottimizzazione 3D;
+  - database SQLite locale;
+  - catalogo iniziale;
+  - configurazione locale delle icone;
+  - sistema di backup locale;
+  - client per le API di licenza.
+
+Il database locale puo essere salvato, su Windows, in una cartella applicativa
+non dipendente dalla directory di installazione, per esempio:
+
+  %APPDATA%/Carico3D/data/carico3d.sqlite3
+
+I dati di lavoro dell'utente restano locali:
+
+  - oggetti e relative quantita;
+  - vincoli degli oggetti;
+  - vincoli tra oggetti;
+  - mezzi e sezioni;
+  - piani di carico;
+  - oggetti posizionati;
+  - impostazioni personali;
+  - configurazione icone.
+
+Il catalogo iniziale reale comprende gli oggetti PLT, i vincoli, i mezzi e il
+piano ottimizzato attualmente salvati in starter_catalog.json.
+
+
+2.2 Packaging
+
+La prima piattaforma prevista e Windows.
+
+Soluzione consigliata:
+
+  - Tauri come finestra desktop;
+  - backend Python incluso come sidecar;
+  - PyInstaller per creare l'eseguibile Python;
+  - SQLite per il database locale;
+  - installer Windows per installazione, aggiornamento e disinstallazione.
+
+Il cliente riceve un installer, non il codice sorgente e non una procedura
+Django. Il backend locale viene avviato automaticamente dall'applicazione.
+
+Il motore 3D Python resta condiviso con la webapp, quando possibile, per
+limitare la duplicazione del codice.
+
+
+2.3 Avvio locale
+
+All'avvio l'app deve:
+
+  1. creare le cartelle dati locali se mancanti;
+  2. creare o aggiornare il database SQLite;
+  3. applicare automaticamente le migrazioni locali;
+  4. avviare il backend Python locale;
+  5. mostrare login/attivazione;
+  6. verificare la licenza online;
+  7. aprire il workspace solo se l'accesso e autorizzato.
+
+Le migrazioni locali devono essere trasparenti all'utente.
+
+
+3. CLOUDFLARE WORKER
+---------------------
+
+Il Cloudflare Worker e un piccolo backend online sviluppato da noi. Cloudflare
+fornisce l'infrastruttura di esecuzione, ma la logica di licenza deve essere
+implementata nel progetto.
+
+Il Worker non contiene il workspace e non esegue l'ottimizzazione 3D.
+Gestisce esclusivamente:
+
+  - attivazione licenze;
+  - verifica dello stato della licenza;
+  - trial;
+  - dispositivi attivati;
+  - fingerprint anti-abuso;
+  - ricezione webhook Fungies.io;
+  - revoca o rinnovo dell'accesso.
+
+Il Worker deve essere raggiungibile esclusivamente tramite HTTPS.
+
+
+3.1 API previste
+
+  POST /license/activate
+
+    Attiva una licenza o un account su un dispositivo.
+    Riceve account/licenza, device_id, fingerprint e versione app.
+
+  GET /license/status
+
+    Verifica lo stato della licenza durante l'avvio e periodicamente.
+
+  POST /license/heartbeat
+
+    Aggiorna l'ultima attivita del dispositivo senza rinnovare il trial.
+
+  POST /license/deactivate
+
+    Disattiva un dispositivo e libera un'attivazione.
+
+  POST /webhooks/fungies
+
+    Endpoint pubblico usato esclusivamente da Fungies.io.
+    Accetta solo webhook con firma valida.
+
+Le risposte del Worker devono contenere solo i dati necessari all'app. Non
+devono mai contenere segreti, credenziali database o chiavi Fungies.
+
+
+3.2 Token di licenza
+
+Dopo un'attivazione valida, il Worker restituisce un token firmato con:
+
+  - identificativo licenza;
+  - identificativo dispositivo;
+  - piano mensile o annuale;
+  - stato;
+  - data di scadenza;
+  - data massima di utilizzo offline;
+  - versione del token.
+
+Il token deve avere una scadenza e poter essere revocato.
+
+L'app deve memorizzarlo usando il sistema sicuro del sistema operativo, per
+esempio Windows Credential Manager, e non in chiaro nel database SQLite.
+
+
+3.3 Utilizzo offline
+
+E previsto un periodo offline limitato, non un accesso offline permanente.
+
+Esempio:
+
+  attivazione online
+      -> token valido offline per 3-7 giorni
+      -> nuova verifica online obbligatoria
+
+La durata deve essere configurabile dal servizio licenze. La data locale del
+computer non deve essere considerata una prova sufficiente di validita.
+
+
+4. CLOUDFLARE D1
+-----------------
+
+Cloudflare D1 e il piccolo database gestito dal Worker. E basato su SQLite,
+ma viene eseguito online da Cloudflare.
+
+D1 non sostituisce il database locale dell'app e non contiene il workspace
+completo dell'utente. Conserva solo i dati necessari alla licenza.
+
+Tabelle previste:
+
+  licenses
+    id
+    license_key_hash
+    account_email_hash
+    plan
+    status
+    trial_used
+    expires_at
+    max_devices
+    created_at
+    updated_at
+
+  devices
+    id
+    license_id
+    device_id_hash
+    fingerprint_hash
+    ip_hash
+    active
+    activated_at
+    last_seen_at
+
+  webhook_events
+    event_id
+    event_type
+    payload_hash
+    processed_at
+
+  trial_signals
+    id
+    email_hash
+    device_hash
+    fingerprint_hash
+    ip_hash
+    first_seen_at
+    trial_granted
+
+Gli identificativi personali non devono essere salvati in chiaro quando non e
+necessario. Per la ricerca si devono usare hash e retention limitata, secondo
+la policy privacy.
+
+D1 deve avere backup o esportazione periodica dei dati di licenza.
+
+
+5. FUNGIES.IO
+-------------
+
+Fungies.io gestisce la parte commerciale:
+
+  - prodotto;
+  - pagamento mensile;
+  - pagamento annuale;
+  - rinnovi;
+  - cancellazioni;
+  - portale cliente;
+  - fatturazione secondo il servizio Fungies;
+  - invio degli eventi webhook.
+
+Fungies non deve comunicare direttamente con l'app desktop.
+L'app desktop comunica solo con il Worker.
+
+Le credenziali segrete Fungies devono restare configurate come secret nel
+Cloudflare Worker e non devono essere incluse nell'installer.
+
+
+5.1 Flusso di acquisto
+
+  Utente acquista su Fungies.io
+      -> Fungies conferma il pagamento
+      -> Fungies invia webhook firmato al Worker
+      -> Worker verifica la firma
+      -> Worker aggiorna license in D1
+      -> app desktop verifica lo stato alla prossima richiesta
+
+Eventi da gestire almeno:
+
+  - abbonamento creato;
+  - pagamento riuscito;
+  - rinnovo;
+  - abbonamento aggiornato;
+  - cancellazione;
+  - pagamento fallito;
+  - abbonamento scaduto.
+
+Il Worker deve trattare i webhook in modo idempotente: lo stesso event_id non
+puo modificare due volte lo stato della licenza.
+
+
+6. TRIAL E FINGERPRINT ANTI-ABUSO
+---------------------------------
+
+Il trial deve essere deciso online e registrato in D1, mai solo in SQLite.
+
+Il controllo deve usare piu segnali:
+
+  - email verificata;
+  - account;
+  - identificativo installazione;
+  - identificativo dispositivo;
+  - fingerprint tecnica dell'app;
+  - indirizzo IP durante l'attivazione;
+  - storico dei trial gia concessi.
+
+Flusso:
+
+  nuovo account
+      -> verifica email/account
+      -> raccolta fingerprint desktop
+      -> controllo in D1
+      -> trial gia usato?
+           -> si: rifiuta o richiede acquisto
+           -> no: registra e concede il trial
+
+Se l'utente cambia email e password sullo stesso computer, il dispositivo e
+la fingerprint possono segnalare che il trial e gia stato utilizzato.
+
+Il sistema non deve basarsi su un solo segnale, perche IP e fingerprint possono
+cambiare e possono creare falsi positivi. Deve inoltre esistere una procedura
+per assistenza e sblocco manuale.
+
+Il fingerprint deve essere documentato nell'informativa privacy e usato solo
+per prevenzione abuso, sicurezza e gestione licenza.
+
+
+7. SICUREZZA
+------------
+
+Nell'app desktop non devono mai essere presenti:
+
+  - secret Fungies;
+  - secret del webhook;
+  - password PostgreSQL;
+  - chiavi amministrative del Worker;
+  - chiavi capaci di generare licenze valide.
+
+Devono essere applicati:
+
+  - HTTPS obbligatorio;
+  - verifica firma webhook HMAC;
+  - rate limiting sulle API;
+  - token con scadenza;
+  - revoca dispositivi;
+  - limite dispositivi per licenza;
+  - idempotenza webhook;
+  - log senza dati sensibili;
+  - backup D1;
+  - aggiornamenti dell'app firmati digitalmente.
+
+La protezione non puo essere assoluta in un'app eseguita sul computer del
+cliente. La verifica online serve a rendere il controllo affidabile e a
+impedire il riutilizzo casuale del trial, non a garantire una protezione
+matematicamente inviolabile.
+
+
+8. WEBAPP VPS E APP DESKTOP: SEPARAZIONE
+-----------------------------------------
+
+La webapp e l'app desktop possono condividere:
+
+  - modello concettuale dei dati;
+  - interfaccia workspace, con gli adattamenti necessari;
+  - motore Python di ottimizzazione;
+  - catalogo iniziale;
+  - regole di validazione.
+
+Restano separati:
+
+  WEBAPP VPS                    APP DESKTOP
+  ---------------------------   ---------------------------
+  PostgreSQL                    SQLite
+  Docker                        backend Python incluso
+  nginx/Gunicorn                Tauri/installer
+  login Django                  client API licenza
+  worker Django Q2              esecuzione locale
+  dati centralizzati            dati locali
+  webhook Django                webhook Worker
+
+La versione web continua a richiedere il VPS. La sola versione desktop non
+richiede un VPS tradizionale, ma richiede il Worker per licenze affidabili.
+
+
+9. COSTI E PIANO CLOUDFLARE
+---------------------------
+
+Cloudflare Workers e D1 possono iniziare con il piano Free, se il volume di
+richieste resta entro i limiti del piano.
+
+Il servizio licenze genera poche operazioni: attivazione, verifiche periodiche,
+heartbeat e webhook. Per una prima fase il piano Free e adatto a sviluppo,
+test e lancio con pochi clienti.
+
+Il passaggio a un piano a pagamento sara necessario solo se aumentano utenti,
+richieste, scritture o requisiti operativi.
+
+Fungies.io resta soggetto ai propri costi e alle proprie commissioni.
+
+
+10. FASI DI SVILUPPO
+--------------------
+
+FASE 1 - VPS e webapp
+
+  - completare test sul VPS con dominio;
+  - configurare HTTPS;
+  - verificare login e registrazione;
+  - verificare trial;
+  - verificare webhook Fungies;
+  - verificare worker di ottimizzazione;
+  - configurare backup.
+
+FASE 2 - Contratto API licenze
+
+  - definire payload e risposte;
+  - definire stati licenza;
+  - definire durata offline;
+  - definire limite dispositivi;
+  - definire regole trial e fingerprint.
+
+FASE 3 - Worker e D1
+
+  - creare progetto Worker;
+  - creare schema D1;
+  - implementare webhook firmato;
+  - implementare attivazione e verifica;
+  - aggiungere idempotenza e rate limiting;
+  - aggiungere log e backup.
+
+FASE 4 - Modalita desktop
+
+  - introdurre configurazione desktop;
+  - usare SQLite locale;
+  - inizializzare catalogo e piano;
+  - avviare backend Python locale;
+  - collegare login/licenza al Worker.
+
+FASE 5 - Installer
+
+  - creare eseguibile Python con PyInstaller;
+  - integrare Tauri;
+  - creare installer Windows;
+  - salvare i dati in APPDATA;
+  - aggiungere backup e ripristino;
+  - aggiungere aggiornamenti firmati.
+
+FASE 6 - Test commerciale
+
+  - nuovo account e trial;
+  - account esistente;
+  - stesso dispositivo con credenziali diverse;
+  - secondo dispositivo;
+  - abbonamento mensile;
+  - abbonamento annuale;
+  - rinnovo;
+  - cancellazione;
+  - pagamento fallito;
+  - assenza temporanea di Internet;
+  - scadenza token offline;
+  - reinstallazione;
+  - aggiornamento applicazione;
+  - recupero backup.
+
+
+11. DECISIONE ARCHITETTURALE
+----------------------------
+
+Per il prodotto desktop la linea guida e:
+
+  App desktop:
+    JavaScript + Python incluso + SQLite + ottimizzatore locale
+
+  Cloudflare:
+    Worker + D1 per attivazione, trial e stato licenza
+
+  Fungies.io:
+    vendita, abbonamenti, rinnovi, cancellazioni e webhook
+
+  VPS:
+    necessario solo per continuare a offrire la webapp Django online oppure
+    per centralizzare in futuro anche altre funzioni.
+
+Il cliente deve vedere soltanto:
+
+  download -> installa -> accedi/attiva -> usa l'app
+
+Tutto il resto deve essere nascosto e gestito automaticamente dall'applicazione.

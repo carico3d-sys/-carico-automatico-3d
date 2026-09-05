@@ -90,7 +90,7 @@ function _buildOggettiListHtml() {
             '<div style="width:4px;height:28px;border-radius:2px;background:' + coloreDisplay + ';flex-shrink:0;"></div>' +
             '<div class="pv-list-item-info">' +
                 '<strong>' + escapeHtml(o.codice) + '</strong>' +
-                '<span>' + escapeHtml((o.descrizione || '').substring(0, 35)) + ' · ' + formatCm(o.lunghezza_mm) + '×' + formatCm(o.larghezza_mm) + '×' + formatCm(o.altezza_mm) + ' cm · ' + o.peso_kg + ' kg' + vincInfo + archBadge + '</span>' +
+                '<span>' + escapeHtml((o.descrizione || '').substring(0, 35)) + ' · ' + formatCm(o.lunghezza_mm) + '×' + formatCm(o.larghezza_mm) + '×' + formatCm(o.altezza_mm) + ' ' + unitaDimensione() + ' · ' + o.peso_kg + ' ' + unitaPeso() + vincInfo + archBadge + '</span>' +
             '</div>' +
         '</div>';
     });
@@ -188,7 +188,7 @@ function renderOggettiPanel() {
     DOM.pvFormTitle = document.getElementById('pv-oggetti-form-title');
     DOM.pvFormBody = document.getElementById('pv-oggetti-form-body');
     
-    // ---- HEADER: Rimuovi vecchi e aggiungi select-all + batch toolbar ----
+    // ---- HEADER: select-all + azioni Excel ----
     var listHeader = document.querySelector('#panel-view-list .pv-list-header');
     if (listHeader) {
         // Rimuovi select-all esistente per evitare duplicati
@@ -326,12 +326,12 @@ function renderOggettiForm(oggettoId) {
             '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.descrizione" data-italiano="Descrizione">Descrizione</label><input type="text" class="form-input" id="pv-ogg-desc" value="' + (o ? escapeHtml(o.descrizione || '') : '') + '"></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.lunghezza" data-italiano="L (cm)">L (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-lungh" value="' + (o ? formatCm(o.lunghezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.larghezza" data-italiano="W (cm)">W (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-larg" value="' + (o ? formatCm(o.larghezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.altezza" data-italiano="H (cm)">H (cm)' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-alt" value="' + (o ? formatCm(o.altezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" >L (' + unitaDimensione() + ')' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-lungh" value="' + (o ? formatCm(o.lunghezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" >W (' + unitaDimensione() + ')' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-larg" value="' + (o ? formatCm(o.larghezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" >H (' + unitaDimensione() + ')' + (hasVincoliAnagrafica ? ' 🔒' : '') + '</label><input type="number" class="form-input" id="pv-ogg-alt" value="' + (o ? formatCm(o.altezza_mm) : '') + '" step="0.1" min="0.1"' + (hasVincoliAnagrafica ? ' disabled title="Dimensioni bloccate: l\'oggetto ha vincoli sopra attivi"' : '') + '></div>' +
         '</div>' +
         '<div class="field-row">' +
-            '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.peso" data-italiano="Peso (kg)">Peso (kg)</label><input type="number" class="form-input" id="pv-ogg-peso" value="' + (o ? o.peso_kg : '') + '" step="0.01" min="0.01"></div>' +
+            '<div class="field-group flex-grow"><label class="field-label language-label" >Peso (' + unitaPeso() + ')</label><input type="number" class="form-input" id="pv-ogg-peso" value="' + (o ? o.peso_kg : '') + '" step="0.01" min="0.01"></div>' +
             '<div class="field-group flex-grow"><label class="field-label language-label" data-translation-key="objects.quantita" data-italiano="Q.tà Disp.">Q.tà Disp.</label><input type="number" class="form-input" id="pv-ogg-qty" value="' + (o ? (o.quantita || 1) : '') + '" min="1" step="1"></div>' +
         '</div>' +
         '<div class="field-row">' +
@@ -687,7 +687,7 @@ function _mostraVincoliDefault() {
         '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.impilabilita" data-italiano="Impilabilità">Impilabilità</label>' +
             '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" checked> <span class="language-label" data-translation-key="objects.sostegno" data-italiano="Può sostenere altri oggetti">Può sostenere altri oggetti</span></label>' +
         '</div>' +
-        '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.peso-tetto" data-italiano="Peso max sul tetto (kg)">Peso max sul tetto (kg)</label>' +
+        '<div class="field-group"><label class="field-label language-label" >Peso max sul tetto (' + unitaPeso() + ')</label>' +
             '<input type="number" class="form-input" id="pv-vinc-pesomax" value="0" min="0" step="0.5">' +
         '</div>' +
         '<div class="field-group">' +
@@ -724,7 +724,7 @@ function renderVincoliInOggetti(oggettoId) {
                 '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.impilabilita" data-italiano="Impilabilità">Impilabilità' + lockIcon + '</label>' +
                     '<label class="checkbox-label"><input type="checkbox" id="pv-vinc-sovrapp" ' + (v.sovrapponibile !== false ? 'checked' : '') + lockAttr + lockTitle + '> <span class="language-label" data-translation-key="objects.sostegno" data-italiano="Può sostenere altri oggetti">Può sostenere altri oggetti</span></label>' +
                 '</div>' +
-                '<div class="field-group"><label class="field-label language-label" data-translation-key="objects.peso-tetto" data-italiano="Peso max sul tetto (kg)">Peso max sul tetto (kg)</label>' +
+                '<div class="field-group"><label class="field-label language-label" >Peso max sul tetto (' + unitaPeso() + ')</label>' +
                     '<input type="number" class="form-input" id="pv-vinc-pesomax" value="' + (v.peso_massimo_tetto_kg || 0) + '" min="0" step="0.5">' +
                 '</div>' +
                 '<div class="field-group">' +

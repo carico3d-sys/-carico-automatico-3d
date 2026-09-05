@@ -19,8 +19,8 @@ var HELP_SECTIONS = {
         title: { it: 'Gestione Oggetti', en: 'Object Management' },
         steps: [
             { it: '<strong>Codice</strong>: identificativo univoco (es. CART-102)', en: '<strong>Code</strong>: unique identifier (e.g. CART-102)' },
-            { it: '<strong>Dimensioni</strong>: Lunghezza × Larghezza × Altezza in cm', en: '<strong>Dimensions</strong>: Length × Width × Height in cm' },
-            { it: '<strong>Peso</strong>: peso singolo in kg', en: '<strong>Weight</strong>: single unit weight in kg' },
+            { it: '<strong>Dimensioni</strong>: Lunghezza × Larghezza × Altezza in ' + unitaDimensione(), en: '<strong>Dimensions</strong>: Length × Width × Height in ' + unitaDimensione() },
+            { it: '<strong>Peso</strong>: peso singolo in ' + unitaPeso(), en: '<strong>Weight</strong>: single unit weight in ' + unitaPeso() },
             { it: '<strong>Quantità</strong>: numero di pezzi disponibili', en: '<strong>Quantity</strong>: number of available pieces' },
             { it: '<strong>Colore personalizzato</strong>: colore diverso dall\'anagrafica', en: '<strong>Custom color</strong>: color different from master data' }
         ],
@@ -31,8 +31,8 @@ var HELP_SECTIONS = {
         title: { it: 'Gestione Trasporti', en: 'Vehicle Management' },
         steps: [
             { it: '<strong>Tipo</strong>: Bilico, Autocarro, Container 20/40, Furgone, ecc.', en: '<strong>Type</strong>: Semi-trailer, Truck, Container 20/40, Van, etc.' },
-            { it: '<strong>Dimensioni</strong>: L × W × H in cm del vano carico', en: '<strong>Dimensions</strong>: L × W × H in cm of the cargo space' },
-            { it: '<strong>Portata</strong>: peso massimo trasportabile in kg', en: '<strong>Capacity</strong>: maximum transportable weight in kg' },
+            { it: '<strong>Dimensioni</strong>: L × W × H in ' + unitaDimensione() + ' del vano carico', en: '<strong>Dimensions</strong>: L × W × H in ' + unitaDimensione() + ' of the cargo space' },
+            { it: '<strong>Portata</strong>: peso massimo trasportabile in ' + unitaPeso(), en: '<strong>Capacity</strong>: maximum transportable weight in ' + unitaPeso() },
             { it: '<strong>Sezioni</strong>: divisione in assi per vincoli di peso', en: '<strong>Sections</strong>: axle division for weight constraints' }
         ],
         tip: { it: 'Le sezioni servono per distribuire il peso sugli assi del veicolo', en: 'Sections are used to distribute weight across vehicle axles' }

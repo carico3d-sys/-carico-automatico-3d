@@ -154,8 +154,8 @@ var ICON_CATALOG = [
 
 var BUTTON_CATALOG = [
     // --- Maniglie laterali del viewport ---
-    { id: 'panel-toggle-left', selector: '#toggle-sidebar-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-left', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '' },
-    { id: 'panel-toggle-right', selector: '#toggle-panel-destro-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-right', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '' },
+    { id: 'panel-toggle-left', selector: '#toggle-sidebar-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-left', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '#ffffff' },
+    { id: 'panel-toggle-right', selector: '#toggle-panel-destro-btn', iconSelRelative: 'i', iconClass: 'bi bi-chevron-right', extraClass: '', label_default: '', translation_key: '', location: 'Viewport', dims_px: [18, 18], height_default: 44, label_size: 12, label_pos: 'row', color_default: '#ffffff' },
     // --- Header Tools (bottoni piccoli header destro) ---
     { id: 'header-export', selector: '#header-export-btn', iconSelRelative: 'i', iconClass: 'bi bi-filetype-txt', extraClass: '', label_default: 'Posizioni', translation_key: '', location: 'Header', dims_px: [20, 20], height_default: 32, label_size: 11, label_pos: 'row', color_default: '#6c757d' },
     { id: 'header-icone',  selector: '#header-icone-btn',  iconSelRelative: 'i', iconClass: 'bi bi-palette',       extraClass: '', label_default: 'Icone',     translation_key: '', location: 'Header', dims_px: [20, 20], height_default: 32, label_size: 11, label_pos: 'row', color_default: '#8e44ad' },

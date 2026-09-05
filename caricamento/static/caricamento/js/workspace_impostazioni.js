@@ -27,7 +27,8 @@ function getImpostazioniDefault() {
             azzera_grafico_pesi_nei_vuoti: false,
             mostra_etichette_oggetti: true,
             mostra_etichetta_contenitore: true,
-            modalita_rotazione: 'baricentrica'
+            modalita_rotazione: 'baricentrica',
+            unita_misura: 'metrico'
         },
         manuale: {
             strategia_piazzamento: 'muro',
@@ -152,7 +153,10 @@ function _applicaImpostazioniManuali() {
 function _impostazioniPayloadPulito(source) {
     var defaults = getImpostazioniDefault();
     var payload = {};
-    Object.keys(defaults).forEach(function (sezione) {
+    // Sezioni inviate al server: solo quelle con un serializer dedicato.
+    // 'panel_widths' è gestito separatamente da workspace_pannelli_resizer.js.
+    var sezioniServer = ['strategia_ottimizzazione', 'output_ottimizzazione', 'manuale'];
+    sezioniServer.forEach(function (sezione) {
         if (source[sezione] && typeof source[sezione] === 'object') {
             payload[sezione] = {};
             Object.keys(defaults[sezione]).forEach(function (campo) {
@@ -455,6 +459,8 @@ function renderCardOutput() {
         '</div>';
     }).join('');
 
+    var unitaAttuale = o.unita_misura || 'metrico';
+
     return '<div class="settings-card">' +
         '<div class="settings-card-header">' +
             '<h4 class="settings-card-title"><i class="bi bi-bar-chart settings-output-icon"></i> ' + _tImp('settings.output.titolo', "Output dell'Ottimizzazione") + '</h4>' +
@@ -469,7 +475,17 @@ function renderCardOutput() {
                     '<label class="radio-label"><input type="radio" name="rotazione-modalita" value="baricentrica" ' + (rotazioneAttuale === 'baricentrica' ? 'checked' : '') + '> ' + _tImp('settings.output.rotazione-baricentrica', 'Baricentrica (attuale)') + '</label>' +
                     '<label class="radio-label"><input type="radio" name="rotazione-modalita" value="eccentrica" ' + (rotazioneAttuale === 'eccentrica' ? 'checked' : '') + '> ' + _tImp('settings.output.rotazione-eccentrica', 'Eccentrica (perno su lato corto)') + '</label>' +
                 '</div>' +
-                '<span class="field-hint">' + _tImp('settings.output.rotazione-hint', "Baricentrica: Shift+click ruota attorno al centro (sempre). Eccentrica: Shift+tasto sinistro = rotazione antioraria, Shift+tasto destro = rotazione oraria, con perno sullo spigolo del lato corto. La rotazione eccentrica si applica solo alle rotazioni orizzontali (LxPxH ↔ PxLxH); i ribaltamenti che coinvolgono l'altezza usano sempre la modalità baricentrica.") + '</span>' +            '</div>' +
+                '<span class="field-hint">' + _tImp('settings.output.rotazione-hint', "Baricentrica: Shift+click ruota attorno al centro (sempre). Eccentrica: Shift+tasto sinistro = rotazione antioraria, Shift+tasto destro = rotazione oraria, con perno sullo spigolo del lato corto. La rotazione eccentrica si applica solo alle rotazioni orizzontali (LxPxH ↔ PxLxH); i ribaltamenti che coinvolgono l'altezza usano sempre la modalità baricentrica.") + '</span>' +
+            '</div>' +
+            '<div class="settings-separator"></div>' +
+            '<div class="field-group">' +
+                '<label class="field-label"><i class="bi bi-rulers settings-output-unita-icon"></i> ' + _tImp('settings.output.unita-label', 'Unità di Misura') + '</label>' +
+                '<div class="radio-group" id="imp-unita-misura">' +
+                    '<label class="radio-label"><input type="radio" name="unita-misura" value="metrico" ' + (unitaAttuale === 'metrico' ? 'checked' : '') + '> ' + _tImp('settings.output.unita-metrico', 'Metrico (cm, kg, m³)') + '</label>' +
+                    '<label class="radio-label"><input type="radio" name="unita-misura" value="imperiale" ' + (unitaAttuale === 'imperiale' ? 'checked' : '') + '> ' + _tImp('settings.output.unita-imperiale', 'Statunitense (in, lb, ft³)') + '</label>' +
+                '</div>' +
+                '<span class="field-hint">' + _tImp('settings.output.unita-hint', "Influenza le etichette nel pannello, i form e le etichette 3D. Il database mantiene sempre mm e kg. L'Excel usa sempre mm e kg.") + '</span>' +
+            '</div>' +
         '</div>' +
     '</div>';
 }
@@ -655,6 +671,18 @@ function agganciaEventiImpostazioni(sezione) {
                 if (this.checked) {
                     _impostazioniDirty = true;
                     IMPOSTAZIONI.output_ottimizzazione.modalita_rotazione = this.value;
+                }
+            });
+        });
+
+        // Radio unità di misura
+        var unitaRadios = document.querySelectorAll('input[name="unita-misura"]');
+        unitaRadios.forEach(function (r) {
+            r.addEventListener('change', function () {
+                if (this.checked) {
+                    _impostazioniDirty = true;
+                    IMPOSTAZIONI.output_ottimizzazione.unita_misura = this.value;
+                    document.dispatchEvent(new CustomEvent('carico3d:unita-change'));
                 }
             });
         });
